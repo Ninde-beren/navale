@@ -16,28 +16,42 @@ navale-app/
 Le cahier des charges est dans `../docs/`. Lire `../docs/README.md` puis
 `../docs/06-architecture.md` avant de toucher au code.
 
-## Amorçage
+## État
 
-Le squelette ne contient pas encore de code. Prérequis : Node 24 LTS, pnpm 10.
+Jalon M1 livré : `packages/protocol` et `packages/engine` sont en place et testés.
+`apps/server` et `apps/web` arrivent au jalon M2 (`../docs/07-roadmap.md`).
+Prérequis : Node 22 ou plus, pnpm 10.
+
+## Commandes
 
 ```bash
-pnpm init
-printf 'packages:\n  - "packages/*"\n  - "apps/*"\n' > pnpm-workspace.yaml
-mkdir -p packages/engine packages/protocol apps/server
-pnpm create vite apps/web --template react-ts
+pnpm install
+pnpm test               # Vitest, tous les paquets ; `pnpm test -- scenario` joue une partie en console
+pnpm vitest run --coverage
+pnpm typecheck          # tsc sur chaque paquet
+pnpm lint               # ESLint + Prettier
+pnpm format
 ```
 
-Puis suivre `../docs/07-roadmap.md`, jalon « Socle ». L'arborescence cible
-détaillée est dans `../docs/06-architecture.md`.
-
-## Commandes (contrat)
+À partir du jalon M2 :
 
 ```bash
 pnpm dev          # serveur (5251) + web (5250, HTTPS, proxy /api et /socket.io vers le serveur)
-pnpm test         # Vitest, tous les paquets ; le moteur doit rester à 100 % de couverture
-pnpm lint         # ESLint + Prettier
 pnpm build        # build de tous les paquets, le web dans apps/web/dist
 pnpm start        # serveur de production : sert aussi apps/web/dist
+```
+
+## Le moteur en deux fonctions
+
+```ts
+import { battleship, makeSettings } from '@navale/engine';
+
+const settings = makeSettings({ variant: 'sequential', maxPlayers: 3 }, 'quick');
+let state = battleship.initialState({ gameId, code, settings, createdAt: Date.now() });
+const decision = battleship.decide(state, command, { actor, now, random, newId });
+if (decision.ok) for (const event of decision.events) state = battleship.evolve(state, event);
+const board = battleship.projectPublic(state);          // écran central, spectateurs
+const mine = battleship.projectPrivate(state, playerId); // téléphone du joueur
 ```
 
 ## Tourner en local (prototype)
