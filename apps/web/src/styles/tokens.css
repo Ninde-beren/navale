@@ -1,0 +1,195 @@
+/* ============================================================
+   NAVALE — tokens.css
+   Palette, typographie, échelles. Importé par chaque écran.
+   Thème sombre unique : l'écran central est une TV dans un salon.
+   ============================================================ */
+
+:root {
+  /* ---- Fonds et surfaces (profondeur par calques, pas par ombres) ---- */
+  --bg: #080c18; /* abysse : fond de page */
+  --bg-2: #0d1324; /* halo central du fond */
+  --surface-1: #121a2e; /* zone joueur, panneau */
+  --surface-2: #192338; /* élément posé sur une zone */
+  --surface-3: #212d47; /* élément en relief (bouton secondaire, onglet actif) */
+  --line: rgba(241, 237, 227, 0.08);
+  --line-strong: rgba(241, 237, 227, 0.18);
+
+  /* ---- Texte : parchemin, jamais blanc pur ---- */
+  --text: #f1ede3;
+  --text-2: #b3b9c9;
+  --text-3: #727a90;
+  --ink: #0a0e1a; /* texte posé sur une couleur de joueur */
+
+  /* ---- États de case (grille) ---- */
+  --sea: #141d35; /* case non révélée : toutes identiques */
+  --sea-line: #1e2a48;
+  --miss: #5fa8e6; /* raté : eau */
+  --hit: #ff5a1f; /* touché : braise */
+  --hit-deep: #b8360a;
+  --sunk: #3a1f1a; /* coulé : coque calcinée */
+  --sunk-line: #8a4330;
+  --danger: #ff3b5c; /* conflit de placement, erreur */
+  --ok: #3ddc84; /* prêt, succès */
+
+  /* ---- 8 couleurs de joueurs (saturées, distinctes, encre sombre dessus) ---- */
+  --p-red: #ff4a65;
+  --p-blue: #3d8eff;
+  --p-green: #42d77d;
+  --p-yellow: #ffcf33;
+  --p-purple: #a26bfc;
+  --p-orange: #ff8533;
+  --p-teal: #26d9d3;
+  --p-pink: #ff66c4;
+
+  /* ---- Typographie ---- */
+  --font-display: 'Bricolage Grotesque', 'Inter', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
+
+  /* Échelle TV (1920×1080, lue à 3 m sur 40") — minimum lisible : 24 px */
+  --tv-code: 320px; /* code de partie au lobby */
+  --tv-hero: 200px; /* VICTOIRE DE JULIE */
+  --tv-callout: 112px; /* TOUCHÉ / RATÉ / COULÉ */
+  --tv-counter: 128px; /* 3/4 ont tiré */
+  --tv-h1: 64px;
+  --tv-name: 40px; /* nom dans une zone joueur */
+  --tv-body: 28px;
+  --tv-small: 24px;
+  --tv-label: 20px; /* libellés de grille uniquement */
+
+  /* Échelle téléphone (390×844) */
+  --ph-state: 44px; /* « À toi » */
+  --ph-h1: 32px;
+  --ph-h2: 24px;
+  --ph-body: 17px;
+  --ph-small: 14px;
+  --ph-micro: 12px; /* libellés de grille uniquement */
+
+  /* ---- Espacement (base 4) et rayons ---- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-12: 48px;
+  --r-s: 8px;
+  --r-m: 14px;
+  --r-l: 24px;
+  --r-pill: 999px;
+
+  /* ---- Cibles tactiles ---- */
+  --touch: 56px; /* bouton standard téléphone */
+  --touch-min: 44px; /* minimum absolu */
+
+  /* ---- Mouvement ---- */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur: 220ms;
+}
+
+/* Classes de couleur de joueur : posent --pc (player color) et --on-pc */
+.c-red {
+  --pc: var(--p-red);
+  --on-pc: var(--ink);
+}
+.c-blue {
+  --pc: var(--p-blue);
+  --on-pc: var(--ink);
+}
+.c-green {
+  --pc: var(--p-green);
+  --on-pc: var(--ink);
+}
+.c-yellow {
+  --pc: var(--p-yellow);
+  --on-pc: var(--ink);
+}
+.c-purple {
+  --pc: var(--p-purple);
+  --on-pc: var(--ink);
+}
+.c-orange {
+  --pc: var(--p-orange);
+  --on-pc: var(--ink);
+}
+.c-teal {
+  --pc: var(--p-teal);
+  --on-pc: var(--ink);
+}
+.c-pink {
+  --pc: var(--p-pink);
+  --on-pc: var(--ink);
+}
+
+/* Thème « moi » sur téléphone : la couleur du joueur devient la couleur d'action */
+.me-red {
+  --me: var(--p-red);
+  --on-me: var(--ink);
+}
+.me-blue {
+  --me: var(--p-blue);
+  --on-me: var(--ink);
+}
+.me-green {
+  --me: var(--p-green);
+  --on-me: var(--ink);
+}
+.me-yellow {
+  --me: var(--p-yellow);
+  --on-me: var(--ink);
+}
+.me-purple {
+  --me: var(--p-purple);
+  --on-me: var(--ink);
+}
+.me-orange {
+  --me: var(--p-orange);
+  --on-me: var(--ink);
+}
+.me-teal {
+  --me: var(--p-teal);
+  --on-me: var(--ink);
+}
+.me-pink {
+  --me: var(--p-pink);
+  --on-me: var(--ink);
+}
+
+/* ---- Reset minimal ---- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+a {
+  color: inherit;
+}

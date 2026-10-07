@@ -1,0 +1,1923 @@
+/* ============================================================
+   NAVALE — shared.css
+   Composants partagés : cadres d'écran, grille, zones joueur,
+   boutons, puces, flotte. Dépend de tokens.css.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   Cadres d'écran. Chaque fichier est conçu à taille fixe
+   (TV 1920×1080, téléphone 390×844) et se réduit pour tenir
+   dans la fenêtre quand on l'ouvre seul. Dans un iframe de la
+   taille exacte, le facteur vaut 1.
+   ------------------------------------------------------------ */
+.stage {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+/* Écran à taille fixe : la piste de grille prend la taille de la fenêtre,
+   l'écran est centré (même s'il déborde) puis réduit autour de son centre. */
+.stage:has(> .screen.tv),
+.stage:has(> .screen.phone) {
+  width: 100vw;
+  height: 100vh;
+  grid-template-columns: 100%;
+  grid-template-rows: 100%;
+}
+.screen {
+  position: relative;
+  overflow: hidden;
+  flex: none;
+  transform-origin: center center;
+  background: radial-gradient(1200px 800px at 50% 40%, var(--bg-2), transparent 70%), var(--bg);
+}
+.screen.tv {
+  width: 1920px;
+  height: 1080px;
+  --k: min(1, tan(atan2(100vw, 1920px)), tan(atan2(100vh, 1080px)));
+  transform: scale(var(--k));
+  font-size: var(--tv-body);
+  padding: var(--s-8);
+}
+.screen.phone {
+  width: 390px;
+  height: 844px;
+  --k: min(1, tan(atan2(100vw, 390px)), tan(atan2(100vh, 844px)));
+  transform: scale(var(--k));
+  font-size: var(--ph-body);
+  display: flex;
+  flex-direction: column;
+}
+/* Trame nautique très discrète derrière l'écran central */
+.screen.tv::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 96px 96px;
+  mask-image: radial-gradient(60% 60% at 50% 50%, black, transparent);
+  opacity: 0.5;
+}
+
+/* ------------------------------------------------------------
+   Typo utilitaire
+   ------------------------------------------------------------ */
+.display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.mono {
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+.label {
+  font: 500 var(--tv-small)/1.2 var(--font-body);
+  color: var(--text-3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.phone .label {
+  font-size: var(--ph-small);
+}
+.muted {
+  color: var(--text-2);
+}
+.faint {
+  color: var(--text-3);
+}
+.pc {
+  color: var(--pc);
+}
+
+/* ------------------------------------------------------------
+   Marque
+   ------------------------------------------------------------ */
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font: 800 28px/1 var(--font-display);
+  letter-spacing: 0.14em;
+}
+.wordmark .flag {
+  width: 20px;
+  height: 28px;
+  border-radius: 3px 3px 10px 3px;
+  background: linear-gradient(160deg, var(--text) 0 48%, var(--miss) 48%);
+}
+.phone .wordmark {
+  font-size: 16px;
+  letter-spacing: 0.12em;
+}
+.phone .wordmark .flag {
+  width: 12px;
+  height: 17px;
+}
+
+/* ------------------------------------------------------------
+   Avatar : disque de couleur avec l'initiale
+   ------------------------------------------------------------ */
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--pc);
+  color: var(--on-pc);
+  font: 800 28px/1 var(--font-display);
+}
+.avatar.sm {
+  width: 36px;
+  height: 36px;
+  font-size: 18px;
+}
+.avatar.xs {
+  width: 24px;
+  height: 24px;
+  font-size: 13px;
+}
+.avatar.lg {
+  width: 96px;
+  height: 96px;
+  font-size: 48px;
+}
+
+/* ------------------------------------------------------------
+   Puces d'état
+   ------------------------------------------------------------ */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font: 500 var(--tv-small)/1 var(--font-body);
+  white-space: nowrap;
+}
+.chip::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.chip.ready {
+  color: var(--ok);
+  background: color-mix(in oklab, var(--ok) 14%, var(--surface-1));
+}
+.chip.placing {
+  color: var(--text-2);
+}
+.chip.placing::before {
+  animation: blink 1.4s infinite;
+}
+.chip.active {
+  color: var(--pc);
+  background: color-mix(in oklab, var(--pc) 16%, var(--surface-1));
+}
+.chip.out {
+  color: var(--text-3);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.chip.host {
+  color: var(--text);
+  background: var(--surface-3);
+}
+.chip.host::before {
+  display: none;
+}
+.chip.plain::before {
+  display: none;
+}
+.phone .chip {
+  height: 32px;
+  padding: 0 12px;
+  font-size: var(--ph-small);
+  gap: 8px;
+}
+.phone .chip::before {
+  width: 8px;
+  height: 8px;
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* ------------------------------------------------------------
+   Boutons
+   ------------------------------------------------------------ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 64px;
+  padding: 0 32px;
+  border-radius: var(--r-m);
+  font: 700 var(--tv-body)/1 var(--font-display);
+  letter-spacing: -0.01em;
+  background: var(--surface-3);
+  color: var(--text);
+  transition:
+    transform var(--dur) var(--ease-out),
+    background var(--dur),
+    opacity var(--dur);
+}
+.btn:hover {
+  background: color-mix(in oklab, var(--surface-3) 80%, white);
+}
+.btn:active {
+  transform: scale(0.98);
+}
+.btn.primary {
+  background: var(--text);
+  color: var(--ink);
+}
+.btn.me {
+  background: var(--me);
+  color: var(--on-me);
+}
+.btn.ghost {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--line-strong);
+}
+.btn.danger {
+  background: transparent;
+  color: var(--danger);
+  box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--danger) 40%, transparent);
+}
+.btn.xl {
+  height: 88px;
+  padding: 0 48px;
+  font-size: 36px;
+  border-radius: 20px;
+}
+.btn[disabled],
+.btn.disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  transform: none;
+}
+.phone .btn {
+  height: var(--touch);
+  padding: 0 20px;
+  font-size: 18px;
+  border-radius: var(--r-m);
+  width: 100%;
+}
+.phone .btn.xl {
+  height: 64px;
+  font-size: 20px;
+}
+.phone .btn.sm {
+  height: 48px;
+  font-size: 16px;
+  padding: 0 14px;
+}
+.btn .ico {
+  width: 1em;
+  height: 1em;
+}
+
+/* Bouton icône (muet, retour…) */
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+.icon-btn svg {
+  width: 28px;
+  height: 28px;
+}
+.phone .icon-btn {
+  width: 44px;
+  height: 44px;
+}
+.phone .icon-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* ------------------------------------------------------------
+   Contrôle segmenté (options de création, cibles)
+   ------------------------------------------------------------ */
+.seg {
+  display: inline-flex;
+  padding: 6px;
+  gap: 6px;
+  background: var(--surface-1);
+  border-radius: 18px;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.seg > button {
+  height: 64px;
+  padding: 0 28px;
+  border-radius: 12px;
+  font: 600 var(--tv-small)/1 var(--font-body);
+  color: var(--text-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.seg > button.on {
+  background: var(--surface-3);
+  color: var(--text);
+  box-shadow: 0 0 0 2px var(--text) inset;
+}
+.phone .seg {
+  width: 100%;
+  padding: 4px;
+  gap: 4px;
+  border-radius: 14px;
+}
+.phone .seg > button {
+  flex: 1;
+  height: 48px;
+  padding: 0 10px;
+  font-size: 15px;
+  border-radius: 10px;
+}
+
+/* ------------------------------------------------------------
+   Grille : vraie grille CSS. --cell et --lbl se règlent par contexte.
+   Une case non révélée est toujours strictement identique aux autres.
+   ------------------------------------------------------------ */
+.grid {
+  --n: 8;
+  --cell: 44px;
+  --gap: 4px;
+  --lbl: 24px;
+  --rad: 7px;
+  display: grid;
+  grid-template-columns: var(--lbl) repeat(var(--n), var(--cell));
+  grid-template-rows: var(--lbl) repeat(var(--n), var(--cell));
+  gap: var(--gap);
+  font: 500 var(--tv-label)/1 var(--font-mono);
+  color: var(--text-3);
+  width: max-content;
+}
+.grid .lbl {
+  display: grid;
+  place-items: center;
+}
+.grid .cell {
+  position: relative;
+  background: var(--sea);
+  border-radius: var(--rad);
+  box-shadow: inset 0 0 0 1px var(--sea-line);
+}
+/* Raté : une goutte d'eau */
+.grid .cell.miss::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 34%;
+  height: 34%;
+  border-radius: 50%;
+  background: var(--miss);
+}
+/* Touché : braise avec une croix */
+.grid .cell.hit {
+  background: var(--hit);
+  box-shadow: none;
+}
+.grid .cell.hit::after,
+.grid .cell.sunk::after,
+.grid .cell.ship.hit::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(45deg, transparent 44%, var(--x, var(--hit-deep)) 44% 56%, transparent 56%),
+    linear-gradient(-45deg, transparent 44%, var(--x, var(--hit-deep)) 44% 56%, transparent 56%);
+  background-size: 58% 58%;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+/* Impact en cours : plus vive, halo */
+.grid .cell.hit.fresh {
+  background: #ff7a3d;
+  box-shadow:
+    0 0 0 3px var(--hit),
+    0 0 32px 4px color-mix(in oklab, var(--hit) 70%, transparent);
+  animation: fresh 900ms var(--ease-out) infinite alternate;
+}
+@keyframes fresh {
+  to {
+    box-shadow:
+      0 0 0 3px var(--hit),
+      0 0 48px 10px color-mix(in oklab, var(--hit) 55%, transparent);
+  }
+}
+
+/* Coque : un bateau se dessine en reliant ses cases à travers l'écart.
+   .hs/.hm/.he = horizontal début/milieu/fin ; .vs/.vm/.ve = vertical. */
+.grid .cell.ship,
+.grid .cell.sunk {
+  background: transparent;
+  box-shadow: none;
+}
+.grid .cell.ship::before,
+.grid .cell.sunk::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--hull, var(--me, var(--text-2)));
+  border-radius: var(--rad);
+}
+.grid .cell.sunk {
+  --hull: var(--sunk);
+  --x: var(--sunk-line);
+}
+.grid .cell.sunk::before {
+  box-shadow: inset 0 0 0 2px var(--sunk-line);
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 6px,
+    rgba(138, 67, 48, 0.35) 6px 8px
+  );
+}
+.grid .cell.ship.hit {
+  background: transparent;
+}
+.grid .cell.ship.hit::after {
+  --x: #ffc7a8;
+}
+.grid .cell.ship.hit::before {
+  background: var(--hit-deep);
+  box-shadow: inset 0 0 0 2px var(--hull, var(--me));
+}
+.grid .cell.hs::before {
+  right: calc(-1 * var(--gap));
+  border-radius: 50% var(--rad) var(--rad) 50% / 50% var(--rad) var(--rad) 50%;
+}
+.grid .cell.hm::before {
+  left: calc(-1 * var(--gap));
+  right: calc(-1 * var(--gap));
+  border-radius: 0;
+}
+.grid .cell.he::before {
+  left: calc(-1 * var(--gap));
+  border-radius: var(--rad) 50% 50% var(--rad) / var(--rad) 50% 50% var(--rad);
+}
+.grid .cell.vs::before {
+  bottom: calc(-1 * var(--gap));
+  border-radius: 50% 50% var(--rad) var(--rad) / 50% 50% var(--rad) var(--rad);
+}
+.grid .cell.vm::before {
+  top: calc(-1 * var(--gap));
+  bottom: calc(-1 * var(--gap));
+  border-radius: 0;
+}
+.grid .cell.ve::before {
+  top: calc(-1 * var(--gap));
+  border-radius: var(--rad) var(--rad) 50% 50% / var(--rad) var(--rad) 50% 50%;
+}
+.grid .cell::after {
+  z-index: 1;
+}
+
+/* Conflit de placement : rayé et bordé de rouge */
+.grid .cell.conflict::before {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--danger) 0 6px,
+    color-mix(in oklab, var(--danger) 45%, var(--ink)) 6px 12px
+  );
+}
+.grid .cell.conflict {
+  box-shadow: 0 0 0 2px var(--danger);
+  z-index: 2;
+}
+/* Bateau sélectionné (à pivoter / déplacer) */
+.grid .cell.picked::before {
+  box-shadow:
+    0 0 0 3px var(--text),
+    0 0 0 5px var(--bg);
+}
+/* Case visée (choix de tir) */
+.grid .cell.sel {
+  box-shadow:
+    inset 0 0 0 1px var(--sea-line),
+    0 0 0 3px var(--me),
+    0 0 0 6px var(--bg);
+  z-index: 2;
+  animation: sel 1.2s var(--ease-out) infinite alternate;
+}
+.grid .cell.sel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 26%;
+  height: 26%;
+  border-radius: 50%;
+  background: var(--me);
+  box-shadow: 0 0 0 4px var(--sea);
+}
+@keyframes sel {
+  to {
+    box-shadow:
+      inset 0 0 0 1px var(--sea-line),
+      0 0 0 4px var(--me),
+      0 0 0 7px var(--bg);
+  }
+}
+/* Mes propres tirs sur la grille d'un adversaire : liseré de ma couleur */
+.grid .cell.mine {
+  box-shadow: inset 0 0 0 2px var(--me);
+}
+.grid .cell.hit.mine {
+  box-shadow:
+    inset 0 0 0 2px var(--ink),
+    inset 0 0 0 4px var(--me);
+}
+/* Grille d'un éliminé / grisée */
+.grid.dim {
+  opacity: 0.45;
+  filter: saturate(0.3);
+}
+
+/* Tailles de grille par contexte */
+.tv .grid {
+  --cell: 44px;
+  --gap: 4px;
+  --lbl: 24px;
+}
+.phone .grid {
+  --cell: 43px;
+  --gap: 2px;
+  --lbl: 14px;
+  --rad: 6px;
+  font-size: var(--ph-micro);
+}
+
+/* ------------------------------------------------------------
+   Flotte : un bateau = autant de carrés que de cases
+   ------------------------------------------------------------ */
+.fleet {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+}
+.ship-pill {
+  display: inline-flex;
+  gap: 3px;
+  position: relative;
+  color: var(--text-2);
+}
+.ship-pill i {
+  width: 14px;
+  height: 14px;
+  background: currentColor;
+  border-radius: 3px;
+}
+.ship-pill i:first-child {
+  border-radius: 7px 3px 3px 7px;
+}
+.ship-pill i:last-child {
+  border-radius: 3px 7px 7px 3px;
+}
+.ship-pill.sunk {
+  color: var(--sunk-line);
+}
+.ship-pill.sunk::after {
+  content: '';
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  top: 50%;
+  height: 3px;
+  background: var(--hit);
+  transform: translateY(-50%) rotate(-8deg);
+  border-radius: 2px;
+}
+.ship-pill.me {
+  color: var(--me);
+}
+.phone .ship-pill i {
+  width: 12px;
+  height: 12px;
+}
+.phone .ship-pill {
+  gap: 2px;
+}
+
+/* ------------------------------------------------------------
+   Écran central : barre haute, zones joueur, colonne centrale
+   ------------------------------------------------------------ */
+.tv-bar {
+  height: 72px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding: 0 8px;
+}
+.tv-bar .code {
+  font: 600 32px/1 var(--font-mono);
+  letter-spacing: 0.18em;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+.tv-bar .center {
+  flex: 1;
+  text-align: center;
+  font: 600 var(--tv-body)/1 var(--font-body);
+  color: var(--text-2);
+}
+.tv-bar .center strong {
+  color: var(--text);
+}
+.tv-bar .right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.board {
+  margin-top: var(--s-6);
+  display: grid;
+  grid-template-columns: 752px 304px 752px;
+  grid-template-rows: 448px 448px;
+  gap: var(--s-6);
+}
+.zone {
+  position: relative;
+  display: grid;
+  grid-template-columns: 408px 1fr;
+  gap: var(--s-6);
+  padding: 20px;
+  border-radius: var(--r-l);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.zone::before {
+  content: '';
+  position: absolute;
+  left: 28px;
+  right: 28px;
+  top: 0;
+  height: 5px;
+  border-radius: 0 0 5px 5px;
+  background: var(--pc);
+}
+.zone.active {
+  box-shadow:
+    0 0 0 3px var(--pc),
+    0 0 80px -16px var(--pc);
+  background: color-mix(in oklab, var(--pc) 7%, var(--surface-1));
+}
+.zone.impact {
+  box-shadow:
+    inset 0 0 0 1px var(--line),
+    0 0 0 2px color-mix(in oklab, var(--hit) 60%, transparent);
+}
+.zone.out {
+  opacity: 0.55;
+  filter: saturate(0.25);
+}
+.zone .info {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+  padding-top: 4px;
+}
+.zone .who {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.zone .who h2 {
+  font: 800 var(--tv-name)/1 var(--font-display);
+  letter-spacing: -0.02em;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.zone .meta {
+  font: 500 var(--tv-small)/1.3 var(--font-body);
+  color: var(--text-2);
+}
+.zone .meta b {
+  color: var(--text);
+  font-weight: 600;
+}
+.zone .stat {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+  font: 500 var(--tv-small)/1.2 var(--font-body);
+  color: var(--text-3);
+}
+.zone .stat b {
+  font: 600 var(--tv-body)/1 var(--font-mono);
+  color: var(--text);
+}
+.zone .stamp {
+  position: absolute;
+  right: 28px;
+  bottom: 24px;
+  font: 800 36px/1 var(--font-display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  padding: 10px 16px;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 3px var(--text-3);
+  transform: rotate(-6deg);
+}
+.zone .last {
+  margin-top: auto;
+  font: 500 var(--tv-small)/1.3 var(--font-body);
+  color: var(--text-3);
+}
+.zone .last b {
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.zone[data-seat='0'] {
+  grid-column: 1;
+  grid-row: 1;
+}
+.zone[data-seat='1'] {
+  grid-column: 3;
+  grid-row: 1;
+}
+.zone[data-seat='2'] {
+  grid-column: 1;
+  grid-row: 2;
+}
+.zone[data-seat='3'] {
+  grid-column: 3;
+  grid-row: 2;
+}
+.spine {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 28px 24px;
+  border-radius: var(--r-l);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.spine .round {
+  font: 600 var(--tv-small)/1 var(--font-mono);
+  letter-spacing: 0.12em;
+  color: var(--text-3);
+  text-transform: uppercase;
+}
+.spine .turn h3 {
+  font: 800 56px/1 var(--font-display);
+  letter-spacing: -0.03em;
+  color: var(--pc);
+  margin-top: 10px;
+}
+.spine .turn .sub {
+  font: 500 var(--tv-small)/1.3 var(--font-body);
+  color: var(--text-2);
+  margin-top: 10px;
+}
+.spine .log {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.spine .log .row {
+  display: grid;
+  grid-template-columns: 24px 18px 24px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  font: 500 22px/1 var(--font-body);
+  color: var(--text-2);
+}
+.spine .log .row .arrow {
+  color: var(--text-3);
+  text-align: center;
+}
+.spine .log .row .coord {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text);
+}
+.spine .log .row .res {
+  font: 700 20px/1 var(--font-display);
+  letter-spacing: 0.04em;
+}
+.res.miss {
+  color: var(--miss);
+}
+.res.hit {
+  color: var(--hit);
+}
+.res.sunk {
+  color: #ff9a6a;
+}
+.spine .foot {
+  font: 500 22px/1.3 var(--font-mono);
+  color: var(--text-3);
+}
+
+/* Résultat flottant au point d'impact */
+.callout {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 16px 28px 18px;
+  border-radius: 20px;
+  background: color-mix(in oklab, var(--ink) 82%, transparent);
+  box-shadow:
+    0 0 0 2px var(--hit),
+    0 24px 80px -20px var(--hit);
+  backdrop-filter: blur(8px);
+  animation: pop 420ms var(--ease-out) both;
+}
+.callout .word {
+  font: 800 var(--tv-callout)/0.9 var(--font-display);
+  letter-spacing: -0.04em;
+  color: var(--hit);
+}
+.callout .where {
+  font: 600 var(--tv-body)/1 var(--font-body);
+  color: var(--text);
+}
+.callout .where .coord {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+@keyframes pop {
+  from {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ------------------------------------------------------------
+   Téléphone : barre et contenu
+   ------------------------------------------------------------ */
+.ph-bar {
+  height: 56px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  gap: 12px;
+}
+.ph-bar .code {
+  font: 600 14px/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  color: var(--text-2);
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+.ph-bar .me {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: 600 15px/1 var(--font-body);
+}
+.ph-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 16px 16px;
+  min-height: 0;
+}
+.ph-body .grid-wrap {
+  margin: 0 -8px;
+  display: grid;
+  justify-content: center;
+}
+.ph-foot {
+  flex: none;
+  padding: 0 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ph-row {
+  display: flex;
+  gap: 10px;
+}
+.ph-row > * {
+  flex: 1;
+}
+.state {
+  font: 800 var(--ph-state)/1 var(--font-display);
+  letter-spacing: -0.03em;
+}
+.state.me {
+  color: var(--me);
+}
+.h1 {
+  font: 800 var(--ph-h1)/1.05 var(--font-display);
+  letter-spacing: -0.02em;
+}
+.h2 {
+  font: 700 var(--ph-h2)/1.1 var(--font-display);
+  letter-spacing: -0.01em;
+}
+.panel {
+  background: var(--surface-1);
+  border-radius: var(--r-m);
+  padding: 14px 16px;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.kv {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: var(--ph-body);
+  color: var(--text-2);
+}
+.kv b {
+  font: 600 20px/1 var(--font-mono);
+  color: var(--text);
+}
+.hint {
+  font-size: var(--ph-small);
+  color: var(--text-3);
+  line-height: 1.35;
+}
+.hint.err {
+  color: var(--danger);
+}
+
+/* Cartes cible (choix de l'adversaire) */
+.targets {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.target {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 84px;
+  padding: 10px 12px;
+  border-radius: var(--r-m);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--line);
+  text-align: left;
+}
+.target .name {
+  font: 700 17px/1 var(--font-display);
+  color: var(--text);
+}
+.target .ships {
+  display: inline-flex;
+  gap: 3px;
+}
+.target .ships i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--text-3);
+}
+.target.on {
+  background: color-mix(in oklab, var(--pc) 14%, var(--surface-1));
+  box-shadow: inset 0 0 0 2px var(--pc);
+}
+.target.off {
+  opacity: 0.4;
+}
+.target .why {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* Feuille de confirmation */
+.sheet-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 12, 24, 0.5);
+  backdrop-filter: blur(1.5px);
+  z-index: 10;
+}
+.sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 11;
+  padding: 20px 16px 24px;
+  border-radius: 28px 28px 0 0;
+  background: var(--surface-2);
+  box-shadow: 0 -1px 0 var(--line-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: sheet 260ms var(--ease-out) both;
+}
+.sheet::before {
+  content: '';
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--text-3);
+  margin: -6px auto 0;
+}
+@keyframes sheet {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* Liste de tirs (téléphone) */
+.shots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.shots .row {
+  display: grid;
+  grid-template-columns: 24px 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  font-size: 15px;
+  color: var(--text-2);
+}
+.shots .row .coord {
+  font: 600 15px/1 var(--font-mono);
+  color: var(--text);
+}
+.shots .row .res {
+  font: 700 13px/1 var(--font-display);
+  letter-spacing: 0.06em;
+}
+
+/* Lignes de classement */
+.rank-row {
+  display: grid;
+  align-items: center;
+  gap: 16px;
+}
+.medal {
+  font: 800 1em/1 var(--font-display);
+  color: var(--text-3);
+}
+.medal.first {
+  color: var(--p-yellow);
+}
+
+/* Pointeur « icône » simple */
+.ico {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ------------------------------------------------------------
+   Écran central v2 (validé le 2026-10-07) : plus de barre haute, zones réduites
+   à leur grille avec le nom en plaque sur le bord haut, scène centrale de
+   848 px, un seul callout central et transitoire, effets de tir (missile,
+   trace, explosion, plouf). La séquence est pilotée par fx.js.
+   ------------------------------------------------------------ */
+.tv.v2 .board {
+  margin-top: 0;
+  grid-template-columns: 480px 848px 480px;
+  grid-template-rows: 496px 496px;
+  gap: 24px;
+}
+.tv.v2 .zone {
+  display: block;
+  padding: 36px 20px 20px;
+  transition:
+    box-shadow 0.35s,
+    background 0.35s;
+}
+.tv.v2 .zone .grid {
+  --cell: 49px;
+  --gap: 3px;
+  --lbl: 24px;
+  margin: 0 auto;
+}
+.tv.v2 .zone.impact {
+  box-shadow:
+    inset 0 0 0 1px var(--line),
+    0 0 0 2px color-mix(in oklab, var(--hit) 60%, transparent);
+}
+.tv.v2 .zone.impact.wet {
+  box-shadow:
+    inset 0 0 0 1px var(--line),
+    0 0 0 2px color-mix(in oklab, var(--miss) 60%, transparent);
+}
+.tv.v2 .zone.shake {
+  animation: shake 380ms ease-out;
+}
+@keyframes shake {
+  0% {
+    transform: translate(0, 0);
+  }
+  20% {
+    transform: translate(-5px, 3px);
+  }
+  40% {
+    transform: translate(4px, -3px);
+  }
+  60% {
+    transform: translate(-3px, 2px);
+  }
+  80% {
+    transform: translate(2px, -1px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+/* Plaque nominative posée sur le bord haut de la zone */
+.tv.v2 .nameplate {
+  position: absolute;
+  top: 0;
+  left: 24px;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 52px;
+  padding: 0 20px 0 6px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  box-shadow: 0 0 0 5px var(--bg);
+  transition:
+    background 0.35s,
+    box-shadow 0.35s;
+}
+.tv.v2 .nameplate .avatar {
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  transition:
+    background 0.35s,
+    color 0.35s;
+}
+.tv.v2 .nameplate h2 {
+  font: 800 32px/1 var(--font-display);
+  letter-spacing: -0.02em;
+  color: var(--text);
+  white-space: nowrap;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.35s;
+}
+.tv.v2 .nameplate .role {
+  font: 500 18px/1 var(--font-body);
+  color: var(--text-3);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-left: 4px;
+}
+.tv.v2 .zone.active .nameplate {
+  background: var(--pc);
+  box-shadow:
+    0 0 0 5px var(--bg),
+    0 0 48px -4px var(--pc);
+}
+.tv.v2 .zone.active .nameplate h2,
+.tv.v2 .zone.active .nameplate .role {
+  color: var(--on-pc);
+}
+.tv.v2 .zone.active .nameplate .avatar {
+  background: var(--on-pc);
+  color: var(--pc);
+}
+/* Flash de départ sur la plaque du tireur */
+.tv.v2 .nameplate.launch .avatar {
+  animation: launch 500ms ease-out;
+}
+@keyframes launch {
+  0% {
+    box-shadow: 0 0 0 0 var(--hit);
+  }
+  100% {
+    box-shadow: 0 0 0 26px transparent;
+  }
+}
+
+/* Scène centrale */
+.tv.v2 .centre {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px 32px 28px;
+  border-radius: var(--r-l);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.tv.v2 .centre .top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+}
+.tv.v2 .centre .top .code {
+  font: 600 28px/1 var(--font-mono);
+  letter-spacing: 0.18em;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+.tv.v2 .centre .top .meta {
+  margin-left: auto;
+  white-space: nowrap;
+  font: 500 24px/1 var(--font-body);
+  color: var(--text-3);
+}
+.tv.v2 .centre .top .meta strong {
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.tv.v2 .centre .turn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  text-align: center;
+  transition:
+    opacity 0.45s,
+    filter 0.45s;
+}
+.tv.v2 .centre .turn.dim {
+  opacity: 0.08;
+  filter: blur(3px);
+}
+.tv.v2 .centre .turn .label {
+  font-size: 28px;
+}
+.tv.v2 .centre .turn .avatar.xl {
+  width: 160px;
+  height: 160px;
+  font-size: 80px;
+  box-shadow:
+    0 0 0 10px color-mix(in oklab, var(--pc) 22%, transparent),
+    0 0 140px -20px var(--pc);
+}
+.tv.v2 .centre .turn h3 {
+  font: 800 128px/1 var(--font-display);
+  letter-spacing: -0.04em;
+  color: var(--pc);
+}
+.tv.v2 .centre .turn .sub {
+  font: 500 32px/1.2 var(--font-body);
+  color: var(--text-2);
+}
+.tv.v2 .centre .turn .sub::after {
+  content: '…';
+  animation: blink 1.4s infinite;
+}
+
+/* Un seul callout, central, transitoire : il vient après l'impact */
+.tv.v2 .callout.big {
+  inset: 0 0 180px 0;
+  margin: auto;
+  width: max-content;
+  height: max-content;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 64px 40px;
+  border-radius: 36px;
+  --c: var(--hit);
+  box-shadow:
+    0 0 0 3px var(--c),
+    0 48px 160px -30px var(--c);
+  opacity: 0;
+  transform: scale(0.7);
+  animation: none;
+  transition:
+    opacity 0.3s var(--ease-out),
+    transform 0.3s var(--ease-out);
+}
+.tv.v2 .callout.big.show {
+  opacity: 1;
+  transform: scale(1);
+}
+.tv.v2 .callout.big.miss {
+  --c: var(--miss);
+}
+.tv.v2 .callout.big.sunk {
+  --c: #ff9a6a;
+}
+.tv.v2 .callout.big .word {
+  font-size: 200px;
+  line-height: 0.95;
+  color: var(--c);
+}
+.tv.v2 .callout.big .where {
+  font-size: 48px;
+}
+.tv.v2 .callout.big .where .coord {
+  font-size: 56px;
+}
+
+/* Journal et commandes */
+.tv.v2 .centre .log {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.tv.v2 .centre .log .row {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 28px 36px minmax(0, 1fr) 80px auto;
+  align-items: center;
+  gap: 14px;
+  font: 500 28px/1 var(--font-body);
+  color: var(--text-2);
+}
+.tv.v2 .centre .log .row.new {
+  animation: rowin 0.4s var(--ease-out);
+}
+@keyframes rowin {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+.tv.v2 .centre .log .row .who {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tv.v2 .centre .log .row .arrow {
+  color: var(--text-3);
+  text-align: center;
+}
+.tv.v2 .centre .log .row .coord {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text);
+  text-align: right;
+}
+.tv.v2 .centre .log .row .res {
+  font: 700 26px/1 var(--font-display);
+  letter-spacing: 0.04em;
+  min-width: 120px;
+  text-align: right;
+}
+.tv.v2 .centre .controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.tv.v2 .centre .controls .btn {
+  height: 56px;
+  font-size: 24px;
+  white-space: nowrap;
+  flex: none;
+}
+.tv.v2 .centre .controls .foot {
+  margin-left: auto;
+  font: 500 22px/1.3 var(--font-mono);
+  color: var(--text-3);
+}
+
+/* ---------- Effets de tir ---------- */
+.fx {
+  position: absolute;
+  inset: 0;
+  width: 1920px;
+  height: 1080px;
+  pointer-events: none;
+  z-index: 4;
+  overflow: visible;
+}
+/* Trace du missile : elle ne se dessine que derrière lui, image par image (script),
+   avec un segment incandescent juste dans son sillage. On ne devine donc pas la case
+   visée avant l'arrivée. La trace s'efface après l'impact. */
+.fx .trail,
+.fx .trail-glow,
+.fx .hot {
+  fill: none;
+  stroke-linecap: round;
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+.fx .trail {
+  stroke: var(--hit);
+  stroke-width: 3;
+}
+.fx .trail-glow {
+  stroke: var(--hit);
+  stroke-width: 14;
+  filter: blur(6px);
+}
+.fx .hot {
+  stroke: #ffd9c2;
+  stroke-width: 6;
+  filter: drop-shadow(0 0 6px var(--hit));
+  transition: opacity 0.12s;
+}
+.fx .trail.draw {
+  opacity: 0.55;
+}
+.fx .trail-glow.draw {
+  opacity: 0.16;
+}
+.fx .hot.on {
+  opacity: 1;
+}
+.fx .trail.fade,
+.fx .trail-glow.fade {
+  opacity: 0;
+}
+
+/* Missile : suit la trajectoire (offset-path), tête vers l'avant */
+.missile {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 6;
+  pointer-events: none;
+  width: 38px;
+  height: 12px;
+  border-radius: 7px;
+  background: linear-gradient(90deg, #ff7a3d 0%, #ffd9c2 55%, #ffffff 100%);
+  box-shadow: 0 0 14px 2px color-mix(in oklab, var(--hit) 70%, transparent);
+  offset-rotate: auto;
+  offset-distance: 0%;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.missile::before {
+  content: '';
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  width: 36px;
+  height: 14px;
+  margin: -7px 2px 0 0;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, #ffe2a8, var(--hit) 55%, transparent);
+  filter: blur(2px);
+  animation: flame 90ms linear infinite alternate;
+}
+@keyframes flame {
+  from {
+    transform: scaleX(0.85);
+    opacity: 0.9;
+  }
+  to {
+    transform: scaleX(1.15);
+    opacity: 1;
+  }
+}
+.missile.show {
+  opacity: 1;
+}
+
+/* Explosion (touché) et plouf (raté) : groupes SVG placés sur la case, rejoués par la classe .go */
+.fx .boom,
+.fx .splash {
+  opacity: 0;
+}
+.fx .boom.go,
+.fx .splash.go {
+  opacity: 1;
+}
+.fx .boom .flash {
+  fill: #fff3e0;
+  opacity: 0;
+}
+.fx .boom.go .flash {
+  animation: flash 320ms ease-out forwards;
+}
+@keyframes flash {
+  0% {
+    transform: scale(0.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+.fx .boom .fire {
+  opacity: 0;
+}
+.fx .boom .f1 {
+  fill: var(--hit);
+}
+.fx .boom .f2 {
+  fill: #ff9a3d;
+}
+.fx .boom .f3 {
+  fill: #ffe08a;
+}
+.fx .boom.go .fire {
+  animation: fire 820ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+.fx .boom.go .f2 {
+  animation-delay: 70ms;
+}
+.fx .boom.go .f3 {
+  animation-delay: 140ms;
+}
+@keyframes fire {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  55% {
+    opacity: 0.95;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+.fx .boom .smoke {
+  fill: none;
+  stroke: color-mix(in oklab, var(--hit) 60%, transparent);
+  stroke-width: 4;
+  opacity: 0;
+}
+.fx .boom.go .smoke {
+  animation: smoke 950ms ease-out forwards;
+}
+.fx .boom.go .smoke.s2 {
+  animation-delay: 220ms;
+}
+@keyframes smoke {
+  0% {
+    transform: scale(0.3);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.8);
+    opacity: 0;
+  }
+}
+.fx .boom .spark {
+  transform: rotate(var(--a));
+}
+.fx .boom .spark line {
+  stroke: #ffd9a8;
+  stroke-width: 4;
+  stroke-linecap: round;
+  opacity: 0;
+}
+.fx .boom.go .spark line {
+  animation: spark 700ms cubic-bezier(0.1, 0.7, 0.3, 1) forwards;
+}
+@keyframes spark {
+  0% {
+    transform: translateY(0) scaleY(0.4);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-78px) scaleY(1);
+    opacity: 0;
+  }
+}
+
+.fx .splash .ripple {
+  fill: none;
+  stroke: var(--miss);
+  stroke-width: 4;
+  opacity: 0;
+}
+.fx .splash.go .ripple {
+  animation: ripple 900ms ease-out forwards;
+}
+.fx .splash.go .ripple.r2 {
+  animation-delay: 180ms;
+}
+.fx .splash.go .ripple.r3 {
+  animation-delay: 360ms;
+}
+@keyframes ripple {
+  0% {
+    transform: scale(0.2);
+    opacity: 0.95;
+  }
+  100% {
+    transform: scale(3);
+    opacity: 0;
+  }
+}
+.fx .splash .plop {
+  fill: #bfe3ff;
+  opacity: 0;
+}
+.fx .splash.go .plop {
+  animation: plop 520ms ease-out forwards;
+}
+@keyframes plop {
+  0% {
+    transform: scale(0.2);
+    opacity: 1;
+  }
+  45% {
+    transform: scale(1.15);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+}
+.fx .splash .drop {
+  fill: var(--miss);
+  opacity: 0;
+}
+.fx .splash.go .drop {
+  animation: drop 760ms cubic-bezier(0.3, 0, 0.6, 1) forwards;
+  animation-delay: var(--d);
+}
+@keyframes drop {
+  0% {
+    transform: translate(0, 0) scale(0.6);
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.1, 0.8, 0.3, 1);
+  }
+  50% {
+    transform: translate(var(--dx), var(--h)) scale(1);
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.6, 0, 0.9, 0.4);
+  }
+  100% {
+    transform: translate(calc(var(--dx) * 1.6), 10px) scale(0.5);
+    opacity: 0;
+  }
+}
+
+/* ------------------------------------------------------------
+   Dispositions à 2 et 3 joueurs (proposées le 2026-10-07).
+   À 2 : les grilles prennent l'écran, scène en bandeau haut. À 3 : trois grilles 8×8 (cases 64 px) en rangée,
+   scène centrale en bande sous les grilles. Mêmes plaques, même journal,
+   même callout, même séquence de tir (fx.js).
+   ------------------------------------------------------------ */
+/* À 2 : les grilles prennent l'écran (10×10 en cases de 74 px), la scène est un
+   bandeau de 136 px en haut (marque · manche · « Au tour de » · boutons). Pas de
+   journal : à deux, les grilles disent tout. Le callout se pose sur la grille du
+   tireur, celle où rien ne se passe pendant le résultat. */
+.tv.v2.p2 .board {
+  grid-template-columns: 916px 916px;
+  grid-template-rows: 136px 856px;
+  gap: 24px;
+}
+.tv.v2.p2 .zone[data-seat='0'] {
+  grid-column: 1;
+  grid-row: 2;
+}
+.tv.v2.p2 .zone[data-seat='1'] {
+  grid-column: 2;
+  grid-row: 2;
+}
+.tv.v2.p2 .zone .grid {
+  --cell: 74px;
+  --gap: 3px;
+}
+.tv.v2.p2 .centre {
+  grid-column: 1 / span 2;
+  grid-row: 1;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 32px;
+  padding: 0 28px;
+}
+.tv.v2.p2 .centre .top {
+  grid-column: 1;
+  gap: 8px 16px;
+}
+.tv.v2.p2 .centre .top .meta {
+  font-size: 22px;
+}
+.tv.v2.p2 .centre .turn {
+  grid-column: 2;
+  flex-direction: row;
+  gap: 18px;
+  text-align: left;
+  align-self: center;
+}
+.tv.v2.p2 .centre .turn .txt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.tv.v2.p2 .centre .turn .label {
+  font-size: 20px;
+}
+.tv.v2.p2 .centre .turn .avatar.xl {
+  width: 72px;
+  height: 72px;
+  font-size: 36px;
+  box-shadow:
+    0 0 0 6px color-mix(in oklab, var(--pc) 22%, transparent),
+    0 0 60px -10px var(--pc);
+}
+.tv.v2.p2 .centre .turn h3 {
+  font-size: 52px;
+}
+.tv.v2.p2 .centre .turn .sub {
+  font-size: 22px;
+}
+.tv.v2.p2 .centre .controls {
+  grid-column: 3;
+  justify-content: flex-end;
+}
+.tv.v2.p2 .centre .controls .foot {
+  margin-left: 0;
+  order: -1;
+  font-size: 20px;
+}
+.tv.v2.p2 .centre .log {
+  display: none;
+}
+.tv.v2.p2 .callout.big {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  left: 0;
+  top: 0;
+  padding: 22px 48px 34px;
+  border-radius: 32px;
+  transform: translate(-50%, -50%) scale(0.7);
+}
+.tv.v2.p2 .callout.big.show {
+  transform: translate(-50%, -50%) scale(1);
+}
+.tv.v2.p2 .callout.big .word {
+  font-size: 160px;
+}
+.tv.v2.p2 .callout.big .where {
+  font-size: 40px;
+}
+.tv.v2.p2 .callout.big .where .coord {
+  font-size: 46px;
+}
+
+.tv.v2.p3 .board {
+  grid-template-columns: 600px 600px 600px;
+  grid-template-rows: 616px 376px;
+  gap: 24px 28px;
+}
+.tv.v2.p3 .zone[data-seat='0'] {
+  grid-column: 1;
+  grid-row: 1;
+}
+.tv.v2.p3 .zone[data-seat='1'] {
+  grid-column: 2;
+  grid-row: 1;
+}
+.tv.v2.p3 .zone[data-seat='2'] {
+  grid-column: 3;
+  grid-row: 1;
+}
+.tv.v2.p3 .zone .grid {
+  --cell: 64px;
+  --gap: 3px;
+}
+.tv.v2.p3 .centre {
+  grid-column: 1 / span 3;
+  grid-row: 2;
+  display: grid;
+  grid-template-columns: 400px 1fr 600px;
+  grid-template-rows: 1fr auto;
+  gap: 16px 32px;
+  padding: 24px 32px;
+}
+.tv.v2.p3 .centre .top {
+  grid-column: 1;
+  grid-row: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+.tv.v2.p3 .centre .top .meta {
+  margin-left: 0;
+  white-space: normal;
+  line-height: 1.3;
+}
+.tv.v2.p3 .centre .controls {
+  grid-column: 1;
+  grid-row: 2;
+  flex-wrap: wrap;
+}
+.tv.v2.p3 .centre .controls .foot {
+  margin-left: 0;
+  flex-basis: 100%;
+}
+.tv.v2.p3 .centre .turn {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  flex-direction: row;
+  gap: 28px;
+  text-align: left;
+}
+.tv.v2.p3 .centre .turn .txt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.tv.v2.p3 .centre .turn .avatar.xl {
+  width: 128px;
+  height: 128px;
+  font-size: 64px;
+}
+.tv.v2.p3 .centre .turn h3 {
+  font-size: 96px;
+}
+.tv.v2.p3 .centre .turn .sub {
+  font-size: 28px;
+}
+.tv.v2.p3 .centre .log {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  gap: 10px;
+}
+.tv.v2.p3 .centre .log .row {
+  font-size: 24px;
+  gap: 10px;
+  grid-template-columns: 32px minmax(0, 1fr) 24px 32px minmax(0, 1fr) 64px auto;
+}
+.tv.v2.p3 .centre .log .row .avatar.sm {
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+}
+.tv.v2.p3 .centre .log .row .res {
+  font-size: 22px;
+  min-width: 100px;
+}
+.tv.v2.p3 .callout.big {
+  inset: 0;
+  padding: 18px 48px 28px;
+  border-radius: 28px;
+}
+.tv.v2.p3 .callout.big .word {
+  font-size: 160px;
+}
+.tv.v2.p3 .callout.big .where {
+  font-size: 40px;
+}
+.tv.v2.p3 .callout.big .where .coord {
+  font-size: 46px;
+}

@@ -1,0 +1,418 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap');
+@import 'tailwindcss';
+@import './tokens.css';
+@import './mockup.css';
+
+/* ------------------------------------------------------------
+   Adaptations de l'application par rapport aux maquettes :
+   - la grille prend des colonnes et des lignes distinctes ;
+   - le téléphone est fluide (pas de cadre 390×844 réduit) ;
+   - l'écran central reste conçu en 1920×1080 et se réduit à la fenêtre.
+   ------------------------------------------------------------ */
+html,
+body,
+#root {
+  min-height: 100%;
+}
+body {
+  overscroll-behavior: none;
+}
+
+.grid {
+  --cols: var(--n);
+  --rows: var(--n);
+  grid-template-columns: var(--lbl) repeat(var(--cols), var(--cell));
+  grid-template-rows: var(--lbl) repeat(var(--rows), var(--cell));
+  touch-action: none;
+  user-select: none;
+}
+
+/* Téléphone fluide */
+.app-phone {
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  font-size: var(--ph-body);
+  background: radial-gradient(1200px 800px at 50% 40%, var(--bg-2), transparent 70%), var(--bg);
+}
+.app-phone .grid {
+  --cell: 38px;
+  --gap: 2px;
+  --lbl: 14px;
+  --rad: 6px;
+  font-size: var(--ph-micro);
+}
+@media (min-width: 400px) {
+  .app-phone .grid {
+    --cell: 41px;
+  }
+}
+.app-phone .chip {
+  height: 32px;
+  padding: 0 12px;
+  font-size: var(--ph-small);
+  gap: 8px;
+}
+.app-phone .chip::before {
+  width: 8px;
+  height: 8px;
+}
+.app-phone .btn {
+  height: var(--touch);
+  padding: 0 20px;
+  font-size: 18px;
+  border-radius: var(--r-m);
+  width: 100%;
+}
+.app-phone .btn.xl {
+  height: 64px;
+  font-size: 20px;
+}
+.app-phone .btn.sm {
+  height: 48px;
+  font-size: 16px;
+  padding: 0 14px;
+}
+.app-phone .icon-btn {
+  width: 44px;
+  height: 44px;
+}
+.app-phone .icon-btn svg {
+  width: 22px;
+  height: 22px;
+}
+.app-phone .label {
+  font-size: var(--ph-small);
+}
+.app-phone .seg {
+  width: 100%;
+  padding: 4px;
+  gap: 4px;
+  border-radius: 14px;
+}
+.app-phone .seg > button {
+  flex: 1;
+  height: 48px;
+  padding: 0 10px;
+  font-size: 15px;
+  border-radius: 10px;
+}
+.app-phone .wordmark {
+  font-size: 16px;
+  letter-spacing: 0.12em;
+}
+.app-phone .wordmark .flag {
+  width: 12px;
+  height: 17px;
+}
+.app-phone .ship-pill i {
+  width: 12px;
+  height: 12px;
+}
+.app-phone .avatar.sm {
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+}
+
+/* Champs de formulaire */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.input {
+  height: var(--touch);
+  padding: 0 16px;
+  border-radius: var(--r-m);
+  background: var(--surface-1);
+  color: var(--text);
+  font: 500 18px/1 var(--font-body);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  outline: none;
+  width: 100%;
+}
+.input:focus {
+  box-shadow: inset 0 0 0 2px var(--text-2);
+}
+.input.code {
+  font: 600 32px/1 var(--font-mono);
+  letter-spacing: 0.3em;
+  text-align: center;
+  text-transform: uppercase;
+  height: 64px;
+}
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.swatch {
+  height: 56px;
+  border-radius: 14px;
+  background: var(--pc);
+  position: relative;
+  box-shadow: inset 0 0 0 0 var(--bg);
+  transition:
+    transform var(--dur),
+    box-shadow var(--dur);
+}
+.swatch.on {
+  transform: scale(1.04);
+  box-shadow:
+    0 0 0 3px var(--bg),
+    0 0 0 6px var(--pc);
+}
+.swatch.taken {
+  opacity: 0.25;
+  filter: saturate(0.3);
+}
+.swatch.taken::after {
+  content: attr(data-ini);
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--ink);
+  font: 800 22px/1 var(--font-display);
+}
+
+/* Tablette des bateaux au placement */
+.tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tray button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--line);
+  font: 500 14px/1 var(--font-body);
+  color: var(--text-2);
+}
+.tray button.on {
+  box-shadow: inset 0 0 0 2px var(--me);
+  color: var(--text);
+}
+.tray button.bad {
+  box-shadow: inset 0 0 0 2px var(--danger);
+}
+
+/* Écran central : liste des joueurs du lobby (reprise de la maquette) */
+.lobby {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: 1fr 720px;
+  gap: 48px;
+  height: 920px;
+}
+.join {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 24px 32px;
+}
+.join .label {
+  font-size: 28px;
+}
+.join .bigcode {
+  font: 800 var(--tv-code)/0.95 var(--font-display);
+  letter-spacing: 0.1em;
+  margin-left: -8px;
+}
+.join .scan {
+  display: flex;
+  align-items: center;
+  gap: 48px;
+  margin-top: 28px;
+}
+.qrcard {
+  width: 400px;
+  height: 400px;
+  flex: none;
+  padding: 28px;
+  border-radius: 28px;
+  background: #ffffff;
+  color: #0a0e1a;
+}
+.qrcard img,
+.qrcard svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.scan .txt {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.scan .txt h2 {
+  font: 800 56px/1 var(--font-display);
+  letter-spacing: -0.02em;
+}
+.scan .txt p {
+  font: 400 30px/1.35 var(--font-body);
+  color: var(--text-2);
+  max-width: 560px;
+}
+.scan .txt .url {
+  font: 500 26px/1 var(--font-mono);
+  color: var(--text-3);
+  word-break: break-all;
+}
+.players {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 32px;
+  border-radius: var(--r-l);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.players .head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.players .head h2 {
+  font: 800 40px/1 var(--font-display);
+  letter-spacing: -0.02em;
+}
+.players .head .n {
+  font: 600 28px/1 var(--font-mono);
+  color: var(--text-2);
+}
+.plist {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.prow {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  align-items: center;
+  gap: 20px;
+  height: 104px;
+  padding: 0 24px;
+  border-radius: 20px;
+  background: var(--surface-2);
+}
+.prow .avatar {
+  width: 64px;
+  height: 64px;
+  font-size: 32px;
+}
+.prow .avatar.bot {
+  outline: 3px dashed var(--pc);
+  outline-offset: 4px;
+}
+.prow .nm {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font: 800 40px/1 var(--font-display);
+  letter-spacing: -0.02em;
+}
+.prow.empty {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--line);
+  color: var(--text-3);
+  font: 500 28px/1 var(--font-body);
+  grid-template-columns: 1fr;
+  text-align: center;
+  height: 80px;
+}
+.prow.add {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--line-strong);
+  grid-template-columns: 1fr;
+  justify-items: center;
+  height: 80px;
+}
+.prow.add .btn {
+  height: 56px;
+  font-size: 26px;
+}
+.players .settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.launch {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.launch .btn.xl {
+  width: 100%;
+}
+.launch .why {
+  font: 500 26px/1.3 var(--font-body);
+  color: var(--text-3);
+  text-align: center;
+}
+.launch .hostrow {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+.launch .hostrow .btn {
+  height: 56px;
+  font-size: 24px;
+}
+
+/* Écran central : fin de partie (simple, le jalon M3 fera l'animation) */
+.finish {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  height: 1016px;
+  text-align: center;
+}
+.finish h1 {
+  font: 800 var(--tv-hero)/0.95 var(--font-display);
+  letter-spacing: -0.04em;
+}
+.finish table {
+  font: 500 32px/1.3 var(--font-body);
+  border-collapse: collapse;
+}
+.finish td,
+.finish th {
+  padding: 10px 24px;
+  text-align: left;
+}
+.finish th {
+  color: var(--text-3);
+  font-weight: 500;
+  font-size: 24px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Messages pleine page */
+.notice {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  text-align: center;
+}
+.notice .box {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  max-width: 420px;
+}

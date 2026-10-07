@@ -18,9 +18,10 @@ Le cahier des charges est dans `../docs/`. Lire `../docs/README.md` puis
 
 ## État
 
-Jalon M1 livré : `packages/protocol` et `packages/engine` sont en place et testés.
-`apps/server` et `apps/web` arrivent au jalon M2 (`../docs/07-roadmap.md`).
-Prérequis : Node 22 ou plus, pnpm 10.
+Jalons M1 et M2 livrés : moteur et protocole testés, serveur et application web
+jouables jusqu'au lancement de la partie. Le tir depuis le téléphone et
+l'animation de l'écran central arrivent au jalon M3 (`../docs/07-roadmap.md`).
+Prérequis : Node 22 ou plus (le serveur utilise `node:sqlite`), pnpm 10.
 
 ## Commandes
 
@@ -33,13 +34,18 @@ pnpm lint               # ESLint + Prettier
 pnpm format
 ```
 
-À partir du jalon M2 :
-
 ```bash
 pnpm dev          # serveur (5251) + web (5250, HTTPS, proxy /api et /socket.io vers le serveur)
+WEB_HTTPS=0 WEB_PORT=5260 pnpm --filter @navale/web dev   # web en HTTP clair (outils sans certificat)
 pnpm build        # build de tous les paquets, le web dans apps/web/dist
-pnpm start        # serveur de production : sert aussi apps/web/dist
 ```
+
+Variables du serveur : `PORT` (5251), `WEB_PORT` (5250, pour l'URL par défaut),
+`PUBLIC_URL` (défaut `https://<ip-lan>:5250`, c'est ce que le QR encode),
+`DATA_DIR` (`./data`, journal SQLite), `LOG_LEVEL`.
+
+Le journal SQLite de développement est dans `apps/server/data/`, ignoré par git.
+`pnpm start` et l'image Docker arrivent au jalon M6.
 
 ## Le moteur en deux fonctions
 
@@ -50,7 +56,7 @@ const settings = makeSettings({ variant: 'sequential', maxPlayers: 3 }, 'quick')
 let state = battleship.initialState({ gameId, code, settings, createdAt: Date.now() });
 const decision = battleship.decide(state, command, { actor, now, random, newId });
 if (decision.ok) for (const event of decision.events) state = battleship.evolve(state, event);
-const board = battleship.projectPublic(state);          // écran central, spectateurs
+const board = battleship.projectPublic(state); // écran central, spectateurs
 const mine = battleship.projectPrivate(state, playerId); // téléphone du joueur
 ```
 
