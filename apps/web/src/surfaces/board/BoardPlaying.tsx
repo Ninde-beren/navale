@@ -7,6 +7,7 @@ import { useGame, type View } from '../../shared/store.js';
 import { Avatar, initialOf } from '../../shared/ui/Avatar.js';
 import { Grid } from '../../shared/ui/Grid.js';
 import { Wordmark } from '../../shared/ui/Wordmark.js';
+import { mmss, useCountdown } from '../../shared/useCountdown.js';
 import { FxLayer } from './FxLayer.js';
 import { ShotFx, type ShotFxShot } from './shotFx.js';
 
@@ -83,6 +84,8 @@ export function BoardPlaying({
   const [fresh, setFresh] = useState<{ targetId: string; coord: Coord } | null>(null);
   const [callout, setCallout] = useState<Callout>(null);
   const events = useGame((s) => s.events);
+  const left = useCountdown(round?.deadline ?? null);
+  const timer = left !== null ? ` · ${mmss(left)}` : '';
 
   // Les révélations transitoires tombent dès qu'un instantané à jour arrive.
   useEffect(() => {
@@ -192,7 +195,7 @@ export function BoardPlaying({
                 <div className="txt">
                   <span className="label">Au tour de</span>
                   <h3>{active.name}</h3>
-                  <p className="sub">choisit sa cible</p>
+                  <p className="sub">choisit sa cible{timer}</p>
                 </div>
               </>
             ) : (
@@ -200,7 +203,7 @@ export function BoardPlaying({
                 <span className="label">Au tour de</span>
                 <Avatar color={active.color} initial={initialOf(active.name)} size="xl" />
                 <h3>{active.name}</h3>
-                <p className="sub">choisit sa cible</p>
+                <p className="sub">choisit sa cible{timer}</p>
               </>
             )
           ) : (
@@ -218,6 +221,7 @@ export function BoardPlaying({
                   )
                   .map((p) => p.name)
                   .join(', ') || 'résolution'}
+                {timer}
               </p>
             </>
           )}
@@ -250,12 +254,23 @@ export function BoardPlaying({
         </div>
         <div className="controls">
           {view.isHost && (
-            <button
-              className="btn ghost"
-              onClick={() => void sendCommand(socket.current, { type: 'FORCE_ROUND' })}
-            >
-              {settings.variant === 'sequential' ? 'Passer le tour' : 'Résoudre la salve'}
-            </button>
+            <>
+              <button
+                className="btn ghost"
+                onClick={() => void sendCommand(socket.current, { type: 'FORCE_ROUND' })}
+              >
+                {settings.variant === 'sequential' ? 'Passer le tour' : 'Résoudre la salve'}
+              </button>
+              <button
+                className="btn danger"
+                onClick={() => {
+                  if (confirm('Annuler la partie pour tout le monde ?'))
+                    void sendCommand(socket.current, { type: 'CANCEL_GAME' });
+                }}
+              >
+                Annuler
+              </button>
+            </>
           )}
           <span className="foot">
             Suivre la partie : {location.host}/board/{code}

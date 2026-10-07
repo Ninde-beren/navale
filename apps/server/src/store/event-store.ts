@@ -130,6 +130,10 @@ export class EventStore {
     this.db.prepare('DELETE FROM tokens WHERE game_id = ? AND player_id = ?').run(gameId, playerId);
   }
 
+  deleteGameTokens(gameId: string): void {
+    this.db.prepare('DELETE FROM tokens WHERE game_id = ?').run(gameId);
+  }
+
   close(): void {
     this.db.close();
   }

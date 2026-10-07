@@ -82,6 +82,15 @@ export class GameRegistry {
     }
   }
 
+  /** Oublie une partie terminée : retirée de la mémoire, jetons supprimés, journal conservé. */
+  forget(gameId: string): void {
+    const runtime = this.byId.get(gameId);
+    if (!runtime) return;
+    this.byId.delete(gameId);
+    if (this.byCode.get(runtime.code) === gameId) this.byCode.delete(runtime.code);
+    this.store.deleteGameTokens(gameId);
+  }
+
   all(): GameRuntime[] {
     return [...this.byId.values()];
   }

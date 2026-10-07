@@ -14,13 +14,18 @@ export interface RuntimeHooks {
  */
 export class GameRuntime {
   private queue: Promise<unknown> = Promise.resolve();
+  /** Horodatage du dernier événement, pour l'expiration. */
+  public lastActivityAt: number;
 
   constructor(
     public readonly gameId: string,
     public state: GameState,
     private readonly store: EventStore,
     private readonly hooks: RuntimeHooks,
-  ) {}
+    lastActivityAt: number = Date.now(),
+  ) {
+    this.lastActivityAt = lastActivityAt;
+  }
 
   get code(): string {
     return this.state.code;
@@ -49,6 +54,7 @@ export class GameRuntime {
     }));
     this.store.append(this.gameId, envelopes);
     for (const e of decision.events) this.state = battleship.evolve(this.state, e);
+    this.lastActivityAt = now;
     this.store.updateGame(this.gameId, this.state.status, now);
     this.hooks.onEvents(this, envelopes);
     return decision;
@@ -70,6 +76,12 @@ export class GameRuntime {
       createdAt: created.createdAt,
     });
     for (const e of envelopes) state = battleship.evolve(state, e.event);
-    return new GameRuntime(gameId, state, store, hooks);
+    return new GameRuntime(
+      gameId,
+      state,
+      store,
+      hooks,
+      envelopes[envelopes.length - 1]?.at ?? Date.now(),
+    );
   }
 }

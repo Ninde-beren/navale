@@ -7,12 +7,16 @@ import { registerSockets } from './realtime/handlers.js';
 import { PresenceTracker } from './realtime/presence.js';
 import { BotDriver } from './runtime/bots.js';
 import { Publisher } from './runtime/publisher.js';
+import { DEFAULT_EXPIRY, Sweeper, type ExpiryPolicy } from './runtime/sweeper.js';
+import { RoundTimers } from './runtime/timers.js';
 import { EventStore } from './store/event-store.js';
 import { GameRegistry } from './store/registry.js';
 
 export interface AppOptions {
   /** Délai de réflexion des bots, injectable pour les tests. */
   botThinkMs?: () => number;
+  /** Politique d'expiration des parties. */
+  expiry?: ExpiryPolicy;
 }
 
 export async function createApp(
@@ -28,15 +32,24 @@ export async function createApp(
   const presence = new PresenceTracker(io);
   const publisher = new Publisher(io, presence);
   const bots = new BotDriver(options.botThinkMs, (msg) => app.log.warn(msg));
+  const timers = new RoundTimers();
   const registry: GameRegistry = new GameRegistry(store, {
     onEvents: (runtime, envelopes) => {
       registry.sync(runtime);
       publisher.publish(runtime, envelopes);
       bots.onEvents(runtime, envelopes);
+      timers.reschedule(runtime);
     },
   });
   const restored = registry.restore();
-  for (const runtime of registry.all()) bots.resume(runtime);
+  for (const runtime of registry.all()) {
+    bots.resume(runtime);
+    timers.reschedule(runtime);
+  }
+  const sweeper = new Sweeper(registry, options.expiry ?? DEFAULT_EXPIRY, (msg) =>
+    app.log.info(msg),
+  );
+  sweeper.start();
 
   registerGameRoutes(app, registry, config);
   registerSockets(io, registry, publisher, presence);
@@ -48,10 +61,13 @@ export async function createApp(
     store,
     config,
     restored,
+    sweeper,
     async listen(): Promise<string> {
       return app.listen({ port: config.port, host: '0.0.0.0' });
     },
     async close(): Promise<void> {
+      sweeper.close();
+      timers.close();
       bots.close();
       publisher.close();
       io.close();

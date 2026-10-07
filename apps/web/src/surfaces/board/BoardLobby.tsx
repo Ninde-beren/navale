@@ -72,11 +72,37 @@ export function BoardLobby({ view, socket }: { view: View; socket: RefObject<Soc
                   {p.name}
                   {p.kind === 'bot' && <span className="chip plain">Bot</span>}
                 </div>
-                {p.status === 'READY' ? (
-                  <span className="chip ready">Prêt</span>
-                ) : (
-                  <span className="chip placing">Placement en cours</span>
-                )}
+                <span className="flex items-center gap-3">
+                  {p.status === 'READY' ? (
+                    <span className="chip ready">Prêt</span>
+                  ) : (
+                    <span className="chip placing">Placement en cours</span>
+                  )}
+                  {view.isHost && p.kind === 'human' && (
+                    <button
+                      className="icon-btn"
+                      aria-label={`Exclure ${p.name}`}
+                      title={`Exclure ${p.name}`}
+                      onClick={() => {
+                        if (confirm(`Exclure ${p.name} de la partie ?`))
+                          void sendCommand(socket.current, {
+                            type: 'KICK_PLAYER',
+                            playerId: p.playerId,
+                          });
+                      }}
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                      >
+                        <path d="M6 6l12 12M18 6L6 18" />
+                      </svg>
+                    </button>
+                  )}
+                </span>
               </div>
             ))}
             {view.isHost && free > 0 && (

@@ -502,3 +502,17 @@ body {
 .state-pulse {
   animation: blink 1.6s infinite;
 }
+
+/* Bandeau de reconnexion (téléphone) */
+.reconnecting {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  padding: 10px 16px calc(10px + env(safe-area-inset-top));
+  text-align: center;
+  background: var(--danger);
+  color: var(--ink);
+  font: 600 14px/1 var(--font-body);
+}

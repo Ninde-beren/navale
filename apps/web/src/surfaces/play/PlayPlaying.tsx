@@ -7,6 +7,7 @@ import { sendCommand } from '../../shared/socket.js';
 import { Avatar, initialOf } from '../../shared/ui/Avatar.js';
 import { Grid } from '../../shared/ui/Grid.js';
 import { Wordmark } from '../../shared/ui/Wordmark.js';
+import { mmss, useCountdown } from '../../shared/useCountdown.js';
 
 const RESULT = { MISS: 'RATÉ', HIT: 'TOUCHÉ', SUNK: 'COULÉ' } as const;
 
@@ -33,6 +34,8 @@ export function PlayPlaying({
   const wasMyTurn = useRef(false);
 
   const roundIndex = view.round?.index ?? -1;
+  const left = useCountdown(view.round?.deadline ?? null);
+  const timer = left !== null ? ` · ${mmss(left)}` : '';
   const canFire = view.me.canFire && sent !== roundIndex;
   const target = (targetId ? byId.get(targetId) : undefined) ?? legal[0];
 
@@ -137,7 +140,9 @@ export function PlayPlaying({
         {header}
         <div>
           <h1 className="state me">À toi</h1>
-          <p className="muted">Manche {roundIndex + 1} · choisis une cible, puis une case.</p>
+          <p className="muted">
+            Manche {roundIndex + 1} · choisis une cible, puis une case.{timer}
+          </p>
         </div>
         <div className="tabs">
           <button type="button" className={tab === 'aim' ? 'on' : ''} onClick={() => setTab('aim')}>
@@ -259,7 +264,7 @@ export function PlayPlaying({
   const sub =
     pending && view.settings.variant === 'simultaneous' && waitingFor > 0
       ? `En attente de ${waitingFor} joueur${waitingFor > 1 ? 's' : ''} · ton tir : ${coordLabel(pending.coord)} sur ${name(pending.targetId)}`
-      : `Manche ${roundIndex + 1} · ${view.me.cellsRemaining} cases intactes`;
+      : `Manche ${roundIndex + 1} · ${view.me.cellsRemaining} cases intactes${timer}`;
   return (
     <div className={`app-phone me-${me.color}`} style={{ padding: '16px 16px 24px', gap: 16 }}>
       {header}

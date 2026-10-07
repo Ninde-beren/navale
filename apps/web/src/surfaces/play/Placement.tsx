@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, type RefObject } from 'react';
 import type { Socket } from 'socket.io-client';
+import { useNavigate } from 'react-router';
 import { cellsOf, randomFleet, validateFleet } from '@navale/engine';
 import {
   SHIP_LABELS_FR,
@@ -12,6 +13,7 @@ import { placementClasses } from '../../shared/cells.js';
 import { sendCommand } from '../../shared/socket.js';
 import { Grid } from '../../shared/ui/Grid.js';
 import { Wordmark } from '../../shared/ui/Wordmark.js';
+import { LeaveButton } from './LeaveButton.js';
 
 /** Flotte de départ : les bateaux en lignes, en haut à gauche. Sert aussi à « Réinitialiser ». */
 function stacked(settings: PlayerView['settings']): ShipPlacement[] {
@@ -31,6 +33,7 @@ export function Placement({
   view: PlayerView;
   socket: RefObject<Socket | null>;
 }) {
+  const navigate = useNavigate();
   const { settings } = view;
   const me = view.players.find((p) => p.playerId === view.me.playerId)!;
   const [ships, setShips] = useState<ShipPlacement[]>(() =>
@@ -202,6 +205,7 @@ export function Placement({
       >
         {busy ? 'Envoi…' : 'Prêt'}
       </button>
+      <LeaveButton code={view.code} socket={socket} onLeft={() => void navigate('/')} />
     </div>
   );
 }

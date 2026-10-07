@@ -1,13 +1,16 @@
 import type { RefObject } from 'react';
 import type { Socket } from 'socket.io-client';
+import { useNavigate } from 'react-router';
 import type { PlayerView } from '@navale/protocol';
 import { ownGridClasses } from '../../shared/cells.js';
 import { sendCommand } from '../../shared/socket.js';
 import { Avatar, initialOf } from '../../shared/ui/Avatar.js';
 import { Grid } from '../../shared/ui/Grid.js';
 import { Wordmark } from '../../shared/ui/Wordmark.js';
+import { LeaveButton } from './LeaveButton.js';
 
 export function Waiting({ view, socket }: { view: PlayerView; socket: RefObject<Socket | null> }) {
+  const navigate = useNavigate();
   const me = view.players.find((p) => p.playerId === view.me.playerId)!;
   const notReady = view.players.filter((p) => p.status !== 'READY');
   const canStart = view.players.length >= 2 && notReady.length === 0;
@@ -72,6 +75,7 @@ export function Waiting({ view, socket }: { view: PlayerView; socket: RefObject<
       >
         Modifier ma flotte
       </button>
+      <LeaveButton code={view.code} socket={socket} onLeft={() => void navigate('/')} />
     </div>
   );
 }

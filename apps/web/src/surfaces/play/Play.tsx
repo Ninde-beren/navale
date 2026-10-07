@@ -76,14 +76,24 @@ export function Play() {
       />
     );
 
-  if (view.status === 'LOBBY') {
-    return me.status === 'PLACING' ? (
-      <Placement view={view} socket={socket} />
+  const screen =
+    view.status === 'LOBBY' ? (
+      me.status === 'PLACING' ? (
+        <Placement view={view} socket={socket} />
+      ) : (
+        <Waiting view={view} socket={socket} />
+      )
+    ) : view.status === 'CANCELLED' ? (
+      <Notice title="Partie annulée" action={{ to: '/', label: 'Retour à l’accueil' }} />
     ) : (
-      <Waiting view={view} socket={socket} />
+      <PlayPlaying view={view} socket={socket} />
     );
-  }
-  if (view.status === 'CANCELLED')
-    return <Notice title="Partie annulée" action={{ to: '/', label: 'Retour à l’accueil' }} />;
-  return <PlayPlaying view={view} socket={socket} />;
+  return (
+    <>
+      {conn === 'disconnected' && (
+        <div className="reconnecting">Connexion perdue · reconnexion…</div>
+      )}
+      {screen}
+    </>
+  );
 }
