@@ -129,6 +129,6 @@ function apply(state: GameState, event: GameEvent): GameState {
     case 'GAME_CANCELLED':
       return { ...state, status: 'CANCELLED', round: null };
     case 'REMATCH_CREATED':
-      return state;
+      return { ...state, rematchGameId: event.newGameId };
   }
 }

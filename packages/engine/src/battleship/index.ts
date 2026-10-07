@@ -19,6 +19,7 @@ export function initialState(input: InitialStateInput): GameState {
     startedAt: null,
     finishedAt: null,
     lastShooterSeat: null,
+    rematchGameId: null,
     seq: 0,
   };
 }

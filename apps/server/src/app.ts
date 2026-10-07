@@ -1,20 +1,22 @@
 import { join } from 'node:path';
 import Fastify from 'fastify';
 import { Server } from 'socket.io';
+import type { Variant } from '@navale/protocol';
 import type { ServerConfig } from './config.js';
 import { registerGameRoutes } from './http/games.js';
 import { registerSockets } from './realtime/handlers.js';
 import { PresenceTracker } from './realtime/presence.js';
 import { BotDriver } from './runtime/bots.js';
 import { Publisher } from './runtime/publisher.js';
+import { RematchService } from './runtime/rematch.js';
 import { DEFAULT_EXPIRY, Sweeper, type ExpiryPolicy } from './runtime/sweeper.js';
 import { RoundTimers } from './runtime/timers.js';
 import { EventStore } from './store/event-store.js';
 import { GameRegistry } from './store/registry.js';
 
 export interface AppOptions {
-  /** Délai de réflexion des bots, injectable pour les tests. */
-  botThinkMs?: () => number;
+  /** Délai de réflexion des bots selon la variante, injectable pour les tests. */
+  botThinkMs?: (variant: Variant) => number;
   /** Politique d'expiration des parties. */
   expiry?: ExpiryPolicy;
 }
@@ -39,8 +41,10 @@ export async function createApp(
       publisher.publish(runtime, envelopes);
       bots.onEvents(runtime, envelopes);
       timers.reschedule(runtime);
+      rematch.onEvents(runtime, envelopes);
     },
   });
+  const rematch = new RematchService(io, registry, publisher, presence);
   const restored = registry.restore();
   for (const runtime of registry.all()) {
     bots.resume(runtime);

@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { battleship } from '@navale/engine';
-import type { GameSettings } from '@navale/protocol';
+import type { EventEnvelope, GameEvent, GameSettings } from '@navale/protocol';
 import { generateCode } from '../runtime/codes.js';
 import { GameRuntime, type RuntimeHooks } from '../runtime/game-runtime.js';
 import type { EventStore, TokenRecord, TokenRole } from './event-store.js';
@@ -50,6 +50,26 @@ export class GameRegistry {
     });
     const hostToken = this.issueToken(gameId, 'host', null);
     return { runtime, hostToken };
+  }
+
+  /** Ouvre une partie à partir d'un journal initial complet (revanche) : le code est repris tel quel. */
+  createFromEvents(gameId: string, events: GameEvent[], now: number): GameRuntime {
+    const created = events[0];
+    if (created?.type !== 'GAME_CREATED') throw new Error('journal initial sans GAME_CREATED');
+    if (this.byCode.has(created.code) || this.byId.has(gameId))
+      throw new Error(`code ${created.code} ou partie ${gameId} déjà actifs`);
+    const envelopes: EventEnvelope[] = events.map((event, i) => ({ seq: i + 1, at: now, event }));
+    this.store.createGame(gameId, created.code, 'LOBBY', now);
+    this.store.append(gameId, envelopes);
+    const runtime = GameRuntime.replay(gameId, envelopes, this.store, this.hooks);
+    this.byId.set(gameId, runtime);
+    this.byCode.set(created.code, gameId);
+    return runtime;
+  }
+
+  /** Revanche : les jetons de l'ancienne partie ouvrent la nouvelle, mêmes identifiants de joueurs. */
+  moveTokens(fromGameId: string, toGameId: string): void {
+    this.store.moveTokens(fromGameId, toGameId);
   }
 
   issueToken(gameId: string, role: TokenRole, playerId: string | null): string {

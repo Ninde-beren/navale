@@ -1,6 +1,7 @@
 import type { Coord, ShotResult } from '@navale/protocol';
 
 export interface ShotFxShot {
+  round: number;
   shooterId: string;
   targetId: string;
   coord: Coord;
@@ -8,6 +9,8 @@ export interface ShotFxShot {
 }
 
 export interface ShotFxHooks {
+  /** Au départ du missile : son, compteur de résolution en salve. */
+  onLaunch?: (shot: ShotFxShot) => void;
   /** À l'impact : révéler la case sur la grille cible. */
   onImpact: (shot: ShotFxShot) => void;
   /** Afficher / masquer le callout central. */
@@ -21,6 +24,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * flash sur la plaque du tireur, missile qui suit une trajectoire courbe en ne
  * laissant sa trace que derrière lui, explosion ou plouf sur la case, puis le
  * callout. Dessin en CSS/SVG (classes de `mockup.css`), positions mesurées dans le DOM.
+ * Les tirs d'une salve s'enchaînent dans l'ordre reçu : une file, jamais deux à la fois.
  */
 export class ShotFx {
   private queue: Promise<void> = Promise.resolve();
@@ -42,7 +46,12 @@ export class ShotFx {
   }
 
   play(shot: ShotFxShot, revealDelayMs: number, layout: 'p2' | 'p3' | ''): Promise<void> {
-    const run = this.queue.then(() => this.run(shot, revealDelayMs, layout));
+    return this.enqueue(() => this.run(shot, revealDelayMs, layout));
+  }
+
+  /** Place une annonce (élimination…) dans la file, après les tirs déjà en attente. */
+  enqueue(step: () => Promise<void>): Promise<void> {
+    const run = this.queue.then(() => (this.disposed ? undefined : step()));
     this.queue = run.catch(() => undefined);
     return run;
   }
@@ -83,6 +92,7 @@ export class ShotFx {
     const hot = this.$('.fx .hot') as SVGPathElement | null;
     const boom = this.$('.fx .boom');
     const splash = this.$('.fx .splash');
+    this.hooks.onLaunch?.(shot);
     if (!plate || !cell || !missile || !trail || !glow || !hot || !boom || !splash) {
       // Écran pas encore prêt : on révèle et on annonce sans animer.
       this.hooks.onImpact(shot);
@@ -101,7 +111,7 @@ export class ShotFx {
 
     // 1. Départ
     replay(plate.parentElement!, 'launch');
-    this.$('.centre .turn')?.classList.add('dim');
+    this.$('.centre .dimmable')?.classList.add('dim');
     await this.fly(d, flight, { missile, trail, glow, hot });
     if (this.disposed) return;
 
@@ -136,7 +146,7 @@ export class ShotFx {
     fx.classList.remove('go');
     await sleep(250);
     targetZone?.classList.remove('impact', 'wet');
-    this.$('.centre .turn')?.classList.remove('dim');
+    this.$('.centre .dimmable')?.classList.remove('dim');
   }
 
   private fly(

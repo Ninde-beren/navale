@@ -4,6 +4,7 @@ import { getSession } from '../../shared/session.js';
 import { useGameSocket } from '../../shared/socket.js';
 import { useGame } from '../../shared/store.js';
 import { Notice } from '../../shared/ui/Notice.js';
+import { useWakeLock } from '../../shared/useWakeLock.js';
 import { BoardFinished } from './BoardFinished.js';
 import { BoardLobby } from './BoardLobby.js';
 import { BoardPlaying } from './BoardPlaying.js';
@@ -17,6 +18,8 @@ export function Board() {
     `board:${code}`,
   );
   const { view, conn, error } = useGame();
+  // La table reste allumée du lobby à la fin de partie (E6-S10).
+  const wake = useWakeLock(view?.status === 'LOBBY' || view?.status === 'PLAYING');
 
   if (conn === 'rejected') {
     return (
@@ -43,9 +46,9 @@ export function Board() {
     view.status === 'LOBBY' ? (
       <BoardLobby view={view} socket={socket} />
     ) : view.status === 'PLAYING' ? (
-      <BoardPlaying view={view} socket={socket} layout={layout} />
+      <BoardPlaying key={view.gameId} view={view} socket={socket} layout={layout} />
     ) : view.status === 'FINISHED' ? (
-      <BoardFinished view={view} socket={socket} />
+      <BoardFinished key={view.gameId} view={view} socket={socket} />
     ) : (
       <div className="finish">
         <h1>Partie annulée</h1>
@@ -60,6 +63,9 @@ export function Board() {
           <div className="chip out" style={{ position: 'absolute', right: 32, bottom: 32 }}>
             Reconnexion…
           </div>
+        )}
+        {(wake === 'denied' || wake === 'unsupported') && (
+          <div className="chip plain wake-hint">Pense à garder l’écran allumé</div>
         )}
       </main>
     </div>

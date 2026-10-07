@@ -14,6 +14,8 @@ interface GameStore {
   setConn: (conn: ConnState, error?: { code: string; message: string } | null) => void;
   pushEvent: (env: EventEnvelope) => void;
   setPresence: (playerId: string, connected: boolean) => void;
+  /** Revanche : la connexion bascule sur une nouvelle partie, les événements de l'ancienne ne comptent plus. */
+  switchGame: () => void;
   reset: () => void;
 }
 
@@ -38,6 +40,7 @@ export const useGame = create<GameStore>((set) => ({
           }
         : {},
     ),
+  switchGame: () => set({ events: [] }),
   reset: () => set({ view: null, conn: 'idle', error: null, events: [] }),
 }));
 

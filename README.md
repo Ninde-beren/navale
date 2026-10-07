@@ -18,10 +18,12 @@ Le cahier des charges est dans `../docs/`. Lire `../docs/README.md` puis
 
 ## État
 
-Jalons M1 et M2 livrés : moteur et protocole testés, serveur et application web
-jouables jusqu'au lancement de la partie. Le tir depuis le téléphone et
-l'animation de l'écran central arrivent au jalon M3 (`../docs/07-roadmap.md`).
-Prérequis : Node 22 ou plus (le serveur utilise `node:sqlite`), pnpm 10.
+Jalons M1 à M5 livrés : moteur et protocole testés, serveur et application web
+jouables de bout en bout dans les deux variantes, seul contre des bots ou à
+plusieurs, avec reconnexion, reprise après redémarrage, revanche, sons, Wake
+Lock et PWA installable. Reste le jalon M6, le déploiement
+(`../docs/07-roadmap.md`). Prérequis : Node 22 ou plus (le serveur utilise
+`node:sqlite`), pnpm 10.
 
 ## Commandes
 

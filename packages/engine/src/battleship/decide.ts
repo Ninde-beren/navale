@@ -51,7 +51,7 @@ export function decide(state: GameState, command: Command, ctx: DecideContext): 
     case 'CANCEL_GAME':
       return cancelGame(state, ctx);
     case 'REMATCH':
-      return reject('WRONG_STATE', 'La revanche est orchestrée par le serveur, pas par le moteur.');
+      return rematch(state, ctx);
     case 'REQUEST_SNAPSHOT':
       return ok([]);
   }
@@ -371,6 +371,19 @@ function forceRound(state: GameState, ctx: DecideContext): D {
   }));
   const skipped = round.expectedShooters.filter((id) => !round.committed[id]);
   return ok(resolveAndAdvance(state, shots, skipped, ctx));
+}
+
+/**
+ * La revanche : le moteur décide (hôte, partie terminée, une seule fois) et
+ * nomme la nouvelle partie ; le serveur l'ouvre avec `rematchEvents`.
+ */
+function rematch(state: GameState, ctx: DecideContext): D {
+  const denied = requireHost(ctx);
+  if (denied) return denied;
+  if (state.status !== 'FINISHED')
+    return reject('WRONG_STATE', 'La revanche se lance sur une partie terminée.');
+  if (state.rematchGameId !== null) return reject('WRONG_STATE', 'La revanche est déjà lancée.');
+  return ok([{ type: 'REMATCH_CREATED', newGameId: ctx.newId(), code: state.code }]);
 }
 
 function cancelGame(state: GameState, ctx: DecideContext): D {

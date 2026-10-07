@@ -2,8 +2,10 @@ import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { Socket } from 'socket.io-client';
 import { coordKey } from '@navale/engine';
 import { coordLabel, type Coord, type PlayerView } from '@navale/protocol';
+import { play } from '../../shared/audio.js';
 import { ownGridClasses, publicGridClasses } from '../../shared/cells.js';
 import { sendCommand } from '../../shared/socket.js';
+import { useGame } from '../../shared/store.js';
 import { Avatar, initialOf } from '../../shared/ui/Avatar.js';
 import { Grid } from '../../shared/ui/Grid.js';
 import { Wordmark } from '../../shared/ui/Wordmark.js';
@@ -38,10 +40,24 @@ export function PlayPlaying({
   const timer = left !== null ? ` · ${mmss(left)}` : '';
   const canFire = view.me.canFire && sent !== roundIndex;
   const target = (targetId ? byId.get(targetId) : undefined) ?? legal[0];
+  const salvo = view.settings.variant === 'simultaneous';
+  const events = useGame((s) => s.events);
+  // La résolution de la manche a commencé sur l'écran central (l'instantané suivant n'est pas encore là).
+  const resolving = events.some(
+    (e) => e.event.type === 'SHOT_RESOLVED' && e.event.round === roundIndex,
+  );
+  // Qui a tiré dans la manche : l'instantané, complété par les SHOT_COMMITTED reçus depuis.
+  const committed = new Set(view.round?.committed ?? []);
+  for (const e of events)
+    if (e.event.type === 'SHOT_COMMITTED' && e.event.round === roundIndex)
+      committed.add(e.event.shooterId);
 
-  // Vibration quand mon tour arrive.
+  // Vibration et deux notes quand mon tour arrive.
   useEffect(() => {
-    if (view.me.canFire && !wasMyTurn.current) navigator.vibrate?.([120, 60, 120]);
+    if (view.me.canFire && !wasMyTurn.current) {
+      navigator.vibrate?.([120, 60, 120]);
+      play('turn');
+    }
     wasMyTurn.current = view.me.canFire;
   }, [view.me.canFire]);
   // Nouvelle manche : on repart propre.
@@ -248,23 +264,103 @@ export function PlayPlaying({
     );
   }
 
-  // ---- Attente ----
+  // ---- Salve : tir engagé, en attente des autres (E5-S7) ----
   const pending = view.me.pendingShot;
-  const waitingFor = view.round
-    ? view.round.expectedShooters.length - view.round.committed.length
-    : 0;
+  const shooters = (view.round?.expectedShooters ?? [])
+    .map((id) => byId.get(id))
+    .filter((p) => p !== undefined);
+  const waitingFor = shooters.filter((p) => !committed.has(p.playerId)).length;
+  if (salvo && (pending || sent === roundIndex) && !resolving) {
+    const sealedTarget = pending ? byId.get(pending.targetId) : undefined;
+    return (
+      <div className={`app-phone me-${me.color}`} style={{ padding: '16px 16px 24px', gap: 14 }}>
+        {header}
+        <div>
+          <h1 className="h1">Tir engagé</h1>
+          <p className="muted">
+            Manche {roundIndex + 1} · Salve ·{' '}
+            {waitingFor > 0 ? (
+              <>
+                en attente de{' '}
+                <b style={{ color: 'var(--text)' }}>
+                  {waitingFor} joueur{waitingFor > 1 ? 's' : ''}
+                </b>
+              </>
+            ) : (
+              'tout le monde a tiré'
+            )}
+          </p>
+        </div>
+        <div className="panel waitrow">
+          <div className="waiting">
+            {shooters.map((p) => (
+              <span
+                key={p.playerId}
+                className={committed.has(p.playerId) ? 'done' : 'pending'}
+                title={`${p.name} · ${committed.has(p.playerId) ? 'a tiré' : 'choisit'}`}
+              >
+                <Avatar
+                  color={p.color}
+                  initial={initialOf(p.name)}
+                  size="sm"
+                  bot={p.kind === 'bot'}
+                />
+              </span>
+            ))}
+          </div>
+          {left !== null && (
+            <div className="tright">
+              <div className="mono">{mmss(left)}</div>
+              <div className="hint">avant résolution</div>
+            </div>
+          )}
+        </div>
+        {pending && (
+          <div className={`panel sealed c-${sealedTarget?.color ?? me.color}`}>
+            <svg className="ico" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="5" y="11" width="14" height="10" rx="2" />
+              <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+            </svg>
+            <div>
+              <div className="line">
+                Ton tir : <b className="mono">{coordLabel(pending.coord)}</b> sur{' '}
+                <span className="pc">{name(pending.targetId)}</span>
+              </div>
+              <div className="hint">Scellé. Personne ne le voit avant la résolution.</div>
+            </div>
+          </div>
+        )}
+        <div className="flex justify-center">
+          <Grid
+            width={view.settings.grid.width}
+            height={view.settings.grid.height}
+            cellClass={ownGridClasses(view.me.fleet, me.revealed)}
+            label="Ma flotte"
+          />
+        </div>
+        <p className="look">
+          <svg className="ico" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="12" rx="2" />
+            <path d="M8 21h8" />
+          </svg>
+          La résolution se joue sur l'écran central.
+        </p>
+      </div>
+    );
+  }
+
+  // ---- Attente ----
   const headline =
-    pending || sent === roundIndex
-      ? view.settings.variant === 'simultaneous' && waitingFor > 0
-        ? 'Tir engagé'
-        : 'Regarde l’écran'
+    pending || sent === roundIndex || resolving
+      ? 'Regarde l’écran'
       : active
         ? `Au tour de ${active.name}`
         : 'Regarde l’écran';
-  const sub =
-    pending && view.settings.variant === 'simultaneous' && waitingFor > 0
-      ? `En attente de ${waitingFor} joueur${waitingFor > 1 ? 's' : ''} · ton tir : ${coordLabel(pending.coord)} sur ${name(pending.targetId)}`
-      : `Manche ${roundIndex + 1} · ${view.me.cellsRemaining} cases intactes${timer}`;
+  const sub = resolving
+    ? salvo
+      ? 'Résolution de la salve en cours'
+      : 'Résolution du tir'
+    : `Manche ${roundIndex + 1} · ${view.me.cellsRemaining} cases intactes${timer}`;
   return (
     <div className={`app-phone me-${me.color}`} style={{ padding: '16px 16px 24px', gap: 16 }}>
       {header}

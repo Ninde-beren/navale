@@ -1,11 +1,33 @@
-import type { RefObject } from 'react';
+import { useEffect, useState, type RefObject } from 'react';
+import { Link } from 'react-router';
 import type { Socket } from 'socket.io-client';
+import { play } from '../../shared/audio.js';
+import { sendCommand } from '../../shared/socket.js';
 import type { View } from '../../shared/store.js';
+import { SoundButton } from '../../shared/ui/SoundButton.js';
 
-export function BoardFinished({ view }: { view: View; socket: RefObject<Socket | null> }) {
+/** Fin de partie : vainqueur, classement, et la revanche pour l'hôte (mêmes joueurs, même code). */
+export function BoardFinished({ view, socket }: { view: View; socket: RefObject<Socket | null> }) {
   const ranking = view.ranking ?? [];
   const name = (id: string) => view.players.find((p) => p.playerId === id)?.name ?? '?';
   const winner = ranking.find((r) => r.rank === 1);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    play('victory');
+  }, []);
+
+  const rematch = async () => {
+    setBusy(true);
+    setError(null);
+    const ack = await sendCommand(socket.current, { type: 'REMATCH' });
+    if (!ack.ok) {
+      setError(ack.error.message);
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="finish">
       <h1
@@ -37,7 +59,22 @@ export function BoardFinished({ view }: { view: View; socket: RefObject<Socket |
           ))}
         </tbody>
       </table>
-      <p className="muted">La revanche arrive au jalon M5.</p>
+      <div className="actions">
+        {view.isHost ? (
+          <>
+            <button className="btn primary xl" disabled={busy} onClick={() => void rematch()}>
+              {busy ? 'Revanche…' : 'Revanche'}
+            </button>
+            <Link className="btn ghost" to="/create">
+              Nouvelle partie
+            </Link>
+          </>
+        ) : (
+          <p className="muted">L’hôte peut lancer une revanche : mêmes joueurs, même code.</p>
+        )}
+        <SoundButton />
+      </div>
+      {error && <p className="hint err">{error}</p>}
     </div>
   );
 }

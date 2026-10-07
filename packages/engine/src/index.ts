@@ -41,6 +41,7 @@ export {
 } from './battleship/rules/resolve.js';
 export { computeRanking, isFinishedAfterRound, statsOf } from './battleship/rules/end.js';
 export { decide } from './battleship/decide.js';
+export { rematchEvents } from './battleship/rematch.js';
 export { evolve } from './battleship/evolve.js';
 export { projectPrivate, projectPublic } from './battleship/project.js';
 export { battleship, initialState } from './battleship/index.js';

@@ -45,6 +45,7 @@ export function CreateGame() {
   const [preset, setPreset] = useState<PresetId | null>(null);
   const [sunkReveal, setSunkReveal] = useState<SunkReveal>('classic');
   const [timer, setTimer] = useState<'none' | '45' | '90'>('none');
+  const [timerTouched, setTimerTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const effectivePreset = preset ?? defaultPresetFor(maxPlayers);
@@ -89,7 +90,11 @@ export function CreateGame() {
             ['sequential', 'Tour par tour'],
             ['simultaneous', 'Salve'],
           ]}
-          onChange={setVariant}
+          onChange={(v) => {
+            setVariant(v);
+            // Proposé par défaut : 45 s en salve, aucun chrono en tour par tour.
+            if (!timerTouched) setTimer(v === 'simultaneous' ? '45' : 'none');
+          }}
         />
         <p className="hint">
           {variant === 'sequential'
@@ -154,7 +159,10 @@ export function CreateGame() {
             ['45', '45 s'],
             ['90', '90 s'],
           ]}
-          onChange={setTimer}
+          onChange={(v) => {
+            setTimer(v);
+            setTimerTouched(true);
+          }}
         />
       </div>
       {error && <p className="hint err">{error}</p>}

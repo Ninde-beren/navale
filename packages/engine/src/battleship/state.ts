@@ -50,6 +50,8 @@ export interface GameState {
   finishedAt: number | null;
   /** Siège du dernier tireur attendu en séquentiel, pour faire tourner le tour. */
   lastShooterSeat: number | null;
+  /** Identifiant de la revanche, une fois lancée : on n'en lance qu'une. */
+  rematchGameId: string | null;
   /** Numéro du dernier événement appliqué. */
   seq: number;
 }

@@ -1,6 +1,11 @@
 import { battleship, chooseShot } from '@navale/engine';
-import type { EventEnvelope, GameEventOf } from '@navale/protocol';
+import type { EventEnvelope, GameEventOf, Variant } from '@navale/protocol';
 import type { GameRuntime } from './game-runtime.js';
+
+/** Réflexion : 1 à 2 s après son tour en séquentiel, 1 à 3 s après l'ouverture de la manche en salve. */
+export function defaultThinkMs(variant: Variant): number {
+  return 1000 + Math.random() * (variant === 'simultaneous' ? 2000 : 1000);
+}
 
 /**
  * Pilote des bots : à chaque manche où un bot est attendu, attend la fin de la
@@ -11,7 +16,7 @@ export class BotDriver {
   private readonly timers = new Map<string, NodeJS.Timeout>();
 
   constructor(
-    private readonly thinkMs: () => number = () => 1000 + Math.random() * 1000,
+    private readonly thinkMs: (variant: Variant) => number = defaultThinkMs,
     private readonly log: (msg: string) => void = () => undefined,
   ) {}
 
@@ -54,10 +59,13 @@ export class BotDriver {
       const key = `${runtime.gameId}:${id}`;
       const existing = this.timers.get(key);
       if (existing) clearTimeout(existing);
-      const timer = setTimeout(() => {
-        this.timers.delete(key);
-        void this.fire(runtime, id, roundIndex);
-      }, baseDelay + this.thinkMs());
+      const timer = setTimeout(
+        () => {
+          this.timers.delete(key);
+          void this.fire(runtime, id, roundIndex);
+        },
+        baseDelay + this.thinkMs(runtime.state.settings.variant),
+      );
       this.timers.set(key, timer);
     }
   }

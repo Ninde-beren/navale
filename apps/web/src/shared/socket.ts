@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import type { Ack, Command, EventEnvelope } from '@navale/protocol';
+import { saveSession } from './session.js';
 import { useGame, type View } from './store.js';
 
 export type SocketAuth =
@@ -28,6 +29,10 @@ export function openSocket(auth: SocketAuth): Socket {
   socket.on('rejected', (err: { code: string; message: string }) =>
     useGame.getState().setConn('rejected', err),
   );
+  socket.on('rematch', (r: { gameId: string; code: string }) => {
+    useGame.getState().switchGame();
+    saveSession(r.code, { gameId: r.gameId });
+  });
   socket.on('removed', () =>
     useGame
       .getState()

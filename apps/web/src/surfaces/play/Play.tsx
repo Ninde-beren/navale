@@ -4,6 +4,7 @@ import { getSession, saveSession, clearPlayer } from '../../shared/session.js';
 import { useGameSocket } from '../../shared/socket.js';
 import { isPlayerView, useGame } from '../../shared/store.js';
 import { Notice } from '../../shared/ui/Notice.js';
+import { useWakeLock } from '../../shared/useWakeLock.js';
 import { Join } from './Join.js';
 import { Placement } from './Placement.js';
 import { PlayPlaying } from './PlayPlaying.js';
@@ -23,6 +24,8 @@ export function Play() {
     : ({ kind: 'join', code } as const);
   const socket = useGameSocket(auth, `${auth.kind}:${code}:${generation}`);
   const { view, conn, error } = useGame();
+  // Le téléphone reste allumé pendant la partie : pas de tour manqué (E7-S3).
+  const wake = useWakeLock(view?.status === 'PLAYING');
 
   if (conn === 'rejected') {
     if (error?.code === 'TOKEN_INVALID' && session.playerToken) {
@@ -94,6 +97,11 @@ export function Play() {
         <div className="reconnecting">Connexion perdue · reconnexion…</div>
       )}
       {screen}
+      {view.status === 'PLAYING' &&
+        conn !== 'disconnected' &&
+        (wake === 'denied' || wake === 'unsupported') && (
+          <div className="wake-toast">Pense à garder l’écran allumé</div>
+        )}
     </>
   );
 }
