@@ -29,11 +29,21 @@ export function Board() {
   }
   if (!view) return <Notice title="Connexion…" />;
 
+  const n = view.players.length;
+  const layout: 'p2' | 'p3' | '' =
+    view.status === 'PLAYING' || view.status === 'FINISHED'
+      ? n <= 2
+        ? 'p2'
+        : n === 3
+          ? 'p3'
+          : ''
+      : '';
+
   const screen =
     view.status === 'LOBBY' ? (
       <BoardLobby view={view} socket={socket} />
     ) : view.status === 'PLAYING' ? (
-      <BoardPlaying view={view} socket={socket} />
+      <BoardPlaying view={view} socket={socket} layout={layout} />
     ) : view.status === 'FINISHED' ? (
       <BoardFinished view={view} socket={socket} />
     ) : (
@@ -42,15 +52,6 @@ export function Board() {
       </div>
     );
 
-  const n = view.players.length;
-  const layout =
-    view.status === 'PLAYING' || view.status === 'FINISHED'
-      ? n <= 2
-        ? 'p2'
-        : n === 3
-          ? 'p3'
-          : ''
-      : '';
   return (
     <div className="stage">
       <main className={`screen tv v2 ${layout}`}>

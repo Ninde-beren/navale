@@ -8,7 +8,11 @@ export function BoardFinished({ view }: { view: View; socket: RefObject<Socket |
   const winner = ranking.find((r) => r.rank === 1);
   return (
     <div className="finish">
-      <h1>{winner ? `Victoire de ${name(winner.playerId)}` : 'Égalité'}</h1>
+      <h1
+        className={`c-${(winner && view.players.find((p) => p.playerId === winner.playerId)?.color) ?? 'blue'} pc`}
+      >
+        {winner ? `Victoire de ${name(winner.playerId)}` : 'Égalité'}
+      </h1>
       <table>
         <thead>
           <tr>

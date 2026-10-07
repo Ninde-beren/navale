@@ -45,3 +45,4 @@ export { evolve } from './battleship/evolve.js';
 export { projectPrivate, projectPublic } from './battleship/project.js';
 export { battleship, initialState } from './battleship/index.js';
 export { BOT_NAMES } from './battleship/bot/names.js';
+export { chooseShot, woundedCells, type BotShot } from './battleship/bot/strategy.js';

@@ -1,46 +1,271 @@
-import type { RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { Socket } from 'socket.io-client';
-import { coordLabel, type PlayerView } from '@navale/protocol';
-import { ownGridClasses } from '../../shared/cells.js';
+import { coordKey } from '@navale/engine';
+import { coordLabel, type Coord, type PlayerView } from '@navale/protocol';
+import { ownGridClasses, publicGridClasses } from '../../shared/cells.js';
+import { sendCommand } from '../../shared/socket.js';
+import { Avatar, initialOf } from '../../shared/ui/Avatar.js';
 import { Grid } from '../../shared/ui/Grid.js';
 import { Wordmark } from '../../shared/ui/Wordmark.js';
 
 const RESULT = { MISS: 'RATÉ', HIT: 'TOUCHÉ', SUNK: 'COULÉ' } as const;
 
-/**
- * Téléphone pendant la partie. Jalon M2 : ma grille, mes dégâts, l'état du tour.
- * Le choix de la cible et le tir arrivent au jalon M3.
- */
-export function PlayPlaying({ view }: { view: PlayerView; socket: RefObject<Socket | null> }) {
+/** Téléphone pendant la partie : viser et tirer quand c'est mon tour, suivre ma flotte sinon. */
+export function PlayPlaying({
+  view,
+  socket,
+}: {
+  view: PlayerView;
+  socket: RefObject<Socket | null>;
+}) {
   const me = view.players.find((p) => p.playerId === view.me.playerId)!;
-  const active = view.round?.activePlayerId
-    ? view.players.find((p) => p.playerId === view.round?.activePlayerId)
-    : undefined;
-  const name = (id: string) => view.players.find((p) => p.playerId === id)?.name ?? '?';
+  const byId = new Map(view.players.map((p) => [p.playerId, p]));
+  const name = (id: string) => byId.get(id)?.name ?? '?';
+  const active = view.round?.activePlayerId ? byId.get(view.round.activePlayerId) : undefined;
+  const legal = view.me.legalTargets.map((id) => byId.get(id)).filter((p) => p !== undefined);
+
+  const [targetId, setTargetId] = useState<string | null>(null);
+  const [cell, setCell] = useState<Coord | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [tab, setTab] = useState<'aim' | 'mine'>('aim');
+  const [sent, setSent] = useState<number | null>(null); // manche du tir envoyé, en attente de l'écran
+  const [error, setError] = useState<string | null>(null);
+  const wasMyTurn = useRef(false);
+
+  const roundIndex = view.round?.index ?? -1;
+  const canFire = view.me.canFire && sent !== roundIndex;
+  const target = (targetId ? byId.get(targetId) : undefined) ?? legal[0];
+
+  // Vibration quand mon tour arrive.
+  useEffect(() => {
+    if (view.me.canFire && !wasMyTurn.current) navigator.vibrate?.([120, 60, 120]);
+    wasMyTurn.current = view.me.canFire;
+  }, [view.me.canFire]);
+  // Nouvelle manche : on repart propre.
+  useEffect(() => {
+    setCell(null);
+    setConfirming(false);
+    setTab('aim');
+  }, [roundIndex]);
+
+  const fire = async () => {
+    if (!target || !cell) return;
+    setError(null);
+    const ack = await sendCommand(socket.current, {
+      type: 'FIRE',
+      targetId: target.playerId,
+      coord: cell,
+    });
+    setConfirming(false);
+    if (ack.ok) setSent(roundIndex);
+    else setError(ack.error.message);
+  };
+
+  const header = (
+    <div className="flex items-center justify-between">
+      <Wordmark />
+      <span className="chip plain">{view.code}</span>
+    </div>
+  );
+  const myShotsOn = (id: string) =>
+    new Set(view.me.shotsFired.filter((s) => s.targetId === id).map((s) => coordKey(s.coord)));
+
+  // ---- Fin de partie / éliminé ----
+  if (view.status === 'FINISHED' || me.status === 'ELIMINATED') {
+    const rank = me.rank ?? view.ranking?.find((r) => r.playerId === me.playerId)?.rank ?? null;
+    const stats = view.ranking?.find((r) => r.playerId === me.playerId);
+    return (
+      <div className={`app-phone me-${me.color}`} style={{ padding: '16px 16px 24px', gap: 16 }}>
+        {header}
+        <div>
+          <h1 className={`state ${rank === 1 ? 'me' : ''}`}>
+            {view.status === 'FINISHED'
+              ? rank === 1
+                ? 'Victoire !'
+                : `${rank ?? '?'}e sur ${view.players.length}`
+              : 'Tu es éliminé'}
+          </h1>
+          <p className="muted">
+            {view.status === 'FINISHED'
+              ? 'La partie est terminée.'
+              : 'La partie continue sans toi.'}
+          </p>
+        </div>
+        <div className="flex justify-center">
+          <Grid
+            width={view.settings.grid.width}
+            height={view.settings.grid.height}
+            cellClass={ownGridClasses(view.me.fleet, me.revealed)}
+            className="dim"
+            label="Ma flotte"
+          />
+        </div>
+        {stats && (
+          <div className="panel flex flex-col gap-2">
+            <div className="kv">
+              <span>Tirs</span>
+              <b>{stats.shotsFired}</b>
+            </div>
+            <div className="kv">
+              <span>Touches</span>
+              <b>{stats.hits}</b>
+            </div>
+            <div className="kv">
+              <span>Précision</span>
+              <b>{Math.round(stats.accuracy * 100)} %</b>
+            </div>
+            <div className="kv">
+              <span>Coulés</span>
+              <b>{stats.shipsSunk}</b>
+            </div>
+          </div>
+        )}
+        <a className="btn ghost" href={`/board/${view.code}`} target="_blank" rel="noreferrer">
+          Regarder l'écran central
+        </a>
+      </div>
+    );
+  }
+
+  // ---- Mon tour : viser ----
+  if (canFire && target) {
+    const mine = myShotsOn(target.playerId);
+    const revealed = new Set(target.revealed.map((r) => coordKey(r.coord)));
+    const classes = publicGridClasses(target.revealed, target.sunkShips);
+    return (
+      <div className={`app-phone me-${me.color}`} style={{ padding: '16px 16px 24px', gap: 14 }}>
+        {header}
+        <div>
+          <h1 className="state me">À toi</h1>
+          <p className="muted">Manche {roundIndex + 1} · choisis une cible, puis une case.</p>
+        </div>
+        <div className="tabs">
+          <button type="button" className={tab === 'aim' ? 'on' : ''} onClick={() => setTab('aim')}>
+            Viser
+          </button>
+          <button
+            type="button"
+            className={tab === 'mine' ? 'on' : ''}
+            onClick={() => setTab('mine')}
+          >
+            Ma flotte
+          </button>
+        </div>
+        {tab === 'mine' ? (
+          <div className="flex justify-center">
+            <Grid
+              width={view.settings.grid.width}
+              height={view.settings.grid.height}
+              cellClass={ownGridClasses(view.me.fleet, me.revealed)}
+              label="Ma flotte"
+            />
+          </div>
+        ) : (
+          <>
+            {legal.length > 1 && (
+              <div className="targets">
+                {legal.map((p) => (
+                  <button
+                    key={p.playerId}
+                    type="button"
+                    className={`c-${p.color} ${p.playerId === target.playerId ? 'on' : ''}`}
+                    onClick={() => {
+                      setTargetId(p.playerId);
+                      setCell(null);
+                    }}
+                  >
+                    <Avatar
+                      color={p.color}
+                      initial={initialOf(p.name)}
+                      size="sm"
+                      bot={p.kind === 'bot'}
+                    />
+                    {p.name}
+                    <small>
+                      {p.shipsRemaining} bateau{p.shipsRemaining > 1 ? 'x' : ''}
+                    </small>
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className={`flex justify-center c-${target.color}`}>
+              <Grid
+                width={view.settings.grid.width}
+                height={view.settings.grid.height}
+                label={`Grille de ${target.name}`}
+                cellClass={(x, y) => {
+                  const k = coordKey({ x, y });
+                  return `${classes(x, y)} ${mine.has(k) ? 'mine' : ''} ${cell && cell.x === x && cell.y === y ? 'sel' : ''}`;
+                }}
+                onPointerUp={(c) => {
+                  if (!c || revealed.has(coordKey(c))) return;
+                  setCell(c);
+                }}
+              />
+            </div>
+            <p className="hint">
+              {legal.length > 1 ? `Cible : ${target.name} · ` : ''}
+              {cell ? `case ${coordLabel(cell)}` : 'tape une case non révélée'}
+            </p>
+          </>
+        )}
+        {error && <p className="hint err">{error}</p>}
+        <button
+          className="btn xl me"
+          type="button"
+          disabled={!cell || tab === 'mine'}
+          onClick={() => setConfirming(true)}
+        >
+          {cell ? `Tirer en ${coordLabel(cell)}` : 'Choisis une case'}
+        </button>
+        {confirming && cell && (
+          <>
+            <div className="sheet-scrim" onClick={() => setConfirming(false)} />
+            <div className="sheet" role="dialog" aria-modal="true">
+              <h2>
+                Tirer en {coordLabel(cell)} sur {target.name} ?
+              </h2>
+              <p className="muted">
+                Le tir est définitif. Regarde l'écran central pour le résultat.
+              </p>
+              <div className="ph-row">
+                <button className="btn ghost" type="button" onClick={() => setConfirming(false)}>
+                  Annuler
+                </button>
+                <button className="btn me" type="button" onClick={() => void fire()}>
+                  Tirer
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // ---- Attente ----
+  const pending = view.me.pendingShot;
+  const waitingFor = view.round
+    ? view.round.expectedShooters.length - view.round.committed.length
+    : 0;
   const headline =
-    view.status === 'FINISHED'
-      ? me.rank === 1
-        ? 'Victoire !'
-        : `${me.rank ?? '?'}e sur ${view.players.length}`
-      : me.status === 'ELIMINATED'
-        ? 'Tu es éliminé'
-        : view.me.canFire
-          ? 'À toi'
-          : active
-            ? `Au tour de ${active.name}`
-            : 'Regarde l’écran';
+    pending || sent === roundIndex
+      ? view.settings.variant === 'simultaneous' && waitingFor > 0
+        ? 'Tir engagé'
+        : 'Regarde l’écran'
+      : active
+        ? `Au tour de ${active.name}`
+        : 'Regarde l’écran';
+  const sub =
+    pending && view.settings.variant === 'simultaneous' && waitingFor > 0
+      ? `En attente de ${waitingFor} joueur${waitingFor > 1 ? 's' : ''} · ton tir : ${coordLabel(pending.coord)} sur ${name(pending.targetId)}`
+      : `Manche ${roundIndex + 1} · ${view.me.cellsRemaining} cases intactes`;
   return (
     <div className={`app-phone me-${me.color}`} style={{ padding: '16px 16px 24px', gap: 16 }}>
-      <div className="flex items-center justify-between">
-        <Wordmark />
-        <span className="chip plain">{view.code}</span>
-      </div>
+      {header}
       <div>
-        <h1 className={`state ${view.me.canFire ? 'me' : ''}`}>{headline}</h1>
-        <p className="muted">
-          Manche {(view.round?.index ?? 0) + 1} · {view.me.cellsRemaining} cases intactes
-          {view.me.canFire && ' · le tir arrive au jalon M3'}
-        </p>
+        <h1 className="state state-pulse">{headline}</h1>
+        <p className="muted">{sub}</p>
       </div>
       <div className="flex justify-center">
         <Grid
@@ -48,7 +273,6 @@ export function PlayPlaying({ view }: { view: PlayerView; socket: RefObject<Sock
           height={view.settings.grid.height}
           cellClass={ownGridClasses(view.me.fleet, me.revealed)}
           label="Ma flotte"
-          className={me.status === 'ELIMINATED' ? 'dim' : ''}
         />
       </div>
       <div className="panel flex flex-col gap-2">

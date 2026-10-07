@@ -13,7 +13,8 @@ export function openSocket(auth: SocketAuth): Socket {
   const store = useGame.getState();
   store.reset();
   store.setConn('connecting');
-  const socket = io({ auth, transports: ['websocket', 'polling'] });
+  // Polling d'abord, puis montée en WebSocket si possible : si la montée échoue, la connexion reste.
+  const socket = io({ auth, transports: ['polling', 'websocket'] });
   socket.on('connect', () => useGame.getState().setConn('connected'));
   socket.on('disconnect', () => {
     const { conn } = useGame.getState();
