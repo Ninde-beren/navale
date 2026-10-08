@@ -71,14 +71,14 @@
 }
 @media (min-width: 960px) {
   .home-hero-grid {
-    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }
 .home-hero h1 {
-  font: 800 clamp(38px, 5.2vw, 70px)/1.02 var(--font-display);
+  font: 800 clamp(38px, 4.6vw, 64px)/1.02 var(--font-display);
   letter-spacing: -0.03em;
   text-wrap: balance;
-  max-width: 13ch;
+  max-width: 18ch;
 }
 .home-lede {
   margin-top: 20px;
@@ -102,27 +102,10 @@
   font-size: 15px;
   max-width: 40ch;
 }
-/* Chaque point porte sa goutte d'eau : pas de séparateur orphelin quand la ligne se coupe */
 .home-facts {
   margin-top: 28px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 20px;
-  font: 500 15px/1.2 var(--font-body);
+  font: 500 15px/1.4 var(--font-body);
   color: var(--text-2);
-}
-.home-facts span {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;
-}
-.home-facts span::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--miss);
 }
 
 /* ---- La scène : écran central et téléphone, dessinés à taille fixe puis réduits ---- */
@@ -485,29 +468,25 @@
   color: var(--text);
 }
 
-/* Ce que l'écran central change à table */
+/* Bon à savoir : trois phrases, chacune sous son filet */
 .home-points {
+  list-style: none;
   margin: clamp(32px, 4vw, 48px) 0 0;
+  padding: 0;
   display: grid;
-  gap: 28px 48px;
+  gap: 24px 48px;
 }
-@media (min-width: 768px) {
+@media (min-width: 900px) {
   .home-points {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
-.home-points > div {
+.home-points li {
   padding-top: 20px;
   border-top: 1px solid var(--line-strong);
-}
-.home-points dt {
-  font: 700 21px/1.2 var(--font-display);
-  letter-spacing: -0.01em;
-}
-.home-points dd {
-  margin: 8px 0 0;
-  color: var(--text-2);
-  max-width: 46ch;
+  font-size: 18px;
+  line-height: 1.45;
+  max-width: 40ch;
 }
 
 /* Fin de page : la même action qu'en haut */
@@ -522,6 +501,9 @@
 .home-final .btn {
   margin-top: 32px;
 }
+.home-final h2 {
+  max-width: none;
+}
 
 /* ---- Image d'aperçu de lien (OgCard), photographiée en 1200×630 ---- */
 .home-scene-callout.still {
@@ -533,7 +515,7 @@
   overflow: hidden;
   position: relative;
   display: grid;
-  grid-template-columns: 470px 1fr;
+  grid-template-columns: 540px 1fr;
   align-items: center;
   gap: 40px;
   padding: 0 56px 0 64px;
@@ -561,7 +543,7 @@
   font-size: 30px;
 }
 .og-card-text h1 {
-  font: 800 64px/1.02 var(--font-display);
+  font: 800 58px/1.02 var(--font-display);
   letter-spacing: -0.03em;
   text-wrap: balance;
 }

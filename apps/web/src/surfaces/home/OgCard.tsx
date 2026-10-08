@@ -15,8 +15,16 @@ export function OgCard() {
     <div className="og-card">
       <div className="og-card-text">
         <Wordmark />
-        <h1>La bataille navale qui se joue autour de la table.</h1>
-        <p>Un écran au centre pour tout le monde, un téléphone par joueur pour ses secrets.</p>
+        <h1>
+          Bataille navale
+          <br />
+          autour de la table
+        </h1>
+        <p>
+          L'écran central affiche les grilles.
+          <br />
+          Chacun joue sur son téléphone.
+        </p>
       </div>
       <TableScene still={1} />
     </div>

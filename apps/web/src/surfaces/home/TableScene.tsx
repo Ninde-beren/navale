@@ -129,7 +129,7 @@ export function TableScene({ still }: { still?: number }) {
     <div
       className="home-scene"
       role="img"
-      aria-label="Une partie à trois : l'écran central montre les grilles de Julie, Marc et Inès, le téléphone d'Inès montre sa flotte."
+      aria-label="Exemple de partie à trois. Les grilles de Julie, Marc et Inès sur l'écran central, et le téléphone d'Inès avec ses bateaux."
     >
       <div className="home-scene-stage" aria-hidden="true">
         <div className="home-tv">

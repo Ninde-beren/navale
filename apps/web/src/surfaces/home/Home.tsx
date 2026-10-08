@@ -35,17 +35,13 @@ export function Home() {
           </div>
           <div className="home-hero-grid">
             <div className="home-hero-text">
-              <h1>La bataille navale qui se joue autour de la table.</h1>
+              <h1>Bataille navale autour de la table</h1>
               <p className="home-lede">
-                Un écran au centre pour tout le monde, un téléphone par joueur pour ses secrets.
+                L'écran central affiche les grilles. Chacun place ses bateaux et tire depuis son
+                téléphone.
               </p>
               {phone ? <JoinForm formRef={joinRef} /> : <CreateAction />}
-              <p className="home-facts">
-                <span>2 à 4 joueurs</span>
-                <span>Sans compte</span>
-                <span>Sans installation</span>
-                <span>Tour par tour ou salve</span>
-              </p>
+              <p className="home-facts">De 2 à 4 joueurs, sans appli à installer.</p>
             </div>
             <TableScene />
           </div>
@@ -55,23 +51,17 @@ export function Home() {
       <main>
         <section className="home-section" aria-labelledby="home-steps">
           <div className="home-wrap">
-            <h2 id="home-steps">Une partie, de la création au premier tir</h2>
+            <h2 id="home-steps">Comment on joue</h2>
             <ol className="home-steps">
               <li className="home-step">
                 <span className="home-step-n">1</span>
-                <h3>Crée la partie sur l'écran central</h3>
-                <p>
-                  Une TV, un portable ou une tablette que toute la table voit. Tu choisis la
-                  variante, le nombre de joueurs et la flotte.
-                </p>
+                <h3>Crée la partie</h3>
+                <p>Ouvre Navale sur la télé, l'ordinateur ou la tablette que tout le monde voit.</p>
               </li>
               <li className="home-step">
                 <span className="home-step-n">2</span>
-                <h3>Chacun rejoint avec son téléphone</h3>
-                <p>
-                  En scannant le QR code, ou en tapant le code de 4 lettres. Ni I ni O, pour qu'on
-                  ne les confonde jamais.
-                </p>
+                <h3>Rejoins avec ton téléphone</h3>
+                <p>Scanne le QR code de l'écran central, ou tape le code de 4 lettres.</p>
                 <span className="home-code" aria-hidden="true">
                   <b>K</b>
                   <b>R</b>
@@ -81,18 +71,17 @@ export function Home() {
               </li>
               <li className="home-step">
                 <span className="home-step-n">3</span>
-                <h3>Place ta flotte en secret</h3>
+                <h3>Place tes bateaux</h3>
                 <p>
-                  Au doigt, sur ton téléphone : glisse pour déplacer, tape pour pivoter. Personne
-                  d'autre ne la voit, pas même l'écran central.
+                  Glisse un bateau pour le déplacer, tape dessus pour le tourner. Personne d'autre
+                  ne voit ta grille.
                 </p>
               </li>
               <li className="home-step">
                 <span className="home-step-n">4</span>
-                <h3>Tire, puis lève les yeux</h3>
+                <h3>Tire</h3>
                 <p>
-                  Tu vises depuis ton téléphone, le serveur arbitre, et le résultat s'affiche en
-                  grand sur l'écran central, pour tout le monde.
+                  Choisis une case sur ton téléphone. Le résultat s'affiche sur l'écran central.
                 </p>
               </li>
             </ol>
@@ -102,16 +91,11 @@ export function Home() {
         <section className="home-section" aria-labelledby="home-variants">
           <div className="home-wrap">
             <h2 id="home-variants">Deux façons de jouer</h2>
-            <p className="home-section-lede">
-              La variante se choisit à la création de la partie. Le reste ne change pas.
-            </p>
+            <p className="home-section-lede">Tu choisis en créant la partie.</p>
             <div className="home-variants">
               <article className="home-variant">
                 <h3>Tour par tour</h3>
-                <p>
-                  Un joueur tire à la fois, dans l'ordre de la table. Il choisit un adversaire, une
-                  case, confirme, et toute la table suit le tir sur l'écran central.
-                </p>
+                <p>Chacun tire à son tour, comme dans le jeu classique.</p>
                 <div className="home-moment" aria-hidden="true">
                   <span className="c-yellow">
                     Au tour de <b>Julie</b>
@@ -121,9 +105,8 @@ export function Home() {
               <article className="home-variant">
                 <h3>Salve</h3>
                 <p>
-                  À chaque manche, tout le monde tire en même temps, en secret. Quand le dernier a
-                  tiré, l'écran déroule les tirs un par un, le plus rapide d'abord. À quatre, la
-                  partie va quatre fois plus vite.
+                  Tout le monde tire en même temps. Les tirs s'affichent ensuite un par un, en
+                  commençant par le plus rapide.
                 </p>
                 <div className="home-moment salvo" aria-hidden="true">
                   <b>3/4</b>
@@ -134,60 +117,28 @@ export function Home() {
           </div>
         </section>
 
-        <section className="home-section" aria-labelledby="home-table">
+        <section className="home-section" aria-labelledby="home-good">
           <div className="home-wrap">
-            <h2 id="home-table">Ni paravent, ni arbitre</h2>
-            <dl className="home-points">
-              <div>
-                <dt>Ta flotte reste dans ta poche</dt>
-                <dd>
-                  Elle n'existe que sur ton téléphone. L'écran central n'en reçoit jamais rien.
-                </dd>
-              </div>
-              <div>
-                <dt>Personne ne peut tricher</dt>
-                <dd>
-                  Chaque tir est calculé par le serveur, ni par les joueurs ni par leurs téléphones.
-                </dd>
-              </div>
-              <div>
-                <dt>Seul ? Ajoute des bots</dt>
-                <dd>
-                  « Ajouter un bot » sur l'écran central, avant de lancer la partie. Ils jouent à un
-                  rythme humain, avec la même information qu'un joueur.
-                </dd>
-              </div>
-              <div>
-                <dt>Ton téléphone s'est mis en veille</dt>
-                <dd>
-                  Rouvre-le : tu retrouves ta partie en quelques secondes, sans rien ressaisir.
-                </dd>
-              </div>
-            </dl>
+            <h2 id="home-good">Bon à savoir</h2>
+            <ul className="home-points">
+              <li>C'est le jeu qui annonce touché ou raté. Personne ne peut tricher.</li>
+              <li>Tu peux compléter la partie avec des bots, ou jouer seul contre eux.</li>
+              <li>Si ton téléphone se met en veille, rouvre-le et tu reprends ta partie.</li>
+            </ul>
           </div>
         </section>
 
         <section className="home-section home-final" aria-labelledby="home-final">
           <div className="home-wrap">
-            <h2 id="home-final">Tout le monde est à table ?</h2>
+            <h2 id="home-final">On fait une partie ?</h2>
             {phone ? (
-              <>
-                <p className="home-section-lede">
-                  Le QR code et le code de la partie s'affichent sur l'écran central.
-                </p>
-                <button className="btn primary xl" type="button" onClick={goToJoin}>
-                  Rejoindre la partie
-                </button>
-              </>
+              <button className="btn primary xl" type="button" onClick={goToJoin}>
+                Rejoindre la partie
+              </button>
             ) : (
-              <>
-                <p className="home-section-lede">
-                  Lance la partie sur l'écran que tout le monde voit.
-                </p>
-                <Link className="btn primary xl" to="/create">
-                  Créer une partie
-                </Link>
-              </>
+              <Link className="btn primary xl" to="/create">
+                Créer une partie
+              </Link>
             )}
           </div>
         </section>
@@ -204,8 +155,7 @@ function CreateAction() {
         Créer une partie
       </Link>
       <p className="hint">
-        Cet écran deviendra l'écran central. Les joueurs rejoignent avec leur téléphone, en scannant
-        le QR code ou avec le code de la partie.
+        Cet écran deviendra l'écran central. Les joueurs le rejoignent avec leur téléphone.
       </p>
     </div>
   );
@@ -258,10 +208,7 @@ function JoinForm({ formRef }: { formRef: RefObject<HTMLFormElement | null> }) {
       <button className={`btn ${scan ? '' : 'primary xl'}`} type="submit" disabled={!valid}>
         Rejoindre
       </button>
-      <p className="hint">
-        Le QR code et le code sont affichés sur l'écran central. La partie se crée depuis un
-        ordinateur ou une tablette.
-      </p>
+      <p className="hint">Pour créer une partie, ouvre Navale sur un ordinateur ou une tablette.</p>
     </form>
   );
 }
