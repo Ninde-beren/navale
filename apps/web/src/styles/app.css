@@ -40,7 +40,8 @@ body {
   background: radial-gradient(1200px 800px at 50% 40%, var(--bg-2), transparent 70%), var(--bg);
 }
 .app-phone .grid {
-  --cell: 38px;
+  /* La case s'adapte à la largeur du téléphone : une 10×10 tient sur 375 px. */
+  --cell: min(38px, calc((100vw - 32px - var(--lbl) - var(--cols) * var(--gap)) / var(--cols)));
   --gap: 2px;
   --lbl: 14px;
   --rad: 6px;
@@ -48,7 +49,7 @@ body {
 }
 @media (min-width: 400px) {
   .app-phone .grid {
-    --cell: 41px;
+    --cell: min(41px, calc((100vw - 32px - var(--lbl) - var(--cols) * var(--gap)) / var(--cols)));
   }
 }
 .app-phone .chip {
@@ -998,4 +999,29 @@ body {
 }
 .scanner .code-outline-highlight {
   stroke: var(--ok) !important;
+}
+
+/* ---------- Écran central : la case s'adapte à la zone, 10×10 comme 8×8 ----------
+   Les dispositions sont dessinées pour la grille 8×8 ; une grille plus grande
+   réduit ses cases pour tenir dans l'espace intérieur de sa zone (largeur et hauteur). */
+.tv.v2 .zone .grid {
+  --cell: min(
+    49px,
+    calc((440px - var(--lbl) - var(--cols) * var(--gap)) / var(--cols)),
+    calc((440px - var(--lbl) - var(--rows) * var(--gap)) / var(--rows))
+  );
+}
+.tv.v2.p3 .zone .grid {
+  --cell: min(
+    64px,
+    calc((560px - var(--lbl) - var(--cols) * var(--gap)) / var(--cols)),
+    calc((560px - var(--lbl) - var(--rows) * var(--gap)) / var(--rows))
+  );
+}
+.tv.v2.p2 .zone .grid {
+  --cell: min(
+    74px,
+    calc((876px - var(--lbl) - var(--cols) * var(--gap)) / var(--cols)),
+    calc((800px - var(--lbl) - var(--rows) * var(--gap)) / var(--rows))
+  );
 }
