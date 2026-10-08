@@ -51,7 +51,8 @@ function Seg<T extends string>({
 /**
  * Création d'une partie, sur l'écran qui deviendra l'écran central : un
  * ordinateur ou une tablette, donc un format large, réglages à gauche et
- * récapitulatif à droite, le tout sans défilement sur un écran d'ordinateur.
+ * récapitulatif à droite. Tailles tactiles qui grandissent avec l'écran, et
+ * tout tient sans défilement en paysage dès 1024×700 (tablette) ou 1280×610.
  * Un smartphone est renvoyé vers l'accueil.
  */
 export function CreateGame() {
@@ -60,6 +61,7 @@ export function CreateGame() {
   const [variant, setVariant] = useState<Variant>('sequential');
   const [endCondition, setEndCondition] = useState<EndCondition>('last_standing');
   const [maxPlayers, setMaxPlayers] = useState(4);
+  // Null tant que l'hôte n'a pas choisi : la grille suit alors le nombre de joueurs.
   const [preset, setPreset] = useState<PresetId | null>(null);
   const [sunkReveal, setSunkReveal] = useState<SunkReveal>('classic');
   const [timer, setTimer] = useState<'none' | '45' | '90'>('none');
@@ -129,16 +131,11 @@ export function CreateGame() {
       <div className="create-wrap">
         <header className="create-head">
           <Wordmark />
+          <h1>Nouvelle partie</h1>
           <Link className="btn ghost" to="/">
             Retour
           </Link>
         </header>
-        <div className="create-title">
-          <h1>Nouvelle partie</h1>
-          <p className="muted">
-            Cet écran deviendra l’écran central : règle la table, lance, le QR code s’affiche.
-          </p>
-        </div>
         <div className="create-grid">
           <section className="create-form" aria-label="Réglages de la partie">
             <div className="field">
@@ -161,56 +158,6 @@ export function CreateGame() {
                   : 'Tout le monde tire en secret, l’écran central résout les tirs un par un.'}
               </p>
             </div>
-            <div className="field">
-              <span className="label">Fin de partie</span>
-              <Seg
-                value={endCondition}
-                options={[
-                  ['last_standing', 'Dernier survivant'],
-                  ['first_fleet_sunk', 'Première flotte coulée'],
-                ]}
-                onChange={setEndCondition}
-              />
-            </div>
-            <div className="field">
-              <span className="label">Joueurs au maximum</span>
-              <Seg
-                value={String(maxPlayers)}
-                options={[
-                  ['2', '2'],
-                  ['3', '3'],
-                  ['4', '4'],
-                ]}
-                onChange={(v) => setMaxPlayers(Number(v))}
-              />
-            </div>
-            <div className="field">
-              <span className="label">Grille et flotte</span>
-              <Seg
-                value={effectivePreset}
-                options={[
-                  ['classic', 'Classique 10×10'],
-                  ['quick', 'Rapide 8×8'],
-                ]}
-                onChange={setPreset}
-              />
-              <p className="hint">
-                {preset === null
-                  ? `Proposé pour ${maxPlayers} joueurs : ${effectivePreset === 'classic' ? 'la classique' : 'la rapide'}.`
-                  : 'Modifiable à tout moment avant de lancer.'}
-              </p>
-            </div>
-            <div className="field">
-              <span className="label">Bateau coulé</span>
-              <Seg
-                value={sunkReveal}
-                options={[
-                  ['classic', 'Cases révélées'],
-                  ['secret', 'Seulement « coulé »'],
-                ]}
-                onChange={setSunkReveal}
-              />
-            </div>
             {variant === 'simultaneous' && (
               <div className="field">
                 <span className="label">Résolution de la salve</span>
@@ -224,11 +171,26 @@ export function CreateGame() {
                 />
                 <p className="hint">
                   {salvoOrder === 'commit'
-                    ? 'Les tirs se résolvent dans l’ordre où ils ont été engagés ; un bateau achevé par deux tirs est crédité au plus rapide.'
-                    : 'Les tirs se résolvent siège par siège, en tournant à chaque manche.'}
+                    ? 'Dans l’ordre où les tirs ont été engagés ; un bateau achevé par deux tirs revient au plus rapide.'
+                    : 'Siège par siège, en tournant à chaque manche.'}
                 </p>
               </div>
             )}
+            <div className="field">
+              <span className="label">Grille et flotte</span>
+              <Seg
+                value={effectivePreset}
+                options={[
+                  ['classic', 'Classique 10×10'],
+                  ['quick', 'Rapide 8×8'],
+                ]}
+                onChange={setPreset}
+              />
+              <p className="hint">
+                {fleet.map((s) => `${SHIP_LABELS_FR[s.type] ?? s.type} ${s.size}`).join(', ')} ·{' '}
+                {cells} cases.
+              </p>
+            </div>
             <div className="field">
               <span className="label">Chrono par manche</span>
               <Seg
@@ -249,6 +211,40 @@ export function CreateGame() {
                   : 'À l’échéance, le tour passe ou la salve se résout avec les tirs manquants.'}
               </p>
             </div>
+            <div className="field">
+              <span className="label">Joueurs au maximum</span>
+              <Seg
+                value={String(maxPlayers)}
+                options={[
+                  ['2', '2'],
+                  ['3', '3'],
+                  ['4', '4'],
+                ]}
+                onChange={(v) => setMaxPlayers(Number(v))}
+              />
+            </div>
+            <div className="field">
+              <span className="label">Fin de partie</span>
+              <Seg
+                value={endCondition}
+                options={[
+                  ['last_standing', 'Dernier survivant'],
+                  ['first_fleet_sunk', 'Première flotte coulée'],
+                ]}
+                onChange={setEndCondition}
+              />
+            </div>
+            <div className="field">
+              <span className="label">Bateau coulé</span>
+              <Seg
+                value={sunkReveal}
+                options={[
+                  ['classic', 'Cases révélées'],
+                  ['secret', 'Seulement « coulé »'],
+                ]}
+                onChange={setSunkReveal}
+              />
+            </div>
           </section>
           <aside className="create-summary panel" aria-label="Récapitulatif">
             <h2>Ta table</h2>
@@ -258,21 +254,12 @@ export function CreateGame() {
                 END[endCondition],
                 `jusqu’à ${maxPlayers} joueurs`,
                 `grille ${grid.width} × ${grid.height}`,
+                `${fleet.length} bateaux, ${cells} cases`,
                 timer === 'none' ? 'sans chrono' : `chrono ${timer} s`,
                 ...(variant === 'simultaneous'
                   ? [salvoOrder === 'seats' ? 'ordre des sièges' : 'le plus rapide d’abord']
                   : []),
               ].join(' · ')}
-            </p>
-            <div className="fleet" aria-label="Flotte">
-              {fleet.map((s, i) => (
-                <span key={i} className="chip plain">
-                  {SHIP_LABELS_FR[s.type] ?? s.type} · {s.size}
-                </span>
-              ))}
-            </div>
-            <p className="hint">
-              {fleet.length} bateaux, {cells} cases à toucher par joueur.
             </p>
             <Grid
               width={grid.width}
@@ -283,7 +270,7 @@ export function CreateGame() {
             <p className="hint">
               {sunkReveal === 'classic'
                 ? 'On dessine le bateau coulé en entier.'
-                : 'On annonce « coulé » sans dessiner le bateau.'}
+                : 'On annonce « coulé » sans dessiner le bateau.'}
             </p>
             {error && <p className="hint err">{error}</p>}
             <button
@@ -294,6 +281,9 @@ export function CreateGame() {
             >
               {busy ? 'Création…' : 'Créer et afficher l’écran central'}
             </button>
+            <p className="hint after">
+              Cet écran deviendra l’écran central et affichera le QR code pour les téléphones.
+            </p>
           </aside>
         </div>
       </div>

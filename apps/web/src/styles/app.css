@@ -1084,130 +1084,115 @@ body {
 }
 
 /* ---------- Création de partie : format ordinateur et tablette ----------
-   Tout tient dans la hauteur d'un écran d'ordinateur (dès 600 px de haut) :
-   en-tête serré, réglages sur deux colonnes, récapitulatif collant dont la
-   grille d'aperçu rétrécit avec la hauteur disponible. */
+   Tailles tactiles (texte 16 px, boutons 52 px) qui grandissent avec l'écran :
+   tout est en em sur une base --f, de 16 px sur une tablette ou un portable
+   à 20 px sur un grand moniteur. La page tient dans la hauteur de l'écran en
+   paysage dès 1024×700 ou 1280×610 ; la grille d'aperçu absorbe le reste. */
 .create {
+  --f: clamp(16px, min(2.3vh, 1.25vw), 20px);
   min-height: 100dvh;
-  padding: 12px 0 10px;
-  font-size: 17px;
+  padding: 0.75em 0 0.6em;
+  font-size: var(--f);
   background: radial-gradient(1200px 800px at 50% 30%, var(--bg-2), transparent 70%), var(--bg);
 }
 .create-wrap {
-  width: min(1160px, 100%);
+  width: min(72.5em, 100%);
   margin: 0 auto;
-  padding-inline: clamp(16px, 4vw, 48px);
+  padding-inline: clamp(16px, 3vw, 3em);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 1em;
 }
 .create-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 1em;
 }
-.create-head .btn {
-  height: 40px;
-  padding: 0 16px;
-  font-size: 15px;
-}
-.create-title {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 18px;
-}
-.create-title h1 {
-  font: 800 clamp(30px, 3vw, 38px) / 1.05 var(--font-display);
+.create-head h1 {
+  padding-left: 1em;
+  border-left: 1px solid var(--line-strong);
+  font: 800 1.75em/1.05 var(--font-display);
   letter-spacing: -0.02em;
 }
-.create-title .muted {
-  font-size: 15px;
+.create-head .btn {
+  margin-left: auto;
+  height: 2.75em;
+  padding: 0 1.1em;
+  font-size: 0.95em;
 }
 .create-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
-  gap: 28px;
+  grid-template-columns: minmax(0, 1fr) 23.75em;
+  gap: 1.75em;
   align-items: start;
 }
 .create-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px 28px;
+  gap: 1.25em 1.75em;
 }
 .create .field {
-  gap: 6px;
+  gap: 0.5em;
 }
 .create .label {
-  font-size: 12px;
+  font-size: 0.8em;
 }
 .create .seg {
   width: 100%;
-  padding: 4px;
-  gap: 4px;
-  border-radius: 14px;
+  padding: 0.3em;
+  gap: 0.3em;
+  border-radius: 1em;
 }
 .create .seg > button {
   flex: 1;
-  min-height: 40px;
+  min-height: 3.25em;
   height: auto;
-  padding: 6px 10px;
-  font-size: 14px;
+  padding: 0.4em 0.6em;
+  font-size: 1em;
   line-height: 1.15;
-  border-radius: 10px;
+  border-radius: 0.7em;
   text-align: center;
 }
 .create .hint {
-  font-size: 13px;
+  font-size: 0.9em;
 }
 .create-summary {
   position: sticky;
-  top: 12px;
+  top: 0.75em;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 18px 20px 20px;
+  gap: 0.8em;
+  padding: 1.25em 1.25em 1.4em;
   border-radius: var(--r-l);
 }
 .create-summary h2 {
-  font: 800 22px/1.1 var(--font-display);
+  font: 800 1.4em/1.1 var(--font-display);
   letter-spacing: -0.02em;
 }
 .create-summary .recap {
-  font-size: 14px;
-  line-height: 1.35;
-  margin-top: -4px;
-}
-.create-summary .fleet {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-.create-summary .chip {
-  height: 24px;
-  padding: 0 9px;
-  font-size: 12px;
-  gap: 5px;
-}
-.create-summary .chip::before {
-  width: 6px;
-  height: 6px;
+  font-size: 0.95em;
+  line-height: 1.4;
+  margin-top: -0.3em;
 }
 .create-summary .grid {
-  /* La case se règle sur la hauteur de l'écran (485 px pris par le reste de la
-     page) : 20 px sur un grand écran, puis elle rétrécit jusqu'à 13 px. */
-  --cell: clamp(13px, calc((100dvh - 485px) / var(--rows)), 20px);
+  /* La case prend la hauteur qui reste (27 em pris par le reste de la page),
+     entre 13 px et 1,5 em : 20 px et plus dès qu'il y a la place. */
+  --cell: clamp(13px, calc((100dvh - 27 * var(--f)) / var(--rows)), calc(1.5 * var(--f)));
   --gap: 2px;
-  --lbl: 14px;
-  --rad: 4px;
-  font-size: 9px;
-  margin: 2px auto 0;
+  --lbl: calc(0.9 * var(--f));
+  --rad: calc(0.25 * var(--f));
+  font-size: calc(0.6 * var(--f));
+  margin: 0.2em auto 0;
 }
 .create-summary .btn.xl {
   width: 100%;
-  height: 56px;
-  font-size: 19px;
-  margin-top: 2px;
+  height: 3.5em;
+  font-size: 1.15em;
+  margin-top: 0.1em;
+}
+.create-summary .hint.after {
+  text-align: center;
+  margin-top: -0.2em;
 }
 @media (max-width: 1023px) {
   .create-grid {
@@ -1217,6 +1202,6 @@ body {
     position: static;
   }
   .create-summary .grid {
-    --cell: 20px;
+    --cell: calc(1.25 * var(--f));
   }
 }
