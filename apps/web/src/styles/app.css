@@ -798,6 +798,11 @@ body {
 .fx .trail-glow.draw {
   opacity: 0.1;
 }
+/* Le fondu après l'impact doit l'emporter sur l'opacité du tracé, sinon la trace reste. */
+.fx .trail.fade,
+.fx .trail-glow.fade {
+  opacity: 0;
+}
 .missile {
   background: linear-gradient(
     90deg,
