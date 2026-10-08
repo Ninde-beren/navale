@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { PRESETS, defaultPresetFor } from '@navale/engine';
 import {
@@ -10,6 +10,7 @@ import {
   type Variant,
 } from '@navale/protocol';
 import { api, ApiError } from '../../shared/api.js';
+import { publicGridClasses } from '../../shared/cells.js';
 import { saveSession } from '../../shared/session.js';
 import { Grid } from '../../shared/ui/Grid.js';
 import { Notice } from '../../shared/ui/Notice.js';
@@ -68,6 +69,27 @@ export function CreateGame() {
   const effectivePreset = preset ?? defaultPresetFor(maxPlayers);
   const { grid, fleet } = PRESETS[effectivePreset];
   const cells = fleet.reduce((n, s) => n + s.size, 0);
+  // Aperçu avec le vrai rendu des cases : des ratés, une touche, et un bateau coulé
+  // dessiné ou non selon l'option « bateau coulé », comme sur l'écran central.
+  const preview = useMemo(() => {
+    const sunkCells = [
+      { x: 1, y: 1 },
+      { x: 2, y: 1 },
+      { x: 3, y: 1 },
+    ];
+    const revealed = [
+      ...sunkCells.map((coord) => ({ coord, result: 'HIT' as const })),
+      { coord: { x: 0, y: 0 }, result: 'MISS' as const },
+      { coord: { x: 4, y: 3 }, result: 'MISS' as const },
+      { coord: { x: 2, y: 5 }, result: 'MISS' as const },
+      { coord: { x: 6, y: 2 }, result: 'MISS' as const },
+      { coord: { x: 5, y: 4 }, result: 'HIT' as const },
+    ];
+    const sunkShips = [
+      { shipId: 'demo', size: 3, ...(sunkReveal === 'classic' ? { cells: sunkCells } : {}) },
+    ];
+    return publicGridClasses(revealed, sunkShips);
+  }, [sunkReveal]);
 
   if (phone)
     return (
@@ -265,9 +287,14 @@ export function CreateGame() {
             <Grid
               width={grid.width}
               height={grid.height}
-              cellClass={() => ''}
-              label={`Aperçu d’une grille ${grid.width}×${grid.height}`}
+              cellClass={preview}
+              label={`Aperçu d’une grille ${grid.width}×${grid.height} sur l’écran central`}
             />
+            <p className="hint">
+              {sunkReveal === 'classic'
+                ? 'Sur l’écran central : des ratés, une touche, et un bateau coulé dessiné en entier.'
+                : 'Sur l’écran central : des ratés, des touches, et le bateau coulé reste trois touches ; seul le mot « coulé » est annoncé.'}
+            </p>
             {error && <p className="hint err">{error}</p>}
             <button
               className="btn primary xl"
