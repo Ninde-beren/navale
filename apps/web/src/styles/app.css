@@ -1083,10 +1083,13 @@ body {
   color: var(--text-3);
 }
 
-/* ---------- Création de partie : format ordinateur et tablette ---------- */
+/* ---------- Création de partie : format ordinateur et tablette ----------
+   Tout tient dans la hauteur d'un écran d'ordinateur (dès 600 px de haut) :
+   en-tête serré, réglages sur deux colonnes, récapitulatif collant dont la
+   grille d'aperçu rétrécit avec la hauteur disponible. */
 .create {
   min-height: 100dvh;
-  padding: 28px 0 56px;
+  padding: 12px 0 10px;
   font-size: 17px;
   background: radial-gradient(1200px 800px at 50% 30%, var(--bg-2), transparent 70%), var(--bg);
 }
@@ -1096,7 +1099,7 @@ body {
   padding-inline: clamp(16px, 4vw, 48px);
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 12px;
 }
 .create-head {
   display: flex;
@@ -1104,105 +1107,107 @@ body {
   justify-content: space-between;
 }
 .create-head .btn {
-  height: 48px;
-  padding: 0 18px;
-  font-size: 16px;
+  height: 40px;
+  padding: 0 16px;
+  font-size: 15px;
+}
+.create-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 18px;
 }
 .create-title h1 {
-  font: 800 clamp(36px, 4vw, 52px) / 1.05 var(--font-display);
+  font: 800 clamp(30px, 3vw, 38px) / 1.05 var(--font-display);
   letter-spacing: -0.02em;
 }
 .create-title .muted {
-  margin-top: 8px;
-  font-size: 18px;
-  max-width: 720px;
+  font-size: 15px;
 }
 .create-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 380px;
-  gap: 32px;
+  gap: 28px;
   align-items: start;
 }
 .create-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 26px 32px;
+  gap: 14px 28px;
 }
-.create-form .field.wide {
-  grid-column: 1 / -1;
+.create .field {
+  gap: 6px;
 }
 .create .label {
-  font-size: 13px;
+  font-size: 12px;
 }
 .create .seg {
   width: 100%;
-  padding: 5px;
-  gap: 5px;
-  border-radius: 16px;
+  padding: 4px;
+  gap: 4px;
+  border-radius: 14px;
 }
 .create .seg > button {
   flex: 1;
-  min-height: 52px;
+  min-height: 40px;
   height: auto;
-  padding: 8px 10px;
-  font-size: 15px;
+  padding: 6px 10px;
+  font-size: 14px;
   line-height: 1.15;
-  border-radius: 11px;
+  border-radius: 10px;
   text-align: center;
 }
 .create .hint {
-  font-size: 14px;
+  font-size: 13px;
 }
 .create-summary {
   position: sticky;
-  top: 24px;
+  top: 12px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 22px 22px 24px;
+  gap: 10px;
+  padding: 18px 20px 20px;
   border-radius: var(--r-l);
 }
 .create-summary h2 {
-  font: 800 24px/1.1 var(--font-display);
+  font: 800 22px/1.1 var(--font-display);
   letter-spacing: -0.02em;
 }
-.create-summary .kv {
-  font-size: 15px;
-}
-.create-summary .kv b {
-  font: 600 15px/1.2 var(--font-body);
-  color: var(--text);
-  text-align: right;
+.create-summary .recap {
+  font-size: 14px;
+  line-height: 1.35;
+  margin-top: -4px;
 }
 .create-summary .fleet {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 4px;
+  gap: 4px;
 }
 .create-summary .chip {
-  height: 28px;
-  padding: 0 10px;
-  font-size: 13px;
-  gap: 6px;
+  height: 24px;
+  padding: 0 9px;
+  font-size: 12px;
+  gap: 5px;
 }
 .create-summary .chip::before {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
 }
 .create-summary .grid {
-  --cell: 20px;
+  /* La case se règle sur la hauteur de l'écran (485 px pris par le reste de la
+     page) : 20 px sur un grand écran, puis elle rétrécit jusqu'à 13 px. */
+  --cell: clamp(13px, calc((100dvh - 485px) / var(--rows)), 20px);
   --gap: 2px;
   --lbl: 14px;
   --rad: 4px;
   font-size: 9px;
-  margin: 4px auto 0;
+  margin: 2px auto 0;
 }
 .create-summary .btn.xl {
   width: 100%;
-  height: 64px;
-  font-size: 20px;
-  margin-top: 6px;
+  height: 56px;
+  font-size: 19px;
+  margin-top: 2px;
 }
 @media (max-width: 1023px) {
   .create-grid {
@@ -1210,5 +1215,8 @@ body {
   }
   .create-summary {
     position: static;
+  }
+  .create-summary .grid {
+    --cell: 20px;
   }
 }

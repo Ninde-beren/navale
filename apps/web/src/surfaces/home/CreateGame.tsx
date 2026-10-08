@@ -51,7 +51,8 @@ function Seg<T extends string>({
 /**
  * Création d'une partie, sur l'écran qui deviendra l'écran central : un
  * ordinateur ou une tablette, donc un format large, réglages à gauche et
- * récapitulatif à droite. Un smartphone est renvoyé vers l'accueil.
+ * récapitulatif à droite, le tout sans défilement sur un écran d'ordinateur.
+ * Un smartphone est renvoyé vers l'accueil.
  */
 export function CreateGame() {
   const navigate = useNavigate();
@@ -135,13 +136,12 @@ export function CreateGame() {
         <div className="create-title">
           <h1>Nouvelle partie</h1>
           <p className="muted">
-            Cet écran deviendra l’écran central. Règle la table, lance, et le QR code s’affichera
-            pour les téléphones.
+            Cet écran deviendra l’écran central : règle la table, lance, le QR code s’affiche.
           </p>
         </div>
         <div className="create-grid">
           <section className="create-form" aria-label="Réglages de la partie">
-            <div className="field wide">
+            <div className="field">
               <span className="label">Variante</span>
               <Seg
                 value={variant}
@@ -252,28 +252,18 @@ export function CreateGame() {
           </section>
           <aside className="create-summary panel" aria-label="Récapitulatif">
             <h2>Ta table</h2>
-            <div className="kv">
-              <span>Variante</span>
-              <b>{VARIANT[variant]}</b>
-            </div>
-            <div className="kv">
-              <span>Fin de partie</span>
-              <b>{END[endCondition]}</b>
-            </div>
-            <div className="kv">
-              <span>Joueurs</span>
-              <b>jusqu’à {maxPlayers}</b>
-            </div>
-            <div className="kv">
-              <span>Grille</span>
-              <b>
-                {grid.width} × {grid.height}
-              </b>
-            </div>
-            <div className="kv">
-              <span>Chrono</span>
-              <b>{timer === 'none' ? 'aucun' : `${timer} s`}</b>
-            </div>
+            <p className="recap muted">
+              {[
+                VARIANT[variant],
+                END[endCondition],
+                `jusqu’à ${maxPlayers} joueurs`,
+                `grille ${grid.width} × ${grid.height}`,
+                timer === 'none' ? 'sans chrono' : `chrono ${timer} s`,
+                ...(variant === 'simultaneous'
+                  ? [salvoOrder === 'seats' ? 'ordre des sièges' : 'le plus rapide d’abord']
+                  : []),
+              ].join(' · ')}
+            </p>
             <div className="fleet" aria-label="Flotte">
               {fleet.map((s, i) => (
                 <span key={i} className="chip plain">
@@ -292,8 +282,8 @@ export function CreateGame() {
             />
             <p className="hint">
               {sunkReveal === 'classic'
-                ? 'Sur l’écran central : des ratés, une touche, et un bateau coulé dessiné en entier.'
-                : 'Sur l’écran central : des ratés, des touches, et le bateau coulé reste trois touches ; seul le mot « coulé » est annoncé.'}
+                ? 'On dessine le bateau coulé en entier.'
+                : 'On annonce « coulé » sans dessiner le bateau.'}
             </p>
             {error && <p className="hint err">{error}</p>}
             <button
