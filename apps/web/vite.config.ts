@@ -52,7 +52,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
-        navigateFallbackDenylist: [/^\/api\//, /^\/socket\.io\//],
+        // `/admin` est une page du serveur : le service worker ne doit pas la remplacer par l'application.
+        navigateFallbackDenylist: [/^\/api\//, /^\/socket\.io\//, /^\/admin(\/|$)/],
       },
       devOptions: { enabled: false },
     }),
@@ -64,6 +65,7 @@ export default defineConfig({
     proxy: {
       '/api': { target: server, changeOrigin: true },
       '/socket.io': { target: server, ws: true },
+      '/admin': { target: server, changeOrigin: true },
     },
   },
 });

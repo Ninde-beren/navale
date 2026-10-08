@@ -45,7 +45,21 @@ pnpm build        # build de tous les paquets, le web dans apps/web/dist
 Variables du serveur : `PORT` (5251), `WEB_PORT` (5250, pour l'URL par défaut),
 `PUBLIC_URL` (défaut `https://<ip-lan>:5250`, c'est ce que le QR encode, et la
 base de l'image d'aperçu des liens partagés, posée dans `index.html` au démarrage),
-`DATA_DIR` (`./data`, journal SQLite), `LOG_LEVEL`.
+`DATA_DIR` (`./data`, journal SQLite), `LOG_LEVEL`, `ADMIN_USER` et
+`ADMIN_PASSWORD` (espace d'administration `/admin`, fermé sans mot de passe).
+
+## Administration
+
+`/admin` montre les parties en ligne, les joueurs connectés et l'historique des
+parties jouées. Le navigateur demande l'identifiant (`ADMIN_USER`, `admin` par
+défaut) et le mot de passe (`ADMIN_PASSWORD`). En production, les deux vont
+dans le `.env` du serveur, à côté de `PUBLIC_URL`, jamais dans le dépôt :
+
+```bash
+echo "ADMIN_PASSWORD=$(openssl rand -base64 24)" >> .env && docker compose up -d
+```
+
+En développement : `ADMIN_PASSWORD=… pnpm dev`, puis `https://localhost:5250/admin`.
 
 Le journal SQLite de développement est dans `apps/server/data/`, ignoré par git.
 
@@ -120,11 +134,12 @@ curl -s localhost:5251/api/health
 Variables du `.env` : `PUBLIC_URL` (obligatoire, l'URL que voient les
 téléphones), `WEB_NETWORK` (réseau externe du reverse proxy, `web`),
 `LOG_LEVEL` (`info`, ou `debug` pour chercher), `NAVALE_PORT` et `BIND` (port et
-interface exposés hors Docker, `127.0.0.1:5251`), et pour les retours du bouton
+interface exposés hors Docker, `127.0.0.1:5251`), `ADMIN_USER` et
+`ADMIN_PASSWORD` (espace `/admin`), et pour les retours du bouton
 « Un avis ? » par mail : `FEEDBACK_TO` (destinataire), `MAIL_FROM` (expéditeur,
 validé chez Mailjet), puis `MAILJET_API_KEY` et `MAILJET_API_SECRET` (le compte
 du service de mail de Tutotou) ou à défaut `SMTP_URL` ; sans transport, ils
-restent en base, table `feedback`. Dans le conteneur : `PORT`, `DATA_DIR=/data`,
+restent en base, lisibles dans `/admin`. Dans le conteneur : `PORT`, `DATA_DIR=/data`,
 `WEB_DIST=/app/web`, `NAVALE_VERSION`.
 
 `/api/health` renvoie `{ ok, games, uptime, version }`. Les logs sont du JSON

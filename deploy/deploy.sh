@@ -9,7 +9,8 @@
 #   NAVALE_DIR    dossier sur le serveur (défaut /srv/navale)
 #   NAVALE_SSH_KEY clé privée SSH à utiliser, si ce n'est pas celle par défaut
 #   NAVALE_PORT   port local du conteneur sur le serveur, pour le contrôle de santé (défaut 5251)
-#   PUBLIC_URL    écrit dans .env sur le serveur si fourni ; sinon le .env existant est gardé
+#   PUBLIC_URL    écrit dans .env sur le serveur si fourni, les autres lignes (ADMIN_PASSWORD…)
+#                 sont gardées ; sinon le .env existant est gardé tel quel
 set -euo pipefail
 
 HOST="${NAVALE_HOST:?NAVALE_HOST manquant, ex. debian@mon-vps}"
@@ -34,7 +35,8 @@ else
 fi
 
 if [[ -n "${PUBLIC_URL:-}" ]]; then
-  ssh "$HOST" "printf 'PUBLIC_URL=%s\n' '$PUBLIC_URL' > '$DIR/.env'"
+  ssh "$HOST" "cd '$DIR' && touch .env && sed -i '/^PUBLIC_URL=/d' .env \
+    && printf 'PUBLIC_URL=%s\n' '$PUBLIC_URL' >> .env"
 fi
 
 echo "→ construction et relance"

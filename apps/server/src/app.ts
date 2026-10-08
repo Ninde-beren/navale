@@ -3,6 +3,7 @@ import Fastify from 'fastify';
 import { Server } from 'socket.io';
 import type { Variant } from '@navale/protocol';
 import type { ServerConfig } from './config.js';
+import { registerAdmin } from './http/admin.js';
 import { registerFeedback } from './http/feedback.js';
 import { registerGameRoutes } from './http/games.js';
 import { registerStatic } from './http/static.js';
@@ -81,6 +82,7 @@ export async function createApp(
 
   registerGameRoutes(app, registry, config);
   registerFeedback(app, { store, mailer, version }, config);
+  registerAdmin(app, { registry, presence, io, store, mailer }, config);
   registerSockets(io, registry, publisher, presence);
   if (config.webDist) await registerStatic(app, config.webDist, config.publicUrl);
 

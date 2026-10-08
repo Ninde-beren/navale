@@ -15,7 +15,10 @@ services:
     environment:
       PUBLIC_URL: ${PUBLIC_URL:?définir PUBLIC_URL (ex. https://navale.sigilbo.fr) dans .env}
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      # Retours du bouton « Un avis ? » par mail ; sans SMTP, ils restent en base (table feedback).
+      # Espace d'administration /admin (Basic Auth) ; fermé tant que le mot de passe est vide.
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      # Retours du bouton « Un avis ? » par mail ; sans transport, ils restent lisibles dans /admin.
       FEEDBACK_TO: ${FEEDBACK_TO:-}
       SMTP_URL: ${SMTP_URL:-}
       MAIL_FROM: ${MAIL_FROM:-}

@@ -18,6 +18,10 @@ export interface ServerConfig {
   logLevel: string;
   /** Dossier du build web à servir (production) ; `null` en développement, Vite s'en charge. */
   webDist?: string | null;
+  /** Identifiant de l'espace d'administration `/admin` (Basic Auth). */
+  adminUser?: string;
+  /** Mot de passe de `/admin` ; sans lui, l'espace d'administration reste fermé. */
+  adminPassword?: string | null;
   /** Destinataire des retours du bouton « Un avis ? » ; sans lui, ils restent en base. */
   feedbackTo?: string | null;
   /** Transport des mails, `smtps://utilisateur:motdepasse@hote:465` ; sans lui, pas d'envoi. */
@@ -45,6 +49,8 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): ServerConfi
     publicUrl: (env.PUBLIC_URL ?? `https://${lanIp()}:${webPort}`).replace(/\/+$/, ''),
     logLevel: env.LOG_LEVEL ?? 'info',
     webDist: findWebDist(env),
+    adminUser: env.ADMIN_USER || 'admin',
+    adminPassword: env.ADMIN_PASSWORD || null,
     feedbackTo: env.FEEDBACK_TO || null,
     smtpUrl: env.SMTP_URL || null,
     mailFrom: env.MAIL_FROM || null,
