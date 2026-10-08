@@ -418,6 +418,56 @@ body {
   align-items: center;
   max-width: 420px;
 }
+.notice .actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  align-items: stretch;
+}
+/* Ordinateur ou tablette : même format large que la création, pas une colonne de téléphone. */
+@media (min-width: 768px) {
+  .notice.app-phone {
+    max-width: none;
+    font-size: 18px;
+    background: radial-gradient(1200px 800px at 50% 30%, var(--bg-2), transparent 70%), var(--bg);
+  }
+  .notice .box {
+    max-width: 680px;
+    gap: 22px;
+  }
+  .notice.app-phone .wordmark {
+    font-size: 22px;
+    letter-spacing: 0.14em;
+  }
+  .notice.app-phone .wordmark .flag {
+    width: 16px;
+    height: 22px;
+  }
+  .notice .h1 {
+    font: 800 clamp(36px, 4vw, 52px) / 1.05 var(--font-display);
+    letter-spacing: -0.02em;
+  }
+  .notice .muted {
+    font-size: 19px;
+    line-height: 1.5;
+  }
+  .notice .actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: auto;
+    gap: 12px;
+    margin-top: 6px;
+  }
+  .notice.app-phone .btn {
+    width: auto;
+    min-width: 240px;
+    height: 56px;
+    padding: 0 28px;
+    font-size: 18px;
+  }
+}
 
 /* ---------- Téléphone : viser et tirer ---------- */
 .targets {

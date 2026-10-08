@@ -46,8 +46,15 @@ export function Board() {
     return (
       <Notice
         title="Aucune partie avec ce code"
-        text={error?.message}
-        action={{ to: '/', label: 'Retour à l’accueil' }}
+        text={
+          error?.code === 'CODE_UNKNOWN' || !error
+            ? 'La partie est peut-être terminée ou expirée : un code est libéré après la fin. Vérifie-le sur l’écran central, ou crée une nouvelle partie.'
+            : error.message
+        }
+        actions={[
+          { to: '/create', label: 'Créer une partie', primary: true },
+          { to: '/', label: 'Retour à l’accueil' },
+        ]}
       />
     );
   }

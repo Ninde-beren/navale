@@ -1,14 +1,26 @@
 import { Link } from 'react-router';
 import { Wordmark } from './Wordmark.js';
 
+export interface NoticeAction {
+  to: string;
+  label: string;
+  primary?: boolean;
+}
+
+/**
+ * Message pleine page : un titre, un texte, une ou deux actions. Colonne de
+ * téléphone sur un petit écran, format large sur un ordinateur ou une tablette.
+ */
 export function Notice({
   title,
   text,
   action,
+  actions = action ? [action] : [],
 }: {
   title: string;
   text?: string;
-  action?: { to: string; label: string };
+  action?: NoticeAction;
+  actions?: NoticeAction[];
 }) {
   return (
     <div className="notice app-phone">
@@ -16,10 +28,18 @@ export function Notice({
         <Wordmark />
         <h1 className="h1">{title}</h1>
         {text && <p className="muted">{text}</p>}
-        {action && (
-          <Link className="btn ghost" to={action.to}>
-            {action.label}
-          </Link>
+        {actions.length > 0 && (
+          <div className="actions">
+            {actions.map((a) => (
+              <Link
+                key={a.to + a.label}
+                className={`btn ${a.primary ? 'primary' : 'ghost'}`}
+                to={a.to}
+              >
+                {a.label}
+              </Link>
+            ))}
+          </div>
         )}
       </div>
     </div>
