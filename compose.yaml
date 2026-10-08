@@ -19,6 +19,8 @@ services:
       FEEDBACK_TO: ${FEEDBACK_TO:-}
       SMTP_URL: ${SMTP_URL:-}
       MAIL_FROM: ${MAIL_FROM:-}
+      MAILJET_API_KEY: ${MAILJET_API_KEY:-}
+      MAILJET_API_SECRET: ${MAILJET_API_SECRET:-}
     ports:
       # Lié à l'interface locale, pour un reverse proxy hors Docker ou un contrôle à la main.
       - '${BIND:-127.0.0.1}:${NAVALE_PORT:-5251}:5251'

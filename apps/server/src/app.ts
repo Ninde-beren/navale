@@ -6,7 +6,7 @@ import type { ServerConfig } from './config.js';
 import { registerFeedback } from './http/feedback.js';
 import { registerGameRoutes } from './http/games.js';
 import { registerStatic } from './http/static.js';
-import { smtpMailer, type Mailer } from './mail/mailer.js';
+import { mailerFromConfig, type Mailer } from './mail/mailer.js';
 import { registerSockets } from './realtime/handlers.js';
 import { PresenceTracker } from './realtime/presence.js';
 import { BotDriver } from './runtime/bots.js';
@@ -67,11 +67,15 @@ export async function createApp(
   sweeper.start();
 
   const version = process.env.NAVALE_VERSION ?? 'dev';
-  const mailer = options.mailer === undefined ? smtpMailer(config) : options.mailer;
+  const mailer = options.mailer === undefined ? mailerFromConfig(config) : options.mailer;
   if (mailer) {
     void mailer.verify().then(
-      () => app.log.info(`retours envoyés par mail à ${mailer.to}`),
-      (err: unknown) => app.log.warn({ err }, 'SMTP injoignable : les retours resteront en base'),
+      () => app.log.info(`retours envoyés par mail à ${mailer.to} (${mailer.describe})`),
+      (err: unknown) =>
+        app.log.warn(
+          { err },
+          `${mailer.describe} : envoi impossible, les retours resteront en base`,
+        ),
     );
   }
 

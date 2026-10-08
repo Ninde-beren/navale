@@ -20,6 +20,7 @@ function fakeMailer(failing = false): Mailer & { sent: Mail[] } {
   const sent: Mail[] = [];
   return {
     to: 'antoine@navale.test',
+    describe: 'faux transport',
     sent,
     verify: async () => {},
     async send(mail) {
