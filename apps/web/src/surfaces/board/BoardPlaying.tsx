@@ -308,6 +308,13 @@ export function BoardPlaying({
     }
   }, [events]);
 
+  // À trois joueurs, la bande est basse : l'adresse remonte sous le code, loin du bord rogné des télés.
+  const foot = (
+    <span className="foot">
+      Suivre la partie : {location.host}/board/{code}
+    </span>
+  );
+
   return (
     <div className="board" ref={rootRef}>
       {players.map((p, i) => (
@@ -334,6 +341,7 @@ export function BoardPlaying({
             <strong>Manche {(round?.index ?? 0) + 1}</strong> · {VARIANT[settings.variant]} ·{' '}
             {END[settings.endCondition]}
           </span>
+          {layout === 'p3' && foot}
         </div>
         {isSalvo ? (
           <>
@@ -429,9 +437,7 @@ export function BoardPlaying({
             </>
           )}
           <SoundButton />
-          <span className="foot">
-            Suivre la partie : {location.host}/board/{code}
-          </span>
+          {layout !== 'p3' && foot}
         </div>
       </aside>
       <FxLayer />
