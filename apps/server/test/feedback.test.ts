@@ -59,7 +59,7 @@ const body = (message: string, extra: Record<string, unknown> = {}) => ({
   context: { path: '/board/KRTX', code: 'KRTX', screen: '1366×657' },
   ...extra,
 });
-const post = (app: App, payload: unknown, headers: Record<string, string> = {}) =>
+const post = (app: App, payload: object, headers: Record<string, string> = {}) =>
   app.app.inject({
     method: 'POST',
     url: '/api/feedback',
