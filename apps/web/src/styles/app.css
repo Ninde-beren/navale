@@ -660,7 +660,15 @@ body {
 }
 .icon-btn.sound.locked {
   box-shadow: inset 0 0 0 2px var(--text-3);
-  animation: blink 1.6s infinite;
+  color: var(--text-3);
+}
+.sound-hint {
+  font: 500 20px/1.2 var(--font-body);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.app-phone .sound-hint {
+  font-size: 13px;
 }
 
 /* ---------- Veille ---------- */
@@ -763,4 +771,103 @@ body {
 .look .ico {
   width: 18px;
   height: 18px;
+}
+
+/* ------------------------------------------------------------
+   Couleur (tranché le 2026-10-08 avec l'agent UX) : le tir est blanc, le feu
+   est orange, la coque est au joueur. Surcharges de mockup.css : mêmes
+   sélecteurs, importé avant, la cascade tranche sans !important.
+   ------------------------------------------------------------ */
+
+/* 1. Tir : missile et trace en parchemin, seul blanc mobile de l'écran.
+   Opacités abaissées : le blanc est plus lumineux que la braise et écraserait les grilles. */
+.fx .trail {
+  stroke: var(--text);
+}
+.fx .trail-glow {
+  stroke: var(--text);
+}
+.fx .hot {
+  stroke: #ffffff;
+  filter: drop-shadow(0 0 6px var(--text));
+}
+.fx .trail.draw {
+  opacity: 0.42;
+}
+.fx .trail-glow.draw {
+  opacity: 0.1;
+}
+.missile {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--text) 55%, transparent) 0%,
+    var(--text) 50%,
+    #ffffff 100%
+  );
+  box-shadow: 0 0 14px 2px color-mix(in oklab, var(--text) 55%, transparent);
+}
+.missile::before {
+  background: radial-gradient(
+    closest-side,
+    #ffffff,
+    color-mix(in oklab, var(--text) 55%, transparent) 55%,
+    transparent
+  );
+}
+
+/* Départ : le flash sur l'avatar prend la couleur du tireur (sa zone pose --pc). */
+@keyframes launch {
+  0% {
+    box-shadow: 0 0 0 0 var(--pc);
+  }
+  100% {
+    box-shadow: 0 0 0 26px transparent;
+  }
+}
+
+/* 2. Feu : l'explosion reste le seul orange de l'écran ; la fumée descend vers la braise sombre. */
+.fx .boom .smoke {
+  stroke: color-mix(in oklab, var(--hit-deep) 75%, transparent);
+}
+
+/* Zone cible pendant l'impact : cerclée de sa propre couleur ; .wet garde l'eau. */
+.tv.v2 .zone.impact {
+  box-shadow:
+    inset 0 0 0 1px var(--line),
+    0 0 0 2px color-mix(in oklab, var(--pc) 70%, transparent);
+}
+
+/* 3. Case touchée (TV et grille de visée) : fragment de coque du propriétaire, croix d'encre.
+   Repli --me (téléphone sans .c-), puis --hit. L'encre contraste à 5,5:1 au moins sur les 8 couleurs. */
+.grid .cell.hit {
+  --x: var(--ink);
+  background: var(--pc, var(--me, var(--hit)));
+  box-shadow: none;
+}
+/* La forme porte l'état : la croix passe à 12 % de la case pour rester lisible à 3 m. */
+.grid .cell.hit::after,
+.grid .cell.sunk::after {
+  background:
+    linear-gradient(45deg, transparent 40%, var(--x, var(--hit-deep)) 40% 60%, transparent 60%),
+    linear-gradient(-45deg, transparent 40%, var(--x, var(--hit-deep)) 40% 60%, transparent 60%);
+  background-size: 58% 58%;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Impact en cours : la couleur du propriétaire éclaircie, anneau blanc là où le trait
+   blanc s'est arrêté, halo dans la couleur. */
+.grid .cell.hit.fresh {
+  background: color-mix(in oklab, var(--pc, var(--hit)) 78%, var(--text));
+  box-shadow:
+    0 0 0 3px var(--text),
+    0 0 32px 4px color-mix(in oklab, var(--pc, var(--hit)) 70%, transparent);
+  animation: fresh 900ms var(--ease-out) infinite alternate;
+}
+@keyframes fresh {
+  to {
+    box-shadow:
+      0 0 0 3px var(--text),
+      0 0 48px 10px color-mix(in oklab, var(--pc, var(--hit)) 55%, transparent);
+  }
 }
