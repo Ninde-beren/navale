@@ -30,11 +30,16 @@ export class RateLimiter {
   }
 }
 
-/** Adresse du client : celle que transmet le reverse proxy, sinon celle de la connexion. */
+/**
+ * Adresse du client telle que le reverse proxy la voit : la dernière de
+ * `X-Forwarded-For`, celle que Caddy ajoute lui-même. Les précédentes viennent du
+ * client et ne valent rien ; sans en-tête, l'adresse de la connexion.
+ */
 export function clientAddress(request: FastifyRequest): string {
   const forwarded = request.headers['x-forwarded-for'];
-  const first = (Array.isArray(forwarded) ? forwarded[0] : forwarded)?.split(',')[0]?.trim();
-  return first || request.ip;
+  const header = Array.isArray(forwarded) ? forwarded.at(-1) : forwarded;
+  const last = header?.split(',').at(-1)?.trim();
+  return last || request.ip;
 }
 
 const dateTime = new Intl.DateTimeFormat('fr-FR', {

@@ -136,6 +136,11 @@ describe('POST /api/feedback', () => {
     expect(blocked.statusCode).toBe(429);
     const other = await post(app, body('Autre table'), { 'x-forwarded-for': '203.0.113.8' });
     expect(other.statusCode).toBe(202);
+    // Une adresse inventée en tête de l'en-tête ne compte pas : seule la dernière, posée par le proxy, fait foi.
+    const spoofed = await post(app, body('Encore moi'), {
+      'x-forwarded-for': '198.51.100.1, 203.0.113.7',
+    });
+    expect(spoofed.statusCode).toBe(429);
     expect(app.store.recentFeedback()).toHaveLength(6);
   });
 });
