@@ -15,6 +15,10 @@ services:
     environment:
       PUBLIC_URL: ${PUBLIC_URL:?définir PUBLIC_URL (ex. https://navale.sigilbo.fr) dans .env}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Retours du bouton « Un avis ? » par mail ; sans SMTP, ils restent en base (table feedback).
+      FEEDBACK_TO: ${FEEDBACK_TO:-}
+      SMTP_URL: ${SMTP_URL:-}
+      MAIL_FROM: ${MAIL_FROM:-}
     ports:
       # Lié à l'interface locale, pour un reverse proxy hors Docker ou un contrôle à la main.
       - '${BIND:-127.0.0.1}:${NAVALE_PORT:-5251}:5251'

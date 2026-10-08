@@ -1,4 +1,4 @@
-import type { GameSettings, PresetId } from '@navale/protocol';
+import type { Feedback, GameSettings, PresetId } from '@navale/protocol';
 
 export interface CreateGameRequest {
   settings: Partial<GameSettings> & { variant: GameSettings['variant']; maxPlayers: number };
@@ -49,4 +49,6 @@ export const api = {
   createGame: (body: CreateGameRequest) =>
     call<CreateGameResponse>('/api/games', { method: 'POST', body: JSON.stringify(body) }),
   gameInfo: (code: string) => call<GameInfo>(`/api/games/${encodeURIComponent(code)}`),
+  sendFeedback: (body: Feedback) =>
+    call<{ ok: true; id: number }>('/api/feedback', { method: 'POST', body: JSON.stringify(body) }),
 };

@@ -8,6 +8,7 @@ import { sendCommand } from '../../shared/socket.js';
 import { useGame } from '../../shared/store.js';
 import { Avatar, initialOf } from '../../shared/ui/Avatar.js';
 import { Grid } from '../../shared/ui/Grid.js';
+import { FeedbackButton } from '../../shared/ui/Feedback.js';
 import { Wordmark } from '../../shared/ui/Wordmark.js';
 import { mmss, useCountdown } from '../../shared/useCountdown.js';
 
@@ -91,7 +92,10 @@ export function PlayPlaying({
   const header = (
     <div className="flex items-center justify-between">
       <Wordmark />
-      <span className="chip plain">{view.code}</span>
+      <span className="flex items-center gap-2">
+        <FeedbackButton />
+        <span className="chip plain">{view.code}</span>
+      </span>
     </div>
   );
   const myShotsOn = (id: string) =>

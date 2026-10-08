@@ -4,6 +4,7 @@ import { useMusic } from '../../shared/audio.js';
 import { getSession } from '../../shared/session.js';
 import { useGameSocket } from '../../shared/socket.js';
 import { useGame } from '../../shared/store.js';
+import { FeedbackButton } from '../../shared/ui/Feedback.js';
 import { Notice } from '../../shared/ui/Notice.js';
 import { Splash } from '../../shared/ui/Splash.js';
 import { useWakeLock } from '../../shared/useWakeLock.js';
@@ -87,6 +88,7 @@ export function Board() {
         <Link className="btn ghost" to="/">
           Retour à l’accueil
         </Link>
+        <FeedbackButton variant="link" />
       </div>
     );
 

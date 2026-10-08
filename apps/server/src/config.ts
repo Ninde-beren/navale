@@ -18,6 +18,12 @@ export interface ServerConfig {
   logLevel: string;
   /** Dossier du build web à servir (production) ; `null` en développement, Vite s'en charge. */
   webDist?: string | null;
+  /** Destinataire des retours du bouton « Un avis ? » ; sans lui, ils restent en base. */
+  feedbackTo?: string | null;
+  /** Transport des mails, `smtps://utilisateur:motdepasse@hote:465` ; sans lui, pas d'envoi. */
+  smtpUrl?: string | null;
+  /** Expéditeur des mails ; par défaut le destinataire lui-même. */
+  mailFrom?: string | null;
 }
 
 /** `WEB_DIST`, sinon le build web s'il existe à côté du serveur ; sinon rien. */
@@ -36,5 +42,8 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): ServerConfi
     publicUrl: (env.PUBLIC_URL ?? `https://${lanIp()}:${webPort}`).replace(/\/+$/, ''),
     logLevel: env.LOG_LEVEL ?? 'info',
     webDist: findWebDist(env),
+    feedbackTo: env.FEEDBACK_TO || null,
+    smtpUrl: env.SMTP_URL || null,
+    mailFrom: env.MAIL_FROM || null,
   };
 }

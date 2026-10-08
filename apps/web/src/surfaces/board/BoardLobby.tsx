@@ -5,6 +5,7 @@ import { sendCommand } from '../../shared/socket.js';
 import { useFitText } from '../../shared/useFitText.js';
 import type { View } from '../../shared/store.js';
 import { Avatar, initialOf } from '../../shared/ui/Avatar.js';
+import { FeedbackButton } from '../../shared/ui/Feedback.js';
 import { Wordmark } from '../../shared/ui/Wordmark.js';
 
 const VARIANT = { sequential: 'Tour par tour', simultaneous: 'Salve' } as const;
@@ -36,6 +37,9 @@ export function BoardLobby({ view, socket }: { view: View; socket: RefObject<Soc
         <div className="center">
           <strong>Partie en attente</strong> · {VARIANT[settings.variant]} ·{' '}
           {END[settings.endCondition]}
+        </div>
+        <div className="right">
+          <FeedbackButton />
         </div>
       </header>
       <div className="lobby">

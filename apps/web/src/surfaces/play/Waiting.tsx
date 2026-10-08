@@ -6,6 +6,7 @@ import { ownGridClasses } from '../../shared/cells.js';
 import { sendCommand } from '../../shared/socket.js';
 import { Avatar, initialOf } from '../../shared/ui/Avatar.js';
 import { Grid } from '../../shared/ui/Grid.js';
+import { FeedbackButton } from '../../shared/ui/Feedback.js';
 import { Wordmark } from '../../shared/ui/Wordmark.js';
 import { LeaveButton } from './LeaveButton.js';
 
@@ -18,7 +19,10 @@ export function Waiting({ view, socket }: { view: PlayerView; socket: RefObject<
     <div className={`app-phone me-${me.color}`} style={{ padding: '16px 16px 24px', gap: 16 }}>
       <div className="flex items-center justify-between">
         <Wordmark />
-        <span className="chip plain">{view.code}</span>
+        <span className="flex items-center gap-2">
+          <FeedbackButton />
+          <span className="chip plain">{view.code}</span>
+        </span>
       </div>
       <div>
         <h1 className="h1">Tu es prêt</h1>

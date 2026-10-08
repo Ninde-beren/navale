@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { FeedbackButton } from './Feedback.js';
 import { Wordmark } from './Wordmark.js';
 
 export interface NoticeAction {
@@ -41,6 +42,7 @@ export function Notice({
             ))}
           </div>
         )}
+        <FeedbackButton variant="link" />
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import type { Socket } from 'socket.io-client';
 import { COLOR_IDS, type ColorId } from '@navale/protocol';
 import { sendCommand } from '../../shared/socket.js';
 import type { View } from '../../shared/store.js';
+import { FeedbackButton } from '../../shared/ui/Feedback.js';
 import { Wordmark } from '../../shared/ui/Wordmark.js';
 import { initialOf } from '../../shared/ui/Avatar.js';
 
@@ -42,7 +43,10 @@ export function Join({
     <form className="app-phone" style={{ padding: 24, gap: 24 }} onSubmit={(e) => void submit(e)}>
       <div className="flex items-center justify-between">
         <Wordmark />
-        <span className="chip plain">{view.code}</span>
+        <span className="flex items-center gap-2">
+          <FeedbackButton />
+          <span className="chip plain">{view.code}</span>
+        </span>
       </div>
       <h1 className="h1">Rejoindre la partie</h1>
       {full ? (

@@ -3,8 +3,10 @@ import Fastify from 'fastify';
 import { Server } from 'socket.io';
 import type { Variant } from '@navale/protocol';
 import type { ServerConfig } from './config.js';
+import { registerFeedback } from './http/feedback.js';
 import { registerGameRoutes } from './http/games.js';
 import { registerStatic } from './http/static.js';
+import { smtpMailer, type Mailer } from './mail/mailer.js';
 import { registerSockets } from './realtime/handlers.js';
 import { PresenceTracker } from './realtime/presence.js';
 import { BotDriver } from './runtime/bots.js';
@@ -20,6 +22,8 @@ export interface AppOptions {
   botThinkMs?: (variant: Variant) => number;
   /** Politique d'expiration des parties. */
   expiry?: ExpiryPolicy;
+  /** Envoi des retours par mail ; par défaut SMTP d'après la configuration, `null` sans SMTP. */
+  mailer?: Mailer | null;
 }
 
 export async function createApp(
@@ -62,7 +66,17 @@ export async function createApp(
   );
   sweeper.start();
 
+  const version = process.env.NAVALE_VERSION ?? 'dev';
+  const mailer = options.mailer === undefined ? smtpMailer(config) : options.mailer;
+  if (mailer) {
+    void mailer.verify().then(
+      () => app.log.info(`retours envoyés par mail à ${mailer.to}`),
+      (err: unknown) => app.log.warn({ err }, 'SMTP injoignable : les retours resteront en base'),
+    );
+  }
+
   registerGameRoutes(app, registry, config);
+  registerFeedback(app, { store, mailer, version }, config);
   registerSockets(io, registry, publisher, presence);
   if (config.webDist) await registerStatic(app, config.webDist, config.publicUrl);
 

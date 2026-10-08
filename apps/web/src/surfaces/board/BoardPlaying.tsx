@@ -7,6 +7,7 @@ import { sendCommand } from '../../shared/socket.js';
 import { useGame, type View } from '../../shared/store.js';
 import { Avatar, initialOf } from '../../shared/ui/Avatar.js';
 import { Grid } from '../../shared/ui/Grid.js';
+import { FeedbackButton } from '../../shared/ui/Feedback.js';
 import { SoundButton } from '../../shared/ui/SoundButton.js';
 import { Wordmark } from '../../shared/ui/Wordmark.js';
 import { mmss, useCountdown } from '../../shared/useCountdown.js';
@@ -436,7 +437,10 @@ export function BoardPlaying({
               </button>
             </>
           )}
-          <SoundButton />
+          <span className="flex items-center gap-3">
+            <SoundButton />
+            <FeedbackButton />
+          </span>
           {layout !== 'p3' && foot}
         </div>
       </aside>

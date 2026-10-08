@@ -120,8 +120,10 @@ curl -s localhost:5251/api/health
 Variables du `.env` : `PUBLIC_URL` (obligatoire, l'URL que voient les
 téléphones), `WEB_NETWORK` (réseau externe du reverse proxy, `web`),
 `LOG_LEVEL` (`info`, ou `debug` pour chercher), `NAVALE_PORT` et `BIND` (port et
-interface exposés hors Docker, `127.0.0.1:5251`). Dans le
-conteneur : `PORT`, `DATA_DIR=/data`, `WEB_DIST=/app/web`, `NAVALE_VERSION`.
+interface exposés hors Docker, `127.0.0.1:5251`), `FEEDBACK_TO`, `SMTP_URL` et
+`MAIL_FROM` (retours du bouton « Un avis ? » par mail ; sans SMTP, ils restent
+en base, table `feedback`). Dans le conteneur : `PORT`, `DATA_DIR=/data`,
+`WEB_DIST=/app/web`, `NAVALE_VERSION`.
 
 `/api/health` renvoie `{ ok, games, uptime, version }`. Les logs sont du JSON
 (pino) sur la sortie standard : `docker compose logs -f`.

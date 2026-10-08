@@ -5,6 +5,7 @@ import { play } from '../../shared/audio.js';
 import { sendCommand } from '../../shared/socket.js';
 import type { View } from '../../shared/store.js';
 import { Avatar, initialOf } from '../../shared/ui/Avatar.js';
+import { FeedbackButton } from '../../shared/ui/Feedback.js';
 import { SoundButton } from '../../shared/ui/SoundButton.js';
 
 /** Fin de partie : vainqueur, classement, et la revanche pour l'hôte (mêmes joueurs, même code). */
@@ -84,7 +85,10 @@ export function BoardFinished({ view, socket }: { view: View; socket: RefObject<
         ) : (
           <p className="muted">L’hôte peut lancer une revanche : mêmes joueurs, même code.</p>
         )}
-        <SoundButton />
+        <span className="flex items-center gap-3">
+          <SoundButton />
+          <FeedbackButton />
+        </span>
       </div>
       {error && <p className="hint err">{error}</p>}
     </div>
