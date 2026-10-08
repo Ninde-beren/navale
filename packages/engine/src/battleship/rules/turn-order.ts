@@ -11,12 +11,18 @@ export function nextShooters(state: GameState): string[] {
   return [next.playerId];
 }
 
-/** Ordre de résolution d'une salve : sièges croissants à partir de `index mod nombre de sièges`. */
+/**
+ * Ordre de résolution d'une salve, donc d'animation et de crédit du coulé :
+ * `commit`, l'ordre dans lequel les tirs ont été engagés (le plus rapide d'abord) ;
+ * `seats`, les sièges croissants à partir de `index mod nombre de sièges`.
+ * `shooterIds` arrive dans l'ordre d'engagement (clés de `round.committed`).
+ */
 export function resolutionOrder(
   state: GameState,
   roundIndex: number,
   shooterIds: string[],
 ): string[] {
+  if (state.settings.salvoOrder !== 'seats') return [...shooterIds];
   const seats = Math.max(1, state.players.length);
   const start = roundIndex % seats;
   const seatOf = (id: string) => state.players.find((p) => p.playerId === id)?.seat ?? 0;

@@ -144,6 +144,11 @@ export function BoardLobby({ view, socket }: { view: View; socket: RefObject<Soc
                 ? `Chrono ${settings.roundTimerSeconds} s`
                 : 'Sans chrono'}
             </span>
+            {settings.variant === 'simultaneous' && (
+              <span className="chip plain">
+                {settings.salvoOrder === 'seats' ? 'Ordre des sièges' : 'Le plus rapide d’abord'}
+              </span>
+            )}
           </div>
           <div className="launch">
             {view.isHost ? (

@@ -38,6 +38,7 @@ export function makeSettings(
     shipsMayTouch: true,
     roundTimerSeconds: null,
     revealDelayMs: 2500,
+    salvoOrder: 'commit',
     ...PRESETS[preset],
     ...partial,
   };

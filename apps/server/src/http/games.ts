@@ -6,6 +6,7 @@ import {
   EndConditionSchema,
   GameSettingsSchema,
   PresetIdSchema,
+  SalvoOrderSchema,
   ShipSpecSchema,
   SunkRevealSchema,
   VariantSchema,
@@ -25,6 +26,7 @@ export const CreateGameRequestSchema = z.object({
     shipsMayTouch: z.boolean().optional(),
     roundTimerSeconds: z.number().int().nullable().optional(),
     revealDelayMs: z.number().int().optional(),
+    salvoOrder: SalvoOrderSchema.optional(),
   }),
   preset: PresetIdSchema.optional(),
 });

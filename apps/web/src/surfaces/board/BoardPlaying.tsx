@@ -90,12 +90,13 @@ function SalvoCollect({
   compact,
 }: {
   shooters: PublicPlayer[];
-  committed: Set<string>;
+  /** Dans l'ordre d'engagement : le premier de la liste a tiré le premier. */
+  committed: string[];
   left: number | null;
   compact: boolean;
 }) {
-  const n = shooters.filter((p) => committed.has(p.playerId)).length;
-  const waiting = shooters.filter((p) => !committed.has(p.playerId));
+  const n = shooters.filter((p) => committed.includes(p.playerId)).length;
+  const waiting = shooters.filter((p) => !committed.includes(p.playerId));
   if (compact) {
     return (
       <div className="turn salvo dimmable">
@@ -123,7 +124,8 @@ function SalvoCollect({
       </div>
       <div className="commits">
         {shooters.map((p) => {
-          const fired = committed.has(p.playerId);
+          const rank = committed.indexOf(p.playerId);
+          const fired = rank >= 0;
           return (
             <div key={p.playerId} className={`row c-${p.color} ${fired ? '' : 'wait'}`}>
               <Avatar
@@ -136,7 +138,7 @@ function SalvoCollect({
               <span className="st">
                 {fired ? (
                   <>
-                    <Check /> A tiré
+                    <Check /> {ordinal(rank + 1)}
                   </>
                 ) : (
                   'Choisit…'
@@ -173,14 +175,20 @@ function Resolving({ salvo, total, name }: { salvo: Salvo; total: number; name: 
 function committedIn(
   round: PublicRound | null,
   events: ReturnType<typeof useGame.getState>['events'],
-): Set<string> {
-  const set = new Set(round?.committed ?? []);
+): string[] {
+  const list = [...(round?.committed ?? [])];
   if (round)
     for (const env of events)
-      if (env.event.type === 'SHOT_COMMITTED' && env.event.round === round.index)
-        set.add(env.event.shooterId);
-  return set;
+      if (
+        env.event.type === 'SHOT_COMMITTED' &&
+        env.event.round === round.index &&
+        !list.includes(env.event.shooterId)
+      )
+        list.push(env.event.shooterId);
+  return list;
 }
+
+const ordinal = (n: number) => (n === 1 ? '1er' : `${n}e`);
 
 /** Plateau en partie : état public, « Au tour de » ou collecte de la salve, journal, et la séquence animée de chaque tir. */
 export function BoardPlaying({
@@ -310,7 +318,8 @@ export function BoardPlaying({
           grid={settings.grid}
           active={
             isSalvo
-              ? round?.expectedShooters.includes(p.playerId) === true && !committed.has(p.playerId)
+              ? round?.expectedShooters.includes(p.playerId) === true &&
+                !committed.includes(p.playerId)
               : !!active && active.playerId === p.playerId
           }
           extra={reveals[p.playerId] ?? []}
@@ -331,7 +340,7 @@ export function BoardPlaying({
             {resolving && compact ? (
               <Resolving
                 salvo={resolving}
-                total={committed.size}
+                total={committed.length}
                 name={name(resolving.shooterId)}
               />
             ) : (
@@ -345,7 +354,7 @@ export function BoardPlaying({
             {resolving && !compact && (
               <Resolving
                 salvo={resolving}
-                total={committed.size}
+                total={committed.length}
                 name={name(resolving.shooterId)}
               />
             )}

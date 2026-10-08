@@ -33,6 +33,10 @@ export type EndCondition = z.infer<typeof EndConditionSchema>;
 export const SunkRevealSchema = z.enum(['classic', 'secret']);
 export type SunkReveal = z.infer<typeof SunkRevealSchema>;
 
+/** Salve : ordre de résolution, donc d'animation et de crédit du coulé. `commit` = le plus rapide à engager d'abord. */
+export const SalvoOrderSchema = z.enum(['commit', 'seats']);
+export type SalvoOrder = z.infer<typeof SalvoOrderSchema>;
+
 export const ColorIdSchema = z.enum([
   'red',
   'blue',
@@ -94,6 +98,7 @@ export const GameSettingsSchema = z.object({
   shipsMayTouch: z.boolean().default(true),
   roundTimerSeconds: z.number().int().min(15).max(300).nullable().default(null),
   revealDelayMs: z.number().int().min(0).max(10000).default(2500),
+  salvoOrder: SalvoOrderSchema.default('commit'),
 });
 export type GameSettings = z.infer<typeof GameSettingsSchema>;
 export type GameSettingsInput = z.input<typeof GameSettingsSchema>;

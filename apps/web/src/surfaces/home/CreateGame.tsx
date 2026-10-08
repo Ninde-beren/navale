@@ -5,6 +5,7 @@ import {
   SHIP_LABELS_FR,
   type EndCondition,
   type PresetId,
+  type SalvoOrder,
   type SunkReveal,
   type Variant,
 } from '@navale/protocol';
@@ -48,6 +49,7 @@ export function CreateGame() {
   const [preset, setPreset] = useState<PresetId | null>(null);
   const [sunkReveal, setSunkReveal] = useState<SunkReveal>('classic');
   const [timer, setTimer] = useState<'none' | '45' | '90'>('none');
+  const [salvoOrder, setSalvoOrder] = useState<SalvoOrder>('commit');
   const [timerTouched, setTimerTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +76,7 @@ export function CreateGame() {
           endCondition,
           sunkReveal,
           roundTimerSeconds: timer === 'none' ? null : Number(timer),
+          salvoOrder,
         },
         preset: effectivePreset,
       });
@@ -162,6 +165,24 @@ export function CreateGame() {
           onChange={setSunkReveal}
         />
       </div>
+      {variant === 'simultaneous' && (
+        <div className="field">
+          <span className="label">Résolution de la salve</span>
+          <Seg
+            value={salvoOrder}
+            options={[
+              ['commit', 'Le plus rapide d’abord'],
+              ['seats', 'Ordre des sièges'],
+            ]}
+            onChange={setSalvoOrder}
+          />
+          <p className="hint">
+            {salvoOrder === 'commit'
+              ? 'Les tirs se résolvent dans l’ordre où ils ont été engagés ; un bateau achevé par deux tirs est crédité au plus rapide.'
+              : 'Les tirs se résolvent siège par siège, en tournant à chaque manche.'}
+          </p>
+        </div>
+      )}
       <div className="field">
         <span className="label">Chrono par manche</span>
         <Seg

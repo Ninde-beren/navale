@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { HOST, TINY_FLEET, player, startedGame, tinySettings } from './helpers.js';
 
-const salvo = (over = {}) => tinySettings({ variant: 'simultaneous', ...over });
+/** Les tests historiques décrivent l'ordre des sièges ; l'ordre d'engagement, par défaut, a son propre test. */
+const salvo = (over = {}) =>
+  tinySettings({ variant: 'simultaneous', salvoOrder: 'seats', ...over });
 
 describe('salve', () => {
   it('attend un tir de chaque vivant, engage sans révéler, puis résout dans l’ordre des sièges', () => {
@@ -85,5 +87,38 @@ describe('salve', () => {
     );
     const events = h.fire(a, j, { x: 4, y: 4 });
     expect(events.filter((e) => e.type === 'SHOT_RESOLVED')).toHaveLength(2);
+  });
+
+  it('par défaut, résout dans l’ordre d’engagement : le plus rapide d’abord, crédité du coulé', () => {
+    const { h, ids } = startedGame(3, tinySettings({ variant: 'simultaneous' }), TINY_FLEET);
+    const [a, j, m] = ids as [string, string, string];
+    expect(h.state.settings.salvoOrder).toBe('commit');
+    // Manche 0 : Marc touche Antoine en premier.
+    h.fire(m, a, { x: 0, y: 0 });
+    h.fire(j, m, { x: 5, y: 5 });
+    h.fire(a, j, { x: 5, y: 5 });
+    // Manche 1 : Julie engage avant Marc, les deux achèvent le torpilleur d'Antoine.
+    h.fire(j, a, { x: 1, y: 0 });
+    h.fire(m, a, { x: 1, y: 0 });
+    const e = h.fire(a, j, { x: 4, y: 4 });
+    const resolved = e.filter((x) => x.type === 'SHOT_RESOLVED') as Array<{
+      shooterId: string;
+      result: string;
+    }>;
+    expect(resolved.map((x) => x.shooterId)).toEqual([j, m, a]);
+    expect(resolved[0]).toMatchObject({ shooterId: j, result: 'SUNK' });
+    expect(resolved[1]).toMatchObject({ shooterId: m, result: 'HIT' });
+    expect(e.some((x) => x.type === 'PLAYER_ELIMINATED')).toBe(true);
+  });
+
+  it('l’hôte qui force résout aussi dans l’ordre d’engagement', () => {
+    const { h, ids } = startedGame(3, tinySettings({ variant: 'simultaneous' }), TINY_FLEET);
+    const [a, j, m] = ids as [string, string, string];
+    h.fire(m, a, { x: 5, y: 5 });
+    h.fire(a, j, { x: 5, y: 5 });
+    const e = h.expectOk(HOST, { type: 'FORCE_ROUND' });
+    const resolved = e.filter((x) => x.type === 'SHOT_RESOLVED') as Array<{ shooterId: string }>;
+    expect(resolved.map((x) => x.shooterId)).toEqual([m, a]);
+    expect(e.find((x) => x.type === 'ROUND_RESOLVED')).toMatchObject({ skipped: [j] });
   });
 });
