@@ -1,7 +1,19 @@
-# Bloc à ajouter au Caddyfile du reverse proxy : TLS automatique, WebSocket proxifié sans réglage.
-# Si Caddy tourne dans un conteneur, remplacer 127.0.0.1:5251 par le nom du service sur un
-# réseau Docker partagé (ex. navale:5251) et retirer la publication de port dans compose.yaml.
-navale.exemple.fr {
+# Bloc à ajouter dans infra-docker/infra/Caddyfile (Caddy partagé du VPS, sur le réseau
+# Docker `web`). Caddy joint le conteneur par son nom de service ; le WebSocket passe sans
+# réglage ; le certificat Let's Encrypt est automatique dès que le DNS pointe sur le VPS.
+#
+# Recharger sans coupure, depuis infra-docker :
+#   docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+
+# ============================================================================
+# Navale
+# ============================================================================
+navale.sigilbo.fr {
 	encode zstd gzip
-	reverse_proxy 127.0.0.1:5251
+	reverse_proxy navale:5251
+	header {
+		X-robots-Tag "noindex, nofollow, noarchive, nosnippet, noimageindex"
+	}
 }
+
+# Variante hors Docker (Caddy installé sur l'hôte) : reverse_proxy 127.0.0.1:5251

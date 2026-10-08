@@ -1,6 +1,7 @@
-# Navale en production : un conteneur, un volume pour SQLite, un port local
-# derrière le reverse proxy (Caddy) qui termine le TLS.
-#   cp .env.example .env   # PUBLIC_URL obligatoire
+# Navale en production : un conteneur, un volume pour SQLite, et le réseau Docker
+# externe `web` du Caddy partagé (infra-docker), qui le joint par son nom : navale:5251.
+#   docker network create web   # une fois, si le réseau n'existe pas encore (poste de dev)
+#   cp .env.example .env         # PUBLIC_URL obligatoire
 #   docker compose up -d --build
 name: navale
 services:
@@ -12,11 +13,18 @@ services:
     image: navale:latest
     restart: unless-stopped
     environment:
-      PUBLIC_URL: ${PUBLIC_URL:?définir PUBLIC_URL (ex. https://navale.exemple.fr) dans .env}
+      PUBLIC_URL: ${PUBLIC_URL:?définir PUBLIC_URL (ex. https://navale.sigilbo.fr) dans .env}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     ports:
-      # Lié à l'interface locale : seul le reverse proxy y accède.
+      # Lié à l'interface locale, pour un reverse proxy hors Docker ou un contrôle à la main.
       - '${BIND:-127.0.0.1}:${NAVALE_PORT:-5251}:5251'
     volumes:
       # Le journal SQLite survit à `docker compose down`. Le conteneur écrit avec l'uid 1000.
       - ./data:/data
+    networks:
+      - web
+
+networks:
+  web:
+    external: true
+    name: ${WEB_NETWORK:-web}

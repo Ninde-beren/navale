@@ -85,8 +85,12 @@ web sur le port 5251. Caddy, ou tout reverse proxy, termine le TLS devant.
 
 1. Docker et Docker Compose. Le conteneur écrit le journal SQLite dans `./data`
    avec l'uid 1000 : le dossier doit appartenir à cet utilisateur.
-2. Un bloc Caddy pour le domaine, voir `deploy/Caddyfile.example` : un
-   `reverse_proxy 127.0.0.1:5251` suffit, WebSocket compris.
+2. Le DNS : `navale.sigilbo.fr` en A vers le VPS.
+3. Le conteneur rejoint le réseau Docker externe `web` du Caddy partagé
+   (`infra-docker`). Ajouter le bloc de `deploy/Caddyfile.example` au
+   `infra/Caddyfile` d'infra-docker, puis `docker compose exec caddy caddy reload
+--config /etc/caddy/Caddyfile` : Caddy joint `navale:5251` par son nom,
+   WebSocket compris, certificat automatique.
 
 ### À chaque livraison, une commande
 
@@ -109,8 +113,9 @@ curl -s localhost:5251/api/health
 ```
 
 Variables du `.env` : `PUBLIC_URL` (obligatoire, l'URL que voient les
-téléphones), `LOG_LEVEL` (`info`, ou `debug` pour chercher), `NAVALE_PORT` et
-`BIND` (port et interface exposés au reverse proxy, `127.0.0.1:5251`). Dans le
+téléphones), `WEB_NETWORK` (réseau externe du reverse proxy, `web`),
+`LOG_LEVEL` (`info`, ou `debug` pour chercher), `NAVALE_PORT` et `BIND` (port et
+interface exposés hors Docker, `127.0.0.1:5251`). Dans le
 conteneur : `PORT`, `DATA_DIR=/data`, `WEB_DIST=/app/web`, `NAVALE_VERSION`.
 
 `/api/health` renvoie `{ ok, games, uptime, version }`. Les logs sont du JSON
