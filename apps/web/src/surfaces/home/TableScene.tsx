@@ -5,9 +5,10 @@ import { Grid } from '../../shared/ui/Grid.js';
 import { useMedia } from '../../shared/useMedia.js';
 
 /*
- * Illustration de l'accueil : une partie fictive à trois, rejouée en boucle avec les
- * vraies grilles du jeu. C'est un décor, rien ne passe par le serveur. Le téléphone
- * dessiné est celui d'Inès : il montre sa flotte, que l'écran central ne voit jamais.
+ * Illustration de l'accueil : une partie fictive à trois, vue du dessus et rejouée en
+ * boucle avec les vraies grilles du jeu. La tablette est posée au milieu de la table,
+ * les téléphones de Julie et Marc sont devant eux, celui d'Inès est en main au premier
+ * plan. C'est un décor, rien ne passe par le serveur.
  */
 
 const SIZE = 8;
@@ -122,56 +123,73 @@ export function TableScene({ still }: { still?: number }) {
   // Mouvement réduit : l'état final, sans case qui brille ni annonce.
   const fx = still !== undefined || !reduced;
   const { players, last, next } = sceneAt(shown);
-  const me = players[ME]!;
+  const phone = (p: number, place: string) => {
+    const player = PLAYERS[p]!;
+    const mine = next === p;
+    return (
+      <div className={`home-phone ${place} me-${player.color} c-${player.color}`}>
+        <span className="home-phone-who">{player.name}</span>
+        <span className="home-phone-label">Ta flotte</span>
+        <Grid
+          width={SIZE}
+          height={SIZE}
+          cellClass={ownGridClasses(players[p]!.ships, players[p]!.revealed)}
+        />
+        <span className={`home-phone-action ${mine ? 'mine' : ''}`}>
+          {mine ? 'À toi de tirer' : `Au tour de ${PLAYERS[next]!.name}`}
+        </span>
+      </div>
+    );
+  };
   const shooter = PLAYERS[next]!;
 
   return (
     <div
       className="home-scene"
       role="img"
-      aria-label="Une partie à trois : l'écran central montre les grilles de Julie, Marc et Inès, le téléphone d'Inès montre sa flotte."
+      aria-label="Une partie à trois vue du dessus : la tablette au milieu de la table avec les grilles de Julie, Marc et Inès, et le téléphone de chaque joueur devant lui."
     >
       <div className="home-scene-stage" aria-hidden="true">
-        <div className="home-tv">
-          <div className="home-tv-bar">
-            <span className="code">KRTX</span>
-            <span className={`turn c-${shooter.color}`}>
-              Au tour de <b>{shooter.name}</b>
-            </span>
-          </div>
-          <div className="home-tv-zones">
-            {PLAYERS.map((p, i) => (
-              <div key={p.name} className={`home-zone c-${p.color} ${i === next ? 'active' : ''}`}>
-                <span className="home-zone-name">{p.name}</span>
-                <Grid
-                  width={SIZE}
-                  height={SIZE}
-                  cellClass={publicGridClasses(
-                    players[i]!.revealed,
-                    players[i]!.sunk,
-                    fx && last?.target === i ? last.at : null,
+        <div className="home-table">
+          <div className="home-tablet">
+            <div className="home-tablet-bar">
+              <span className="code">KRTX</span>
+              <span className={`turn c-${shooter.color}`}>
+                Au tour de <b>{shooter.name}</b>
+              </span>
+            </div>
+            <div className="home-tablet-zones">
+              {PLAYERS.map((p, i) => (
+                <div
+                  key={p.name}
+                  className={`home-zone c-${p.color} ${i === next ? 'active' : ''}`}
+                >
+                  <span className="home-zone-name">{p.name}</span>
+                  <Grid
+                    width={SIZE}
+                    height={SIZE}
+                    cellClass={publicGridClasses(
+                      players[i]!.revealed,
+                      players[i]!.sunk,
+                      fx && last?.target === i ? last.at : null,
+                    )}
+                  />
+                  {fx && last?.target === i && (
+                    <span
+                      key={shown}
+                      className={`home-scene-callout ${CALLOUTS[last.result].cls} ${still !== undefined ? 'still' : ''}`}
+                    >
+                      {CALLOUTS[last.result].word}
+                    </span>
                   )}
-                />
-                {fx && last?.target === i && (
-                  <span
-                    key={shown}
-                    className={`home-scene-callout ${CALLOUTS[last.result].cls} ${still !== undefined ? 'still' : ''}`}
-                  >
-                    {CALLOUTS[last.result].word}
-                  </span>
-                )}
-              </div>
-            ))}
+                </div>
+              ))}
+            </div>
           </div>
+          {phone(0, 'seat-left')}
+          {phone(1, 'seat-top')}
         </div>
-        <div className={`home-phone me-${PLAYERS[ME].color} c-${PLAYERS[ME].color}`}>
-          <span className="home-phone-who">{PLAYERS[ME].name}</span>
-          <span className="home-phone-label">Ta flotte</span>
-          <Grid width={SIZE} height={SIZE} cellClass={ownGridClasses(me.ships, me.revealed)} />
-          <span className={`home-phone-action ${next === ME ? 'mine' : ''}`}>
-            {next === ME ? 'À toi de tirer' : `Au tour de ${shooter.name}`}
-          </span>
-        </div>
+        {phone(ME, 'held')}
       </div>
     </div>
   );

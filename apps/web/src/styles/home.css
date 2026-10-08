@@ -71,14 +71,14 @@
 }
 @media (min-width: 960px) {
   .home-hero-grid {
-    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }
 .home-hero h1 {
-  font: 800 clamp(38px, 5.2vw, 70px)/1.02 var(--font-display);
+  font: 800 clamp(38px, 4.6vw, 64px)/1.02 var(--font-display);
   letter-spacing: -0.03em;
   text-wrap: balance;
-  max-width: 13ch;
+  max-width: 18ch;
 }
 .home-lede {
   margin-top: 20px;
@@ -102,45 +102,23 @@
   font-size: 15px;
   max-width: 40ch;
 }
-/* Chaque point porte sa goutte d'eau : pas de séparateur orphelin quand la ligne se coupe */
-.home-facts {
-  margin-top: 28px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 20px;
-  font: 500 15px/1.2 var(--font-body);
-  color: var(--text-2);
-}
-.home-facts span {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;
-}
-.home-facts span::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--miss);
-}
-
-/* ---- La scène : écran central et téléphone, dessinés à taille fixe puis réduits ---- */
+/* ---- La scène, vue du dessus : la tablette au milieu de la table, les téléphones autour.
+   Dessinée à taille fixe puis réduite à la largeur disponible. ---- */
 .home-scene {
   container-type: inline-size;
   position: relative;
   width: 100%;
   max-width: 680px;
-  aspect-ratio: 600 / 400;
+  aspect-ratio: 700 / 520;
   justify-self: center;
 }
 .home-scene-stage {
-  --k: tan(atan2(100cqi, 600px));
+  --k: tan(atan2(100cqi, 700px));
   position: absolute;
   left: 0;
   top: 0;
-  width: 600px;
-  height: 400px;
+  width: 700px;
+  height: 520px;
   transform: scale(var(--k));
   transform-origin: 0 0;
 }
@@ -165,25 +143,53 @@
     0 0 14px 3px color-mix(in oklab, var(--hit) 70%, transparent);
 }
 
-.home-tv {
+.home-table {
   position: absolute;
   left: 0;
-  top: 16px;
+  top: 0;
+  width: 640px;
+  height: 480px;
+  overflow: hidden;
+  border-radius: 44px;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 127px, rgba(0, 0, 0, 0.22) 127px 128px),
+    radial-gradient(420px 300px at 50% 50%, #1b2542, #121a30 70%, #0e152a);
+  box-shadow:
+    inset 0 0 0 1px var(--line),
+    inset 0 0 60px rgba(0, 0, 0, 0.5),
+    0 30px 60px -30px rgba(0, 0, 0, 0.8);
+}
+.home-tablet {
+  position: absolute;
+  left: 87px;
+  top: 109px;
   width: 466px;
   height: 262px;
   padding: 12px 14px 14px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  border-radius: 16px;
+  border-radius: 14px;
   background: radial-gradient(360px 240px at 50% 45%, var(--bg-2), transparent 70%), var(--bg);
   box-shadow:
     0 0 0 1px var(--line-strong),
-    0 0 0 7px #0e1527,
-    0 0 0 8px var(--line),
-    0 40px 80px -30px rgba(0, 0, 0, 0.9);
+    0 0 0 11px #05070d,
+    0 0 0 12px var(--line),
+    0 16px 36px -6px rgba(0, 0, 0, 0.75);
 }
-.home-tv-bar {
+/* Caméra, sur la bordure du haut */
+.home-tablet::after {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  border-radius: 50%;
+  background: #1f2840;
+}
+.home-tablet-bar {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
@@ -191,7 +197,7 @@
   font: 500 12px/1 var(--font-body);
   color: var(--text-2);
 }
-.home-tv-bar .code {
+.home-tablet-bar .code {
   justify-self: start;
   padding: 5px 7px;
   border-radius: 6px;
@@ -200,11 +206,11 @@
   letter-spacing: 0.18em;
   color: var(--text);
 }
-.home-tv-bar .turn b {
+.home-tablet-bar .turn b {
   font-weight: 700;
   color: var(--pc);
 }
-.home-tv-zones {
+.home-tablet-zones {
   flex: 1;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -291,8 +297,6 @@
 
 .home-phone {
   position: absolute;
-  left: 446px;
-  top: 112px;
   width: 150px;
   height: 266px;
   padding: 26px 16px 16px;
@@ -306,6 +310,30 @@
     0 0 0 5px #0e1527,
     0 0 0 6px var(--line),
     -18px 30px 50px -16px rgba(0, 0, 0, 0.9);
+}
+/* En main, au premier plan, à cheval sur le bord de la table */
+.home-phone.held {
+  left: 548px;
+  top: 236px;
+}
+/* Posés sur la table devant leur joueur, coupés par le bord : Julie à gauche, Marc en face */
+.home-phone.seat-left,
+.home-phone.seat-top {
+  box-shadow:
+    0 0 0 1px var(--line-strong),
+    0 0 0 5px #0e1527,
+    0 0 0 6px var(--line),
+    0 8px 18px rgba(0, 0, 0, 0.6);
+}
+.home-phone.seat-left {
+  left: -153px;
+  top: 107px;
+  transform: rotate(90deg);
+}
+.home-phone.seat-top {
+  left: 245px;
+  top: -181px;
+  transform: rotate(180deg);
 }
 .home-phone::before {
   content: '';
@@ -377,60 +405,55 @@
   letter-spacing: -0.01em;
 }
 
-/* Une partie, dans l'ordre : le numéro est posé dans une case de grille */
-.home-steps {
+/* Mieux que la version papier : trois avantages côte à côte, chacun sous son filet */
+.home-perks {
   list-style: none;
-  margin: clamp(36px, 5vw, 56px) 0 0;
+  margin: clamp(32px, 4vw, 48px) 0 0;
   padding: 0;
   display: grid;
-  gap: 40px 32px;
+  gap: 32px 48px;
 }
-@media (min-width: 720px) {
-  .home-steps {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+@media (min-width: 900px) {
+  .home-perks {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
-@media (min-width: 1100px) {
-  .home-steps {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-.home-step {
+.home-perks li {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
   gap: 10px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line-strong);
 }
-.home-step p {
-  font-size: 16px;
+.home-perks p {
   color: var(--text-2);
+  max-width: 40ch;
 }
-.home-step-n {
-  width: 44px;
-  height: 44px;
-  margin-bottom: 6px;
+
+/* Prêt en une minute : le code de partie, tel que l'écran central l'affiche */
+.home-ready {
   display: grid;
-  place-items: center;
-  border-radius: 8px;
-  background: var(--sea);
-  box-shadow: inset 0 0 0 1px var(--sea-line);
-  font: 600 20px/1 var(--font-mono);
-  color: var(--text);
+  gap: 40px;
+  align-items: center;
+}
+@media (min-width: 900px) {
+  .home-ready {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
 }
 .home-code {
   display: flex;
-  gap: 6px;
-  margin-top: 4px;
+  gap: clamp(8px, 1.2vw, 14px);
 }
 .home-code b {
-  width: 38px;
-  height: 46px;
+  width: clamp(64px, 8vw, 104px);
+  height: clamp(80px, 10vw, 128px);
   display: grid;
   place-items: center;
-  border-radius: 10px;
+  border-radius: clamp(12px, 1.4vw, 18px);
   background: var(--surface-2);
-  box-shadow: inset 0 0 0 1px var(--line-strong);
-  font: 600 22px/1 var(--font-mono);
+  box-shadow: inset 0 0 0 2px var(--line-strong);
+  font: 600 clamp(36px, 5vw, 64px)/1 var(--font-mono);
 }
 
 /* Les deux variantes, chacune avec ce que l'écran central affiche */
@@ -485,31 +508,6 @@
   color: var(--text);
 }
 
-/* Ce que l'écran central change à table */
-.home-points {
-  margin: clamp(32px, 4vw, 48px) 0 0;
-  display: grid;
-  gap: 28px 48px;
-}
-@media (min-width: 768px) {
-  .home-points {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-.home-points > div {
-  padding-top: 20px;
-  border-top: 1px solid var(--line-strong);
-}
-.home-points dt {
-  font: 700 21px/1.2 var(--font-display);
-  letter-spacing: -0.01em;
-}
-.home-points dd {
-  margin: 8px 0 0;
-  color: var(--text-2);
-  max-width: 46ch;
-}
-
 /* Fin de page : la même action qu'en haut */
 .home-final {
   text-align: center;
@@ -522,6 +520,9 @@
 .home-final .btn {
   margin-top: 32px;
 }
+.home-final h2 {
+  max-width: none;
+}
 
 /* ---- Image d'aperçu de lien (OgCard), photographiée en 1200×630 ---- */
 .home-scene-callout.still {
@@ -533,7 +534,7 @@
   overflow: hidden;
   position: relative;
   display: grid;
-  grid-template-columns: 470px 1fr;
+  grid-template-columns: 540px 1fr;
   align-items: center;
   gap: 40px;
   padding: 0 56px 0 64px;
@@ -561,7 +562,7 @@
   font-size: 30px;
 }
 .og-card-text h1 {
-  font: 800 64px/1.02 var(--font-display);
+  font: 800 58px/1.02 var(--font-display);
   letter-spacing: -0.03em;
   text-wrap: balance;
 }
