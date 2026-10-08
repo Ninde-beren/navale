@@ -106,7 +106,8 @@ export class ShotFx {
     const d = `M${x0.toFixed(1)} ${y0.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${x1.toFixed(1)} ${y1.toFixed(1)}`;
 
     // 1. Départ
-    replay(plate.parentElement!, 'launch');
+    // `launching`, pas `launch` : cette classe-là habille le bloc de lancement du lobby.
+    replay(plate.parentElement!, 'launching');
     this.$('.centre .dimmable')?.classList.add('dim');
     await this.fly(d, flight, { missile, trail, glow, hot });
     if (this.disposed) return;
