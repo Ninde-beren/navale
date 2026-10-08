@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import type { Socket } from 'socket.io-client';
 import { coordLabel, type Coord, type PublicPlayer, type PublicRound } from '@navale/protocol';
-import { play } from '../../shared/audio.js';
+import { play, playSunkJingle } from '../../shared/audio.js';
 import { publicGridClasses } from '../../shared/cells.js';
 import { sendCommand } from '../../shared/socket.js';
 import { useGame, type View } from '../../shared/store.js';
@@ -200,6 +200,8 @@ export function BoardPlaying({
 
   const rootRef = useRef<HTMLDivElement>(null);
   const fxRef = useRef<ShotFx | null>(null);
+  const playersRef = useRef(players);
+  playersRef.current = players;
   const lastSeq = useRef(0);
   const [reveals, setReveals] = useState<Record<string, Reveal[]>>({});
   const [fresh, setFresh] = useState<{ targetId: string; coord: Coord } | null>(null);
@@ -237,6 +239,10 @@ export function BoardPlaying({
         },
         onImpact: (shot) => {
           play(SOUND[shot.result]);
+          if (shot.result === 'SUNK') {
+            const shooter = playersRef.current.find((p) => p.playerId === shot.shooterId);
+            if (shooter) setTimeout(() => playSunkJingle(shooter.color), 550);
+          }
           setReveals((r) => ({
             ...r,
             [shot.targetId]: [

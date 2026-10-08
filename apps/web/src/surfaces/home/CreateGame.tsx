@@ -10,7 +10,9 @@ import {
 } from '@navale/protocol';
 import { api, ApiError } from '../../shared/api.js';
 import { saveSession } from '../../shared/session.js';
+import { Notice } from '../../shared/ui/Notice.js';
 import { Wordmark } from '../../shared/ui/Wordmark.js';
+import { PHONE_QUERY, useMedia } from '../../shared/useMedia.js';
 
 function Seg<T extends string>({
   value,
@@ -39,6 +41,7 @@ function Seg<T extends string>({
 
 export function CreateGame() {
   const navigate = useNavigate();
+  const phone = useMedia(PHONE_QUERY);
   const [variant, setVariant] = useState<Variant>('sequential');
   const [endCondition, setEndCondition] = useState<EndCondition>('last_standing');
   const [maxPlayers, setMaxPlayers] = useState(4);
@@ -50,6 +53,15 @@ export function CreateGame() {
   const [error, setError] = useState<string | null>(null);
   const effectivePreset = preset ?? defaultPresetFor(maxPlayers);
   const fleet = PRESETS[effectivePreset];
+
+  if (phone)
+    return (
+      <Notice
+        title="La partie se crée sur l’écran central"
+        text="Ouvre Navale sur un ordinateur ou une tablette, celui qui servira d’écran central. Ton téléphone sert à rejoindre."
+        action={{ to: '/', label: 'Retour à l’accueil' }}
+      />
+    );
 
   const submit = async () => {
     setBusy(true);

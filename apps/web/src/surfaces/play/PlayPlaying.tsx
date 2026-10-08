@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { Socket } from 'socket.io-client';
 import { coordKey } from '@navale/engine';
 import { coordLabel, type Coord, type PlayerView } from '@navale/protocol';
-import { play } from '../../shared/audio.js';
+import { play, playSunkJingle } from '../../shared/audio.js';
 import { ownGridClasses, publicGridClasses } from '../../shared/cells.js';
 import { sendCommand } from '../../shared/socket.js';
 import { useGame } from '../../shared/store.js';
@@ -51,6 +51,14 @@ export function PlayPlaying({
   for (const e of events)
     if (e.event.type === 'SHOT_COMMITTED' && e.event.round === roundIndex)
       committed.add(e.event.shooterId);
+
+  // Mon petit air de victoire quand un de mes tirs a coulé un navire.
+  const sunkCount = view.me.shotsFired.filter((s) => s.result === 'SUNK').length;
+  const prevSunk = useRef(sunkCount);
+  useEffect(() => {
+    if (sunkCount > prevSunk.current) playSunkJingle(me.color);
+    prevSunk.current = sunkCount;
+  }, [sunkCount]);
 
   // Vibration et deux notes quand mon tour arrive.
   useEffect(() => {

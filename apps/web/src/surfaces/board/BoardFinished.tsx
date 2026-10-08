@@ -4,12 +4,14 @@ import type { Socket } from 'socket.io-client';
 import { play } from '../../shared/audio.js';
 import { sendCommand } from '../../shared/socket.js';
 import type { View } from '../../shared/store.js';
+import { Avatar, initialOf } from '../../shared/ui/Avatar.js';
 import { SoundButton } from '../../shared/ui/SoundButton.js';
 
 /** Fin de partie : vainqueur, classement, et la revanche pour l'hôte (mêmes joueurs, même code). */
 export function BoardFinished({ view, socket }: { view: View; socket: RefObject<Socket | null> }) {
   const ranking = view.ranking ?? [];
-  const name = (id: string) => view.players.find((p) => p.playerId === id)?.name ?? '?';
+  const playerOf = (id: string) => view.players.find((p) => p.playerId === id);
+  const name = (id: string) => playerOf(id)?.name ?? '?';
   const winner = ranking.find((r) => r.rank === 1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,9 +50,19 @@ export function BoardFinished({ view, socket }: { view: View; socket: RefObject<
         </thead>
         <tbody>
           {ranking.map((r) => (
-            <tr key={r.playerId}>
+            <tr key={r.playerId} className={`c-${playerOf(r.playerId)?.color ?? 'blue'}`}>
               <td>{r.rank}</td>
-              <td>{name(r.playerId)}</td>
+              <td>
+                <span className="who">
+                  <Avatar
+                    color={playerOf(r.playerId)?.color ?? 'blue'}
+                    initial={initialOf(name(r.playerId))}
+                    size="sm"
+                    bot={playerOf(r.playerId)?.kind === 'bot'}
+                  />
+                  <b className="pc">{name(r.playerId)}</b>
+                </span>
+              </td>
               <td>{r.shotsFired}</td>
               <td>{r.hits}</td>
               <td>{Math.round(r.accuracy * 100)} %</td>

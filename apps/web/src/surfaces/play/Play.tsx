@@ -1,14 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router';
 import { getSession, saveSession, clearPlayer } from '../../shared/session.js';
 import { useGameSocket } from '../../shared/socket.js';
 import { isPlayerView, useGame } from '../../shared/store.js';
 import { Notice } from '../../shared/ui/Notice.js';
+import { Splash } from '../../shared/ui/Splash.js';
 import { useWakeLock } from '../../shared/useWakeLock.js';
 import { Join } from './Join.js';
 import { Placement } from './Placement.js';
 import { PlayPlaying } from './PlayPlaying.js';
 import { Waiting } from './Waiting.js';
+
+const SPLASH_MS = 2200;
 
 /** Téléphone du joueur : rejoindre, placer, attendre, jouer. */
 export function Play() {
@@ -26,6 +29,21 @@ export function Play() {
   const { view, conn, error } = useGame();
   // Le téléphone reste allumé pendant la partie : pas de tour manqué (E7-S3).
   const wake = useWakeLock(view?.status === 'PLAYING');
+  // Faux chargement au lancement, en même temps que l'écran central.
+  const prevStatus = useRef(view?.status);
+  const [splash, setSplash] = useState(false);
+  useEffect(() => {
+    if (prevStatus.current === 'LOBBY' && view?.status === 'PLAYING') {
+      setSplash(true);
+      const t = setTimeout(() => setSplash(false), SPLASH_MS);
+      return () => clearTimeout(t);
+    }
+    prevStatus.current = view?.status;
+    return undefined;
+  }, [view?.status]);
+  useEffect(() => {
+    if (!splash) prevStatus.current = view?.status;
+  }, [splash, view?.status]);
 
   if (conn === 'rejected') {
     if (error?.code === 'TOKEN_INVALID' && session.playerToken) {
@@ -88,6 +106,8 @@ export function Play() {
       )
     ) : view.status === 'CANCELLED' ? (
       <Notice title="Partie annulée" action={{ to: '/', label: 'Retour à l’accueil' }} />
+    ) : splash ? (
+      <Splash duration={SPLASH_MS} phone />
     ) : (
       <PlayPlaying view={view} socket={socket} />
     );

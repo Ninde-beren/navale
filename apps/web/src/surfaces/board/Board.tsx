@@ -1,13 +1,17 @@
-import { useMemo } from 'react';
-import { useParams } from 'react-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useParams } from 'react-router';
+import { useMusic } from '../../shared/audio.js';
 import { getSession } from '../../shared/session.js';
 import { useGameSocket } from '../../shared/socket.js';
 import { useGame } from '../../shared/store.js';
 import { Notice } from '../../shared/ui/Notice.js';
+import { Splash } from '../../shared/ui/Splash.js';
 import { useWakeLock } from '../../shared/useWakeLock.js';
 import { BoardFinished } from './BoardFinished.js';
 import { BoardLobby } from './BoardLobby.js';
 import { BoardPlaying } from './BoardPlaying.js';
+
+const SPLASH_MS = 2800;
 
 /** Écran central : public, accessible par le code. L'hôte y ajoute son jeton pour ses boutons. */
 export function Board() {
@@ -20,6 +24,23 @@ export function Board() {
   const { view, conn, error } = useGame();
   // La table reste allumée du lobby à la fin de partie (E6-S10).
   const wake = useWakeLock(view?.status === 'LOBBY' || view?.status === 'PLAYING');
+  // Musique de fond tant que la table est ouverte ; la victoire la coupe.
+  useMusic(view?.status === 'LOBBY' || view?.status === 'PLAYING');
+  // Faux chargement au lancement : seulement quand on vient du lobby, jamais après un rechargement.
+  const prevStatus = useRef(view?.status);
+  const [splash, setSplash] = useState(false);
+  useEffect(() => {
+    if (prevStatus.current === 'LOBBY' && view?.status === 'PLAYING') {
+      setSplash(true);
+      const t = setTimeout(() => setSplash(false), SPLASH_MS);
+      return () => clearTimeout(t);
+    }
+    prevStatus.current = view?.status;
+    return undefined;
+  }, [view?.status]);
+  useEffect(() => {
+    if (!splash) prevStatus.current = view?.status;
+  }, [splash, view?.status]);
 
   if (conn === 'rejected') {
     return (
@@ -46,12 +67,19 @@ export function Board() {
     view.status === 'LOBBY' ? (
       <BoardLobby view={view} socket={socket} />
     ) : view.status === 'PLAYING' ? (
-      <BoardPlaying key={view.gameId} view={view} socket={socket} layout={layout} />
+      splash ? (
+        <Splash duration={SPLASH_MS} />
+      ) : (
+        <BoardPlaying key={view.gameId} view={view} socket={socket} layout={layout} />
+      )
     ) : view.status === 'FINISHED' ? (
       <BoardFinished key={view.gameId} view={view} socket={socket} />
     ) : (
       <div className="finish">
         <h1>Partie annulée</h1>
+        <Link className="btn ghost" to="/">
+          Retour à l’accueil
+        </Link>
       </div>
     );
 

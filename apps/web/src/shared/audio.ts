@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { create } from 'zustand';
+import { COLOR_IDS, type ColorId } from '@navale/protocol';
 
 /**
  * Sons de l'écran central et du téléphone, synthétisés avec la Web Audio API :
@@ -235,3 +237,147 @@ const SYNTH: Record<SfxName, (c: AudioContext, out: Out, t: number) => void> = {
     tone(c, out, t + 0.1, { type: 'sine', from: 1320, dur: 0.22, peak: 0.22 });
   },
 };
+
+// ---- Jingle de coulé, un par joueur ------------------------------------------------
+
+/** Huit motifs : une note de départ et un timbre par couleur de joueur. */
+const JINGLE_ROOTS = [261.63, 293.66, 329.63, 349.23, 392, 440, 493.88, 523.25];
+const JINGLE_WAVES: OscillatorType[] = [
+  'triangle',
+  'square',
+  'sine',
+  'triangle',
+  'square',
+  'sine',
+  'triangle',
+  'square',
+];
+
+/** Petit air de victoire quand ce joueur coule un navire : fondamentale, tierce, quinte, octave. */
+export function playSunkJingle(color: ColorId): void {
+  const c = context();
+  if (!c || !master || useSfx.getState().muted || c.state !== 'running') return;
+  const i = Math.max(0, COLOR_IDS.indexOf(color)) % JINGLE_ROOTS.length;
+  const root = JINGLE_ROOTS[i]!;
+  const wave = JINGLE_WAVES[i]!;
+  const low = c.createBiquadFilter();
+  low.type = 'lowpass';
+  low.frequency.value = 2600;
+  low.connect(master);
+  const t = c.currentTime;
+  [1, 1.25, 1.5, 2].forEach((ratio, n) =>
+    tone(c, low, t + n * 0.11, {
+      type: wave,
+      from: root * ratio,
+      dur: n === 3 ? 0.6 : 0.22,
+      peak: wave === 'square' ? 0.08 : 0.16,
+    }),
+  );
+  burst(c, master, t + 0.3, {
+    filter: 'bandpass',
+    from: 5000,
+    to: 7500,
+    q: 2,
+    dur: 0.5,
+    peak: 0.05,
+  });
+}
+
+// ---- Musique de fond -----------------------------------------------------------
+
+/** Quatre accords lents, nappes détunées sous un filtre qui respire, et une vague de souffle par accord. */
+const CHORDS = [
+  [110, 130.81, 164.81, 220],
+  [87.31, 110, 130.81, 174.61],
+  [130.81, 164.81, 196, 261.63],
+  [98, 123.47, 146.83, 196],
+];
+const CHORD_SECONDS = 8;
+
+let music: { stop: () => void } | null = null;
+
+export function startMusic(): void {
+  const c = context();
+  if (!c || !master || music || c.state !== 'running') return;
+  const out = master;
+  const bus = c.createGain();
+  bus.gain.setValueAtTime(0.0001, c.currentTime);
+  bus.gain.linearRampToValueAtTime(0.1, c.currentTime + 4);
+  const low = c.createBiquadFilter();
+  low.type = 'lowpass';
+  low.frequency.value = 520;
+  low.Q.value = 0.7;
+  const lfo = c.createOscillator();
+  lfo.frequency.value = 0.07;
+  const lfoGain = c.createGain();
+  lfoGain.gain.value = 180;
+  lfo.connect(lfoGain).connect(low.frequency);
+  lfo.start();
+  low.connect(bus).connect(out);
+
+  let k = 0;
+  let next = c.currentTime + 0.1;
+  const scheduleChord = () => {
+    const chord = CHORDS[k % CHORDS.length]!;
+    const t = next;
+    for (const f of chord)
+      for (const detune of [-5, 5]) {
+        const o = c.createOscillator();
+        o.type = 'sawtooth';
+        o.frequency.value = f;
+        o.detune.value = detune;
+        const g = c.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(0.1, t + 2.5);
+        g.gain.setValueAtTime(0.1, t + CHORD_SECONDS - 2);
+        g.gain.linearRampToValueAtTime(0.0001, t + CHORD_SECONDS + 0.5);
+        o.connect(g).connect(low);
+        o.start(t);
+        o.stop(t + CHORD_SECONDS + 0.6);
+      }
+    burst(c, bus, t + 1, {
+      filter: 'bandpass',
+      from: 300,
+      to: 900,
+      q: 0.5,
+      dur: 5,
+      peak: 0.09,
+      attack: 2.5,
+    });
+    k++;
+    next += CHORD_SECONDS;
+  };
+  scheduleChord();
+  scheduleChord();
+  const timer = setInterval(() => {
+    if (next - c.currentTime < CHORD_SECONDS + 1) scheduleChord();
+  }, 1000);
+  music = {
+    stop: () => {
+      clearInterval(timer);
+      const t = c.currentTime;
+      bus.gain.cancelScheduledValues(t);
+      bus.gain.setValueAtTime(bus.gain.value, t);
+      bus.gain.linearRampToValueAtTime(0.0001, t + 1.5);
+      setTimeout(() => {
+        lfo.stop();
+        bus.disconnect();
+      }, 1700);
+    },
+  };
+}
+
+export function stopMusic(): void {
+  music?.stop();
+  music = null;
+}
+
+/** Musique tant que `active`, le son n'est pas coupé et le navigateur l'a déverrouillé. */
+export function useMusic(active: boolean): void {
+  const { muted, unlocked } = useSfx();
+  useEffect(() => {
+    if (active && !muted && unlocked) startMusic();
+    else stopMusic();
+  }, [active, muted, unlocked]);
+  useEffect(() => () => stopMusic(), []);
+}

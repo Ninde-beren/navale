@@ -837,3 +837,115 @@ body {
     inset 0 0 0 1px var(--line),
     0 0 0 2px color-mix(in oklab, var(--pc) 70%, transparent);
 }
+
+/* ---------- Lobby : le code s'adapte à sa largeur, la colonne joueurs ne bouge pas ---------- */
+.lobby {
+  grid-template-columns: minmax(0, 1fr) 720px;
+}
+.join {
+  min-width: 0;
+}
+.join .bigcode {
+  white-space: nowrap;
+}
+
+/* ---------- Classement : chaque ligne dans la couleur du joueur ---------- */
+.finish .who {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+}
+.finish .who b {
+  color: var(--pc);
+  font-weight: 700;
+}
+.finish tbody tr:first-child td {
+  font-weight: 600;
+}
+
+/* ---------- Faux chargement au lancement ---------- */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  background: radial-gradient(1200px 800px at 50% 40%, var(--bg-2), transparent 70%), var(--bg);
+  animation: splash-in 0.4s var(--ease-out) both;
+}
+@keyframes splash-in {
+  from {
+    opacity: 0;
+  }
+}
+.splash .flag {
+  width: 140px;
+  height: 196px;
+  border-radius: 20px 20px 70px 20px;
+  background: linear-gradient(160deg, var(--text) 0 48%, var(--miss) 48%);
+  box-shadow: 0 40px 120px -30px var(--miss);
+  animation: splash-bob 2.4s ease-in-out infinite;
+}
+@keyframes splash-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  50% {
+    transform: translateY(-12px) rotate(3deg);
+  }
+}
+.splash .name {
+  font: 800 96px/1 var(--font-display);
+  letter-spacing: 0.2em;
+  margin-left: 0.2em;
+}
+.splash .sub {
+  font: 500 32px/1 var(--font-body);
+  color: var(--text-2);
+}
+.splash .sub::after {
+  content: '…';
+  animation: blink 1.4s infinite;
+}
+.splash .bar {
+  width: 420px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.splash .bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: var(--text);
+  animation: splash-bar var(--d, 2500ms) linear forwards;
+}
+@keyframes splash-bar {
+  to {
+    width: 100%;
+  }
+}
+.splash.phone {
+  gap: 18px;
+}
+.splash.phone .flag {
+  width: 72px;
+  height: 100px;
+  border-radius: 10px 10px 36px 10px;
+}
+.splash.phone .name {
+  font-size: 40px;
+}
+.splash.phone .sub {
+  font-size: 16px;
+}
+.splash.phone .bar {
+  width: 220px;
+  height: 6px;
+}

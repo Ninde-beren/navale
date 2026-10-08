@@ -2,6 +2,7 @@ import type { RefObject } from 'react';
 import type { Socket } from 'socket.io-client';
 import { SHIP_LABELS_FR } from '@navale/protocol';
 import { sendCommand } from '../../shared/socket.js';
+import { useFitText } from '../../shared/useFitText.js';
 import type { View } from '../../shared/store.js';
 import { Avatar, initialOf } from '../../shared/ui/Avatar.js';
 import { Wordmark } from '../../shared/ui/Wordmark.js';
@@ -25,6 +26,7 @@ export function BoardLobby({ view, socket }: { view: View; socket: RefObject<Soc
         : 'Tout le monde est prêt.';
   const cells = settings.fleet.reduce((n, s) => n + s.size, 0);
   const joinUrl = `${location.origin}/play/${code}`;
+  const codeRef = useFitText<HTMLDivElement>(code, 320);
 
   return (
     <>
@@ -39,7 +41,9 @@ export function BoardLobby({ view, socket }: { view: View; socket: RefObject<Soc
       <div className="lobby">
         <section className="join">
           <span className="label">Code de la partie</span>
-          <div className="bigcode">{code}</div>
+          <div className="bigcode" ref={codeRef}>
+            {code}
+          </div>
           <div className="scan">
             <div className="qrcard">
               <img
