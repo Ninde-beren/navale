@@ -2,6 +2,7 @@
 @import 'tailwindcss';
 @import './tokens.css';
 @import './mockup.css';
+@import './home.css';
 
 /* ------------------------------------------------------------
    Adaptations de l'application par rapport aux maquettes :

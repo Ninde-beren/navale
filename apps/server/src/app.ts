@@ -31,6 +31,12 @@ export async function createApp(
   const app = Fastify({
     logger: config.logLevel === 'silent' ? false : { level: config.logLevel },
   });
+  // Navale ne s'indexe pas : chaque réponse le dit aux moteurs, en plus de la balise
+  // `robots` de la page. `robots.txt` laisse explorer, sinon le noindex ne serait jamais
+  // lu et les aperçus de lien (Open Graph) ne s'afficheraient plus.
+  app.addHook('onRequest', async (_request, reply) => {
+    void reply.header('x-robots-tag', 'noindex, nofollow');
+  });
   const io = new Server(app.server, { serveClient: false });
   const presence = new PresenceTracker(io);
   const publisher = new Publisher(io, presence);
@@ -58,7 +64,7 @@ export async function createApp(
 
   registerGameRoutes(app, registry, config);
   registerSockets(io, registry, publisher, presence);
-  if (config.webDist) await registerStatic(app, config.webDist);
+  if (config.webDist) await registerStatic(app, config.webDist, config.publicUrl);
 
   return {
     app,

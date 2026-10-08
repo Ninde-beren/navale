@@ -10,6 +10,34 @@
     <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <title>Navale</title>
+    <meta
+      name="description"
+      content="La bataille navale qui se joue autour de la table : un écran au centre pour tout le monde, un téléphone par joueur pour ses secrets."
+    />
+    <!-- Pas d'indexation (doublée par l'en-tête X-Robots-Tag du serveur). -->
+    <meta name="robots" content="noindex, nofollow" />
+    <!--
+      Aperçu de lien (Open Graph, repris par X, WhatsApp, Messenger, Slack, Discord…).
+      __PUBLIC_URL__ est remplacé par le serveur au démarrage : l'image exige une URL
+      absolue. Pas d'og:url : un lien de partie (/play/KRTX) doit ouvrir la partie, pas l'accueil.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Navale" />
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:title" content="Navale, la bataille navale autour de la table" />
+    <meta
+      property="og:description"
+      content="Un écran au centre pour tout le monde, un téléphone par joueur pour ses secrets. De 2 à 4 joueurs, sans compte ni installation."
+    />
+    <meta property="og:image" content="__PUBLIC_URL__/og-image.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Navale : un écran central avec les grilles de trois joueurs, et le téléphone d'un joueur avec sa flotte."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body>
     <div id="root"></div>

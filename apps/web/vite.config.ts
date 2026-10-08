@@ -13,6 +13,13 @@ const https = process.env.WEB_HTTPS !== '0';
 export default defineConfig({
   plugins: [
     react(),
+    // En production, le serveur pose l'adresse publique dans index.html (http/static.ts).
+    // En développement, une URL relative suffit : aucun aperçu de lien ne vise Vite.
+    {
+      name: 'navale-public-url-dev',
+      apply: 'serve',
+      transformIndexHtml: (html) => html.replaceAll('__PUBLIC_URL__', ''),
+    },
     tailwindcss(),
     ...(https ? [basicSsl()] : []),
     // PWA installable (E7-S4) : manifeste, icônes, service worker minimal qui ne

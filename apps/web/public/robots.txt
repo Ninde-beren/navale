@@ -1,0 +1,6 @@
+# Navale ne s'indexe pas : chaque page porte <meta name="robots" content="noindex">
+# et chaque réponse l'en-tête X-Robots-Tag: noindex.
+# L'exploration reste permise exprès : une page interdite ici ne serait jamais lue,
+# son noindex non plus, et les aperçus de lien (Open Graph) ne s'afficheraient plus.
+User-agent: *
+Allow: /

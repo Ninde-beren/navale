@@ -43,10 +43,15 @@ pnpm build        # build de tous les paquets, le web dans apps/web/dist
 ```
 
 Variables du serveur : `PORT` (5251), `WEB_PORT` (5250, pour l'URL par défaut),
-`PUBLIC_URL` (défaut `https://<ip-lan>:5250`, c'est ce que le QR encode),
+`PUBLIC_URL` (défaut `https://<ip-lan>:5250`, c'est ce que le QR encode, et la
+base de l'image d'aperçu des liens partagés, posée dans `index.html` au démarrage),
 `DATA_DIR` (`./data`, journal SQLite), `LOG_LEVEL`.
 
 Le journal SQLite de développement est dans `apps/server/data/`, ignoré par git.
+
+L'image d'aperçu des liens (`apps/web/public/og-image.jpg`, 1200×630) est une
+photo de la route `/og-card`, servie en développement seulement : la commande
+pour la régénérer est en tête de `apps/web/src/surfaces/home/OgCard.tsx`.
 `pnpm start` et l'image Docker arrivent au jalon M6.
 
 ## Le moteur en deux fonctions
