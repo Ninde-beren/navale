@@ -143,7 +143,15 @@ function burst(
   c: AudioContext,
   out: Out,
   t: number,
-  o: { filter: BiquadFilterType; from: number; to: number; q?: number; dur: number; peak: number },
+  o: {
+    filter: BiquadFilterType;
+    from: number;
+    to: number;
+    q?: number;
+    dur: number;
+    peak: number;
+    attack?: number;
+  },
 ): void {
   const src = noise(c, o.dur + 0.1);
   const f = c.createBiquadFilter();
@@ -151,7 +159,7 @@ function burst(
   f.frequency.setValueAtTime(o.from, t);
   f.frequency.exponentialRampToValueAtTime(o.to, t + o.dur);
   f.Q.value = o.q ?? 0.8;
-  src.connect(f).connect(envelope(c, out, t, o.peak, 0.01, o.dur));
+  src.connect(f).connect(envelope(c, out, t, o.peak, o.attack ?? 0.01, o.dur));
   src.start(t);
   src.stop(t + o.dur + 0.1);
 }
@@ -162,18 +170,21 @@ const SYNTH: Record<SfxName, (c: AudioContext, out: Out, t: number) => void> = {
     burst(c, out, t, { filter: 'bandpass', from: 300, to: 2600, q: 1.2, dur: 0.45, peak: 0.45 });
     tone(c, out, t, { type: 'sine', from: 240, to: 960, dur: 0.4, peak: 0.1 });
   },
-  // Plouf : chute d'eau brève, bulle grave, gouttelette.
+  // Plouf : un « bloup » dont la hauteur monte (la signature d'une chute dans l'eau),
+  // une gerbe douce à l'attaque lente, puis une petite bulle qui remonte.
+  // Ni coup sourd ni souffle descendant : c'est ce qui fait « paf » dans l'explosion.
   miss: (c, out, t) => {
-    burst(c, out, t, { filter: 'lowpass', from: 1800, to: 220, dur: 0.5, peak: 0.55 });
-    tone(c, out, t, { type: 'sine', from: 170, to: 55, dur: 0.28, peak: 0.35 });
-    burst(c, out, t + 0.12, {
+    tone(c, out, t, { type: 'sine', from: 95, to: 460, dur: 0.22, peak: 0.4, attack: 0.012 });
+    burst(c, out, t + 0.02, {
       filter: 'bandpass',
-      from: 3200,
-      to: 2400,
-      q: 4,
-      dur: 0.1,
-      peak: 0.15,
+      from: 700,
+      to: 3200,
+      q: 0.7,
+      dur: 0.38,
+      peak: 0.2,
+      attack: 0.05,
     });
+    tone(c, out, t + 0.17, { type: 'sine', from: 220, to: 720, dur: 0.14, peak: 0.16 });
   },
   // Explosion : claquement, souffle qui descend, coup sourd.
   hit: (c, out, t) => {
