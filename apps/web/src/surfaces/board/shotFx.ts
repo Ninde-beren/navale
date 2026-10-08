@@ -45,8 +45,8 @@ export class ShotFx {
     };
   }
 
-  play(shot: ShotFxShot, revealDelayMs: number, layout: 'p2' | 'p3' | ''): Promise<void> {
-    return this.enqueue(() => this.run(shot, revealDelayMs, layout));
+  play(shot: ShotFxShot, revealDelayMs: number): Promise<void> {
+    return this.enqueue(() => this.run(shot, revealDelayMs));
   }
 
   /** Place une annonce (élimination…) dans la file, après les tirs déjà en attente. */
@@ -72,11 +72,7 @@ export class ShotFx {
     return [(r.left + r.width / 2 - s.left) / k, (r.top + r.height / 2 - s.top) / k];
   }
 
-  private async run(
-    shot: ShotFxShot,
-    revealDelayMs: number,
-    layout: 'p2' | 'p3' | '',
-  ): Promise<void> {
+  private async run(shot: ShotFxShot, revealDelayMs: number): Promise<void> {
     const root = this.root();
     if (!root || this.disposed) return;
     const { flight, impact, hold } = ShotFx.timings(revealDelayMs);
@@ -130,13 +126,7 @@ export class ShotFx {
     this.hooks.onImpact(shot);
     await sleep(Math.round(impact * 0.7));
 
-    // 3. Callout (à 2 joueurs : sur la grille du tireur)
-    const callout = this.$('.callout.big');
-    if (callout && layout === 'p2' && shooterZone) {
-      const [zx, zy] = this.centerOf(shooterZone);
-      callout.style.left = `${zx}px`;
-      callout.style.top = `${zy + 10}px`;
-    }
+    // 3. Callout, toujours au centre de l'écran
     this.hooks.onCallout(shot);
     await sleep(300);
     trail.classList.add('fade');

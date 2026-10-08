@@ -38,7 +38,12 @@ export function registerGameRoutes(
   registry: GameRegistry,
   config: ServerConfig,
 ): void {
-  app.get('/api/health', async () => ({ ok: true, games: registry.all().length }));
+  app.get('/api/health', async () => ({
+    ok: true,
+    games: registry.all().length,
+    uptime: Math.round(process.uptime()),
+    version: process.env.NAVALE_VERSION ?? 'dev',
+  }));
 
   app.post('/api/games', async (request, reply) => {
     const parsed = CreateGameRequestSchema.safeParse(request.body);

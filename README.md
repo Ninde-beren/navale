@@ -78,5 +78,44 @@ suffit : définir `PUBLIC_URL` sur l'URL du tunnel.
 
 ## Déploiement
 
-Un conteneur Docker, une seule origine : Fastify sert l'API, le WebSocket et le
-build web. Caddy termine le TLS sur le VPS. Voir `../docs/06-architecture.md`.
+Un conteneur, une seule origine : Fastify sert l'API, le WebSocket et le build
+web sur le port 5251. Caddy, ou tout reverse proxy, termine le TLS devant.
+
+### Sur le serveur, une fois
+
+1. Docker et Docker Compose. Le conteneur écrit le journal SQLite dans `./data`
+   avec l'uid 1000 : le dossier doit appartenir à cet utilisateur.
+2. Un bloc Caddy pour le domaine, voir `deploy/Caddyfile.example` : un
+   `reverse_proxy 127.0.0.1:5251` suffit, WebSocket compris.
+
+### À chaque livraison, une commande
+
+```bash
+NAVALE_HOST=debian@mon-vps PUBLIC_URL=https://navale.exemple.fr deploy/deploy.sh
+```
+
+Le script copie le dépôt par rsync (sans `node_modules`, `data` ni `.git`),
+écrit `PUBLIC_URL` dans `.env` sur le serveur, construit l'image là-bas
+(`docker compose up -d --build`) et attend que `/api/health` réponde sur l'URL
+publique. `NAVALE_DIR` change le dossier cible (défaut `/srv/navale`).
+
+### À la main
+
+```bash
+cp .env.example .env     # PUBLIC_URL obligatoire
+mkdir -p data
+docker compose up -d --build
+curl -s localhost:5251/api/health
+```
+
+Variables du `.env` : `PUBLIC_URL` (obligatoire, l'URL que voient les
+téléphones), `LOG_LEVEL` (`info`, ou `debug` pour chercher), `NAVALE_PORT` et
+`BIND` (port et interface exposés au reverse proxy, `127.0.0.1:5251`). Dans le
+conteneur : `PORT`, `DATA_DIR=/data`, `WEB_DIST=/app/web`, `NAVALE_VERSION`.
+
+`/api/health` renvoie `{ ok, games, uptime, version }`. Les logs sont du JSON
+(pino) sur la sortie standard : `docker compose logs -f`.
+
+Hors Docker, le serveur de production est un seul fichier (`pnpm build` produit
+`apps/server/dist/main.cjs` avec esbuild) : `pnpm --filter @navale/server start`
+le lance, avec `WEB_DIST` sur `apps/web/dist` et `PUBLIC_URL` défini.

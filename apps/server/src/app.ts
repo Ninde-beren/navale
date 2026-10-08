@@ -4,6 +4,7 @@ import { Server } from 'socket.io';
 import type { Variant } from '@navale/protocol';
 import type { ServerConfig } from './config.js';
 import { registerGameRoutes } from './http/games.js';
+import { registerStatic } from './http/static.js';
 import { registerSockets } from './realtime/handlers.js';
 import { PresenceTracker } from './realtime/presence.js';
 import { BotDriver } from './runtime/bots.js';
@@ -57,6 +58,7 @@ export async function createApp(
 
   registerGameRoutes(app, registry, config);
   registerSockets(io, registry, publisher, presence);
+  if (config.webDist) await registerStatic(app, config.webDist);
 
   return {
     app,

@@ -1,0 +1,7 @@
+# Bloc à ajouter au Caddyfile du reverse proxy : TLS automatique, WebSocket proxifié sans réglage.
+# Si Caddy tourne dans un conteneur, remplacer 127.0.0.1:5251 par le nom du service sur un
+# réseau Docker partagé (ex. navale:5251) et retirer la publication de port dans compose.yaml.
+navale.exemple.fr {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:5251
+}

@@ -1790,18 +1790,13 @@
 .tv.v2.p2 .centre .log {
   display: none;
 }
+/* À deux joueurs, le callout reste au centre de l'écran (tranché le 2026-10-08), pas sur la grille du tireur. */
 .tv.v2.p2 .callout.big {
   position: fixed;
-  inset: auto;
-  margin: 0;
-  left: 0;
-  top: 0;
+  inset: 0;
+  margin: auto;
   padding: 22px 48px 34px;
   border-radius: 32px;
-  transform: translate(-50%, -50%) scale(0.7);
-}
-.tv.v2.p2 .callout.big.show {
-  transform: translate(-50%, -50%) scale(1);
 }
 .tv.v2.p2 .callout.big .word {
   font-size: 160px;

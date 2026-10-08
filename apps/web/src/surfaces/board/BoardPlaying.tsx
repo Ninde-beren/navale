@@ -281,7 +281,7 @@ export function BoardPlaying({
           coord: e.coord,
           result: e.result,
         };
-        void fx.play(shot, settings.revealDelayMs, layout);
+        void fx.play(shot, settings.revealDelayMs);
       } else if (e.type === 'PLAYER_ELIMINATED') {
         const who = name(e.playerId);
         void fx.enqueue(async () => {
