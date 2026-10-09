@@ -1,6 +1,11 @@
-import { battleship, chooseShot } from '@navale/engine';
+import { battleship, chooseShot, type Player } from '@navale/engine';
 import type { EventEnvelope, GameEventOf, Variant } from '@navale/protocol';
 import type { GameRuntime } from './game-runtime.js';
+
+/** Le pilote joue pour les bots et pour les humains absents relayés par un bot. */
+function botControlled(player: Player | undefined): player is Player {
+  return player !== undefined && (player.kind === 'bot' || player.substitute !== null);
+}
 
 /** Réflexion : 1 à 2 s après son tour en séquentiel, 1 à 3 s après l'ouverture de la manche en salve. */
 export function defaultThinkMs(variant: Variant): number {
@@ -18,6 +23,8 @@ export interface BotDriverOptions {
  * Pilote des bots : à chaque manche où un bot est attendu, attend que l'écran
  * central ait fini d'annoncer, puis un délai de réflexion, et envoie FIRE par la
  * même voie qu'un humain, à partir de la seule vue privée du bot : il ne peut pas tricher.
+ * Un humain absent relayé par un bot (`substitute`) est joué de la même façon, à
+ * partir de sa propre vue, jusqu'à son retour.
  */
 export class BotDriver {
   /** Un tir programmé par bot, sous la clé `gameId:botId`. */
@@ -42,6 +49,13 @@ export class BotDriver {
       (e): e is GameEventOf<'ROUND_STARTED'> => e.type === 'ROUND_STARTED',
     );
     if (started) this.schedule(runtime, started.round, started.expectedShooters);
+    // Un absent relayé en pleine manche : le bot joue tout de suite ce qu'on attend de lui ;
+    // un revenant reprend la main, le tir programmé pour lui est oublié.
+    for (const e of events) {
+      if (e.type === 'PLAYER_SUBSTITUTED' && runtime.state.round)
+        this.schedule(runtime, runtime.state.round.index, [e.playerId]);
+      if (e.type === 'PLAYER_RESUMED') this.unschedule(runtime.gameId, e.playerId);
+    }
   }
 
   /** Reprise après redémarrage : les bots attendus dans la manche courante rejouent. */
@@ -55,7 +69,7 @@ export class BotDriver {
     const announced = Math.max(0, this.settledAt(gameId) - Date.now());
     for (const botId of expectedShooters) {
       const bot = state.players.find((p) => p.playerId === botId);
-      if (bot?.kind !== 'bot' || state.round?.committed[botId]) continue;
+      if (!botControlled(bot) || state.round?.committed[botId]) continue;
       const key = `${gameId}:${botId}`;
       clearTimeout(this.timers.get(key));
       const timer = setTimeout(
@@ -79,6 +93,7 @@ export class BotDriver {
     const round = state.round;
     if (state.status !== 'PLAYING' || round?.index !== roundIndex) return;
     if (!round.expectedShooters.includes(botId) || round.committed[botId]) return;
+    if (!botControlled(state.players.find((p) => p.playerId === botId))) return;
     const shot = chooseShot(battleship.projectPrivate(state, botId), Math.random);
     if (!shot) return;
     const decision = await runtime.handle(
@@ -90,6 +105,12 @@ export class BotDriver {
       this.log(`bot ${botId} refusé (${decision.rejection.code}) : ${decision.rejection.message}`);
       if (attempt < 1) await this.fire(runtime, botId, roundIndex, attempt + 1);
     }
+  }
+
+  private unschedule(gameId: string, playerId: string): void {
+    const key = `${gameId}:${playerId}`;
+    clearTimeout(this.timers.get(key));
+    this.timers.delete(key);
   }
 
   private cancel(gameId: string): void {

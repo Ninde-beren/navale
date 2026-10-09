@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Coord, PlayerView, PublicPlayer } from '@navale/protocol';
 import { play, playSunkJingle } from '../../shared/audio.js';
 import { sendCommand, type SocketRef } from '../../shared/socket.js';
-import { useRoundResolving } from '../../shared/store.js';
+import { useGame, useRoundResolving } from '../../shared/store.js';
 import { PlayAim } from './PlayAim.js';
 import { PlayFinished } from './PlayFinished.js';
 import { PlaySealed } from './PlaySealed.js';
@@ -30,6 +30,25 @@ function useSunkJingle(view: PlayerView, me: PublicPlayer): void {
   }, [sunk]);
 }
 
+/** Je reviens après une absence relayée par un bot : un mot pour le dire, quelques secondes. */
+function useResumedNotice(playerId: string): boolean {
+  const resumedSeq = useGame((s) =>
+    s.events.reduce(
+      (last, e) =>
+        e.event.type === 'PLAYER_RESUMED' && e.event.playerId === playerId ? e.seq : last,
+      0,
+    ),
+  );
+  const [shownFor, setShownFor] = useState(0);
+  useEffect(() => {
+    if (resumedSeq === 0) return;
+    setShownFor(resumedSeq);
+    const timer = setTimeout(() => setShownFor(0), 6000);
+    return () => clearTimeout(timer);
+  }, [resumedSeq]);
+  return shownFor !== 0;
+}
+
 /**
  * Téléphone pendant la partie : choisit l'écran (fin, visée, tir engagé en salve,
  * attente) et garde ce qui les relie, le tir parti avant que l'instantané le confirme.
@@ -49,6 +68,12 @@ export function PlayPlaying({
   const resolving = useRoundResolving(roundIndex);
   useTurnAlert(view.me.canFire);
   useSunkJingle(view, me);
+  const resumed = useResumedNotice(me.playerId);
+  const notice = resumed && (
+    <div className="wake-toast resumed" role="status">
+      Un bot a tiré pour toi pendant ton absence
+    </div>
+  );
 
   if (view.status === 'FINISHED' || me.status === 'ELIMINATED')
     return <PlayFinished view={view} me={me} />;
@@ -60,11 +85,25 @@ export function PlayPlaying({
       if (ack.ok) setSentInRound(roundIndex);
       return ack;
     };
-    return <PlayAim key={roundIndex} view={view} me={me} onFire={fire} />;
+    return (
+      <>
+        <PlayAim key={roundIndex} view={view} me={me} onFire={fire} />
+        {notice}
+      </>
+    );
   }
 
   const shotSent = view.me.pendingShot !== null || sent;
-  if (view.settings.variant === 'simultaneous' && shotSent && !resolving)
-    return <PlaySealed view={view} me={me} />;
-  return <PlayWatching view={view} me={me} shotSent={shotSent} resolving={resolving} />;
+  const screen =
+    view.settings.variant === 'simultaneous' && shotSent && !resolving ? (
+      <PlaySealed view={view} me={me} />
+    ) : (
+      <PlayWatching view={view} me={me} shotSent={shotSent} resolving={resolving} />
+    );
+  return (
+    <>
+      {screen}
+      {notice}
+    </>
+  );
 }

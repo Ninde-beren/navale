@@ -18,6 +18,8 @@ export interface Player {
   kind: PlayerKind;
   /** Bots seulement : niveau de jeu, `normal` par défaut. */
   level?: BotLevel;
+  /** Humain absent relayé par un bot : le niveau de ce bot ; `null` quand il joue lui-même. */
+  substitute: BotLevel | null;
   name: string;
   color: ColorId;
   seat: number;

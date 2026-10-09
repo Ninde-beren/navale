@@ -224,7 +224,12 @@ function ActiveTurn({
 }) {
   if (!player) return <div className="turn dimmable" />;
   const avatar = <PlayerAvatar player={player} size="xl" />;
-  const sub = <p className="sub">choisit sa cible{timer}</p>;
+  const sub = (
+    <p className="sub">
+      {player.substitute ? 'absent, un bot tire pour lui' : 'choisit sa cible'}
+      {timer}
+    </p>
+  );
   return (
     <div className="turn dimmable">
       {compact ? (

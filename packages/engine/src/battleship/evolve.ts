@@ -25,6 +25,7 @@ function apply(state: GameState, event: GameEvent): GameState {
         playerId: event.playerId,
         kind: event.kind,
         ...(event.level ? { level: event.level } : {}),
+        substitute: null,
         name: event.name,
         color: event.color,
         seat: event.seat,
@@ -110,6 +111,10 @@ function apply(state: GameState, event: GameEvent): GameState {
         return { ...p, shotsReceived: revealed, fleet };
       });
     }
+    case 'PLAYER_SUBSTITUTED':
+      return mapPlayer(state, event.playerId, (p) => ({ ...p, substitute: event.level }));
+    case 'PLAYER_RESUMED':
+      return mapPlayer(state, event.playerId, (p) => ({ ...p, substitute: null }));
     case 'PLAYER_ELIMINATED':
       return mapPlayer(state, event.playerId, (p) => ({
         ...p,

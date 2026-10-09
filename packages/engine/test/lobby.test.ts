@@ -160,6 +160,8 @@ describe('rôles', () => {
       { type: 'REMOVE_BOT', playerId: a },
       { type: 'START_GAME' },
       { type: 'FORCE_ROUND' },
+      { type: 'SUBSTITUTE_PLAYER', playerId: a },
+      { type: 'RESUME_PLAYER', playerId: a },
       { type: 'CANCEL_GAME' },
       { type: 'REMATCH' },
     ];

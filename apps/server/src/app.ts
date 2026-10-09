@@ -12,6 +12,7 @@ import { mailerFromConfig, type Mailer } from './mail/mailer.js';
 import { registerSockets } from './realtime/handlers.js';
 import { PresenceTracker } from './realtime/presence.js';
 import type { GameServer } from './realtime/types.js';
+import { AfkSubstitution } from './runtime/afk.js';
 import { BotDriver } from './runtime/bots.js';
 import { Publisher } from './runtime/publisher.js';
 import { RematchService } from './runtime/rematch.js';
@@ -66,20 +67,27 @@ export async function createApp(
     log: (message) => app.log.warn(message),
   });
   const timers = new RoundTimers();
+  const afk = new AfkSubstitution(presence);
   const registry: GameRegistry = new GameRegistry(store, tokens, {
     onEvents: (runtime, envelopes) => {
       registry.sync(runtime);
       publisher.publish(runtime, envelopes);
       bots.onEvents(runtime, envelopes);
       timers.reschedule(runtime);
+      afk.onEvents(runtime, envelopes);
       rematch.onEvents(runtime, envelopes);
     },
   });
+  presence.onChange = (gameId, playerId, connected) => {
+    const runtime = registry.get(gameId);
+    if (runtime) afk.onPresence(runtime, playerId, connected);
+  };
   const rematch = new RematchService(io, registry, publisher, presence);
   const restored = registry.restore();
   for (const runtime of registry.all()) {
     bots.resume(runtime);
     timers.reschedule(runtime);
+    afk.resume(runtime);
   }
   const sweeper = new Sweeper(registry, options.expiry ?? DEFAULT_EXPIRY, (msg) =>
     app.log.info(msg),
@@ -121,6 +129,7 @@ export async function createApp(
     async close(): Promise<void> {
       sweeper.close();
       timers.close();
+      afk.close();
       bots.close();
       publisher.close();
       io.close();

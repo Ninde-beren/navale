@@ -5,6 +5,7 @@ import {
   END_LABELS,
   SALVO_ORDER_LABELS,
   VARIANT_LABELS,
+  afkBotLabel,
   antiFocusLabel,
   count,
   fleetSummary,
@@ -196,6 +197,10 @@ export function BoardLobby({ view, socket }: { view: GameView; socket: SocketRef
             )}
             {settings.antiFocusMaxStreak !== null && (
               <span className="chip plain">{antiFocusLabel(settings.antiFocusMaxStreak)}</span>
+            )}
+            {/* `typeof` : les parties journalisées avant ce réglage ne l'ont pas. */}
+            {typeof settings.afkBotSeconds === 'number' && (
+              <span className="chip plain">{afkBotLabel(settings.afkBotSeconds)}</span>
             )}
             <FlatButton variant="chip" />
           </div>

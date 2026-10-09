@@ -826,6 +826,14 @@ body {
   background: var(--surface-3);
   color: var(--text-2);
   font: 500 11px/1 var(--font-body);
+}
+/* Le retour après un relais : un vrai message, en bas, qui ne cache pas le rappel d'écran allumé. */
+.wake-toast.resumed {
+  top: auto;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  padding: 10px 16px;
+  color: var(--text);
+  font-size: 13px;
   white-space: nowrap;
 }
 

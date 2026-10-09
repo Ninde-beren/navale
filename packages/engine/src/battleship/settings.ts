@@ -40,6 +40,8 @@ export function makeSettings(
     revealDelayMs: 2500,
     salvoOrder: 'commit',
     antiFocusMaxStreak: null,
+    afkBotSeconds: 45,
+    afkBotLevel: 'normal',
     ...PRESETS[preset],
     ...partial,
   };

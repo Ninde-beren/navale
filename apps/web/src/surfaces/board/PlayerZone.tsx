@@ -35,7 +35,11 @@ export function PlayerZone({
       <div className="nameplate">
         <PlayerAvatar player={player} />
         <h2>{player.name}</h2>
-        {!player.connected && player.kind === 'human' && <span className="role">hors ligne</span>}
+        {player.substitute ? (
+          <span className="role">bot en relais</span>
+        ) : (
+          !player.connected && player.kind === 'human' && <span className="role">hors ligne</span>
+        )}
       </div>
       <Grid
         width={grid.width}

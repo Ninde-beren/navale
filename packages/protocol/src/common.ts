@@ -87,6 +87,13 @@ export const GameSettingsSchema = z.object({
    * tant qu'il reste une autre cible ; `null` = libre. Sans effet à deux joueurs.
    */
   antiFocusMaxStreak: z.number().int().min(1).max(10).nullable().default(null),
+  /**
+   * Joueur absent : quand un humain attendu pour tirer est déconnecté depuis ce
+   * délai, un bot tire pour lui jusqu'à son retour ; `null` = on l'attend.
+   */
+  afkBotSeconds: z.number().int().min(1).max(600).nullable().default(45),
+  /** Niveau du bot qui relaie un joueur absent. */
+  afkBotLevel: BotLevelSchema.default('normal'),
 });
 export type GameSettings = z.infer<typeof GameSettingsSchema>;
 

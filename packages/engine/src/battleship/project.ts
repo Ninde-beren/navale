@@ -36,6 +36,7 @@ function publicPlayer(state: GameState, p: Player, presence: Presence): PublicPl
     ...(p.level ? { level: p.level } : {}),
     status: p.status,
     connected: p.kind === 'bot' ? true : (presence[p.playerId] ?? false),
+    substitute: p.substitute,
     shipsRemaining: shipsRemaining(p),
     revealed: p.shotsReceived.map((s) => ({ coord: s.coord, result: s.result })),
     sunkShips: p.fleet.filter(isSunk).map((ship) => sunkInfo(state.settings, ship)),

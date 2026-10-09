@@ -12,6 +12,7 @@ import {
   choices,
   count,
   fleetSummary,
+  afkBotLabel,
   antiFocusLabel,
 } from '../../shared/labels.js';
 import { saveSession } from '../../shared/session.js';
@@ -37,6 +38,13 @@ const TIMER_CHOICES = [
   ['90', '90 s'],
 ] as const;
 type TimerChoice = (typeof TIMER_CHOICES)[number][0];
+/** Joueur absent : au bout de combien de temps un bot tire pour lui ; « Jamais » = on l'attend. */
+const AFK_CHOICES = [
+  ['45', 'Bot après 45 s'],
+  ['90', 'Bot après 90 s'],
+  ['none', 'Jamais'],
+] as const;
+type AfkChoice = (typeof AFK_CHOICES)[number][0];
 
 function Seg<T extends string>({
   value,
@@ -82,6 +90,8 @@ export function CreateGame() {
   const [timer, setTimer] = useState<TimerChoice>('none');
   const [timerTouched, setTimerTouched] = useState(false);
   const [salvoOrder, setSalvoOrder] = useState<SalvoOrder>('commit');
+  const [afk, setAfk] = useState<AfkChoice>('45');
+  const afkBotSeconds = afk === 'none' ? null : Number(afk);
   // Anti-acharnement : sans objet à deux joueurs, le champ n'apparaît qu'à partir de trois.
   const [antiFocus, setAntiFocus] = useState<AntiFocusChoice>('none');
   const antiFocusMaxStreak = maxPlayers >= 3 && antiFocus !== 'none' ? Number(antiFocus) : null;
@@ -134,6 +144,7 @@ export function CreateGame() {
           roundTimerSeconds: timer === 'none' ? null : Number(timer),
           salvoOrder,
           antiFocusMaxStreak,
+          afkBotSeconds,
         },
         preset: effectivePreset,
       });
@@ -212,6 +223,15 @@ export function CreateGame() {
                   : 'À l’échéance, le tour passe ou la salve se résout avec les tirs manquants.'}
               </p>
             </div>
+            <div className="field">
+              <span className="label">Joueur injoignable</span>
+              <Seg value={afk} options={AFK_CHOICES} onChange={setAfk} />
+              <p className="hint">
+                {afk === 'none'
+                  ? 'On attend un joueur déconnecté, le temps qu’il revienne.'
+                  : 'Un bot tire à sa place s’il est déconnecté quand on l’attend ; il reprend la main en revenant.'}
+              </p>
+            </div>
             {maxPlayers >= 3 && (
               <div className="field">
                 <span className="label">Acharnement</span>
@@ -260,6 +280,7 @@ export function CreateGame() {
                 `grille ${grid.width} × ${grid.height}`,
                 `${count(fleet.length, 'bateau', 'bateaux')}, ${count(cells, 'case')}`,
                 timer === 'none' ? 'sans chrono' : `chrono ${timer} s`,
+                afkBotLabel(afkBotSeconds).toLowerCase(),
                 ...(antiFocusMaxStreak !== null
                   ? [antiFocusLabel(antiFocusMaxStreak).toLowerCase()]
                   : []),

@@ -80,6 +80,10 @@ export const GameEventSchema = z.discriminatedUnion('type', [
     round: z.number().int().min(0),
     rank: z.number().int().min(1),
   }),
+  /** Un bot tire pour ce joueur absent, à ce niveau, jusqu'à son retour. */
+  z.object({ type: z.literal('PLAYER_SUBSTITUTED'), playerId: z.string(), level: BotLevelSchema }),
+  /** Le joueur est revenu : il reprend sa flotte, le bot s'efface. */
+  z.object({ type: z.literal('PLAYER_RESUMED'), playerId: z.string() }),
   z.object({
     type: z.literal('ROUND_RESOLVED'),
     round: z.number().int().min(0),

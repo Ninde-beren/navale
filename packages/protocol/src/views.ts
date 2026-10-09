@@ -25,6 +25,8 @@ export const PublicPlayerSchema = z.object({
   level: BotLevelSchema.optional(),
   status: PlayerStatusSchema,
   connected: z.boolean(),
+  /** Humain absent relayé par un bot : le niveau de ce bot ; `null` sinon. */
+  substitute: BotLevelSchema.nullable(),
   shipsRemaining: z.number().int().min(0),
   revealed: z.array(z.object({ coord: CoordSchema, result: z.enum(['MISS', 'HIT']) })),
   sunkShips: z.array(

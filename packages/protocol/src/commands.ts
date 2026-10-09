@@ -22,6 +22,9 @@ export const CommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('START_GAME') }),
   z.object({ type: z.literal('FIRE'), targetId: z.string(), coord: CoordSchema }),
   z.object({ type: z.literal('FORCE_ROUND') }),
+  /** Joueur absent : un bot prend son tour (serveur), le joueur reprend la main à son retour. */
+  z.object({ type: z.literal('SUBSTITUTE_PLAYER'), playerId: z.string() }),
+  z.object({ type: z.literal('RESUME_PLAYER'), playerId: z.string() }),
   z.object({ type: z.literal('CANCEL_GAME'), reason: z.string().max(80).optional() }),
   z.object({ type: z.literal('REMATCH') }),
   z.object({ type: z.literal('REQUEST_SNAPSHOT') }),

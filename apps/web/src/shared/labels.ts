@@ -71,6 +71,11 @@ export function antiFocusLabel(max: number | null): string {
     : `${max} tirs de suite au plus sur le même`;
 }
 
+/** « Bot après 45 s d'absence » ; `null` = on attend l'absent. */
+export function afkBotLabel(seconds: number | null): string {
+  return seconds === null ? 'On attend les absents' : `Bot après ${seconds} s d’absence`;
+}
+
 /** Les options d'un sélecteur, dans l'ordre des libellés. */
 export function choices<T extends string>(labels: Record<T, string>): Array<[T, string]> {
   return Object.entries(labels) as Array<[T, string]>;

@@ -7,9 +7,13 @@ export interface BotShot {
   coord: Coord;
 }
 
-/** Le niveau du bot qui regarde cette vue, lu dans sa propre fiche publique ; `normal` sinon. */
+/**
+ * Le niveau du bot qui regarde cette vue, lu dans sa propre fiche publique : celui
+ * d'un bot, ou celui du relais d'un humain absent ; `normal` sinon.
+ */
 export function botLevel(view: PlayerView): BotLevel {
-  return view.players.find((p) => p.playerId === view.me.playerId)?.level ?? 'normal';
+  const me = view.players.find((p) => p.playerId === view.me.playerId);
+  return me?.level ?? me?.substitute ?? 'normal';
 }
 
 /**

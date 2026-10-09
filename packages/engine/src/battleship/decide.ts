@@ -28,12 +28,19 @@ export const HOST_COMMANDS: ReadonlySet<Command['type']> = new Set([
   'REMOVE_BOT',
   'START_GAME',
   'FORCE_ROUND',
+  'SUBSTITUTE_PLAYER',
+  'RESUME_PLAYER',
   'CANCEL_GAME',
   'REMATCH',
 ]);
 
-/** Commandes d'hôte que le serveur envoie lui-même : chrono de manche, expiration. */
-const SYSTEM_COMMANDS: ReadonlySet<Command['type']> = new Set(['FORCE_ROUND', 'CANCEL_GAME']);
+/** Commandes d'hôte que le serveur envoie lui-même : chrono de manche, joueur absent, expiration. */
+const SYSTEM_COMMANDS: ReadonlySet<Command['type']> = new Set([
+  'FORCE_ROUND',
+  'SUBSTITUTE_PLAYER',
+  'RESUME_PLAYER',
+  'CANCEL_GAME',
+]);
 
 function actsAsHost(actor: Actor, command: Command['type']): boolean {
   return actor.kind === 'host' || (actor.kind === 'system' && SYSTEM_COMMANDS.has(command));
@@ -78,6 +85,10 @@ export function decide(state: GameState, command: Command, ctx: DecideContext): 
       return fire(state, command, ctx);
     case 'FORCE_ROUND':
       return forceRound(state, ctx);
+    case 'SUBSTITUTE_PLAYER':
+      return substitutePlayer(state, command);
+    case 'RESUME_PLAYER':
+      return resumePlayer(state, command);
     case 'CANCEL_GAME':
       return cancelGame(state, ctx);
     case 'REMATCH':
@@ -407,6 +418,35 @@ function forceRound(state: GameState, ctx: DecideContext): BattleshipDecision {
   const round = state.round;
   const skipped = round.expectedShooters.filter((id) => !round.committed[id]);
   return ok(resolveAndAdvance(state, committedShots(state, round), skipped, ctx));
+}
+
+/**
+ * Joueur absent : un bot tire pour un humain encore en jeu, au niveau fixé par les
+ * réglages, sans créer de joueur ; sa flotte, son siège et son classement restent les siens.
+ * Le serveur décide du moment (déconnecté depuis `afkBotSeconds` alors qu'on l'attend).
+ */
+function substitutePlayer(
+  state: GameState,
+  command: CommandOf<'SUBSTITUTE_PLAYER'>,
+): BattleshipDecision {
+  if (state.status !== 'PLAYING')
+    return reject('GAME_NOT_PLAYING', 'La partie n’est pas en cours.');
+  const target = playerById(state, command.playerId);
+  if (!target) return reject('PLAYER_UNKNOWN', 'Joueur inconnu dans cette partie.');
+  if (target.kind !== 'human') return reject('WRONG_STATE', 'Un bot ne se remplace pas.');
+  if (target.status !== 'ALIVE') return reject('NOT_ALIVE', 'Ce joueur est éliminé.');
+  if (target.substitute !== null) return ok([]);
+  return ok([
+    { type: 'PLAYER_SUBSTITUTED', playerId: target.playerId, level: state.settings.afkBotLevel },
+  ]);
+}
+
+/** Le joueur est revenu : il reprend la main ; sans relais en cours, rien à faire. */
+function resumePlayer(state: GameState, command: CommandOf<'RESUME_PLAYER'>): BattleshipDecision {
+  const target = playerById(state, command.playerId);
+  if (!target) return reject('PLAYER_UNKNOWN', 'Joueur inconnu dans cette partie.');
+  if (target.substitute === null) return ok([]);
+  return ok([{ type: 'PLAYER_RESUMED', playerId: target.playerId }]);
 }
 
 /**
