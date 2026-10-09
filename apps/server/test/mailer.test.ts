@@ -1,22 +1,48 @@
 import { describe, expect, it } from 'vitest';
-import { MAILJET_API, mailerFromConfig, mailjetMailer, smtpMailer } from '../src/mail/mailer.js';
+import {
+  mailerFromConfig,
+  mailjetMailer,
+  smtpMailer,
+  type MailjetClient,
+} from '../src/mail/mailer.js';
 
 interface Call {
-  url: string;
-  init: RequestInit | undefined;
+  method: 'get' | 'post';
+  resource: string;
+  version?: string;
+  data?: unknown;
 }
-/** Un faux `fetch` qui répond ce qu'on lui dit et garde les appels. */
-function fakeFetch(responses: Array<{ status: number; body: unknown }>) {
+/** Un faux client Mailjet qui répond dans l'ordre ce qu'on lui a préparé, réponse ou erreur. */
+function fakeClient(script: Array<{ body?: unknown; error?: object }>) {
   const calls: Call[] = [];
-  const fetchImpl = (async (url: string | URL | Request, init?: RequestInit) => {
-    calls.push({ url: String(url), init });
-    const next = responses.shift() ?? { status: 500, body: {} };
-    return new Response(JSON.stringify(next.body), {
-      status: next.status,
-      headers: { 'content-type': 'application/json' },
-    });
-  }) as typeof fetch;
-  return { fetchImpl, calls };
+  const next = () => {
+    const step = script.shift() ?? {};
+    return step.error ? Promise.reject(step.error) : Promise.resolve({ body: step.body });
+  };
+  const client: MailjetClient = {
+    get: (resource, config) => ({
+      request: () => {
+        calls.push({
+          method: 'get',
+          resource,
+          ...(config?.version ? { version: config.version } : {}),
+        });
+        return next();
+      },
+    }),
+    post: (resource, config) => ({
+      request: (data) => {
+        calls.push({
+          method: 'post',
+          resource,
+          ...(config?.version ? { version: config.version } : {}),
+          data,
+        });
+        return next();
+      },
+    }),
+  };
+  return { client, calls };
 }
 const config = {
   feedbackTo: 'antoine@exemple.fr',
@@ -25,7 +51,6 @@ const config = {
   mailjetKey: 'cle',
   mailjetSecret: 'secret',
 };
-const auth = `Basic ${Buffer.from('cle:secret').toString('base64')}`;
 
 describe('mailjetMailer', () => {
   it('est absent tant que les clés ou le destinataire manquent', () => {
@@ -34,66 +59,63 @@ describe('mailjetMailer', () => {
     expect(mailerFromConfig({})).toBeNull();
   });
 
-  it('envoie par l’API v3.1 avec la clé en Basic, l’expéditeur, le sujet et la réponse directe', async () => {
-    const { fetchImpl, calls } = fakeFetch([
-      { status: 200, body: { Messages: [{ Status: 'success' }] } },
-    ]);
-    const mailer = mailjetMailer(config, fetchImpl)!;
+  it('envoie par send v3.1 avec l’expéditeur, le destinataire, le sujet et la réponse directe', async () => {
+    const { client, calls } = fakeClient([{ body: { Messages: [{ Status: 'success' }] } }]);
+    const mailer = mailjetMailer(config, client)!;
     expect(mailer.to).toBe('antoine@exemple.fr');
     expect(mailer.describe).toBe('Mailjet, de contact@tutotou.fr');
     await mailer.send({ subject: 'Navale · retour', text: 'Bravo.', replyTo: 'lea@exemple.fr' });
-    expect(calls).toHaveLength(1);
-    expect(calls[0]!.url).toBe(`${MAILJET_API}/v3.1/send`);
-    expect(calls[0]!.init?.method).toBe('POST');
-    expect((calls[0]!.init?.headers as Record<string, string>).authorization).toBe(auth);
-    expect(JSON.parse(String(calls[0]!.init?.body))).toEqual({
-      Messages: [
-        {
-          From: { Email: 'contact@tutotou.fr', Name: 'Navale' },
-          To: [{ Email: 'antoine@exemple.fr' }],
-          Subject: 'Navale · retour',
-          TextPart: 'Bravo.',
-          ReplyTo: { Email: 'lea@exemple.fr' },
+    expect(calls).toEqual([
+      {
+        method: 'post',
+        resource: 'send',
+        version: 'v3.1',
+        data: {
+          Messages: [
+            {
+              From: { Email: 'contact@tutotou.fr', Name: 'Navale' },
+              To: [{ Email: 'antoine@exemple.fr' }],
+              Subject: 'Navale · retour',
+              TextPart: 'Bravo.',
+              ReplyTo: { Email: 'lea@exemple.fr' },
+            },
+          ],
         },
-      ],
-    });
+      },
+    ]);
   });
 
-  it('rejette quand Mailjet refuse, avec sa raison', async () => {
-    const { fetchImpl } = fakeFetch([
-      {
-        status: 200,
-        body: { Messages: [{ Status: 'error', Errors: [{ ErrorMessage: 'expéditeur inconnu' }] }] },
-      },
-      { status: 401, body: { ErrorMessage: 'Unauthorized' } },
-      { status: 500, body: { ErrorMessage: 'Internal error' } },
+  it('rejette quand Mailjet refuse, avec sa raison, et dit quand la clé est inconnue', async () => {
+    const { client } = fakeClient([
+      { error: { statusCode: 400, ErrorMessage: 'expéditeur inconnu', message: 'Unsuccessful' } },
+      { error: { statusCode: 401, message: 'Unsuccessful: Status Code: "401"' } },
+      { error: { message: 'getaddrinfo ENOTFOUND api.mailjet.com' } },
+      { body: { Messages: [{ Status: 'error' }] } },
     ]);
-    const mailer = mailjetMailer(config, fetchImpl)!;
-    await expect(mailer.send({ subject: 's', text: 't' })).rejects.toThrow('expéditeur inconnu');
-    await expect(mailer.send({ subject: 's', text: 't' })).rejects.toThrow(
-      'HTTP 401 : Unauthorized',
-    );
-    await expect(mailer.send({ subject: 's', text: 't' })).rejects.toThrow(
-      'HTTP 500 : Internal error',
-    );
+    const mailer = mailjetMailer(config, client)!;
+    const mail = { subject: 's', text: 't' };
+    await expect(mailer.send(mail)).rejects.toThrow("l'envoi (HTTP 400) : expéditeur inconnu");
+    await expect(mailer.send(mail)).rejects.toThrow('ne reconnaît pas cette paire de clés');
+    await expect(mailer.send(mail)).rejects.toThrow('ENOTFOUND');
+    await expect(mailer.send(mail)).rejects.toThrow('statut error');
   });
 
   it('vérifie la clé et que l’expéditeur, adresse ou domaine, est validé', async () => {
     const senders = (list: Array<[string, string]>) => ({
-      status: 200,
       body: { Data: list.map(([Email, Status]) => ({ Email, Status })) },
     });
-    const { fetchImpl } = fakeFetch([
+    const { client, calls } = fakeClient([
       senders([['contact@tutotou.fr', 'Active']]),
       senders([['*@tutotou.fr', 'Active']]),
       senders([['contact@tutotou.fr', 'Inactive']]),
-      { status: 401, body: {} },
+      { error: { statusCode: 401 } },
     ]);
-    const mailer = mailjetMailer(config, fetchImpl)!;
+    const mailer = mailjetMailer(config, client)!;
     await expect(mailer.verify()).resolves.toBeUndefined();
     await expect(mailer.verify()).resolves.toBeUndefined();
     await expect(mailer.verify()).rejects.toThrow('non validé');
     await expect(mailer.verify()).rejects.toThrow('ne reconnaît pas cette paire de clés');
+    expect(calls[0]).toEqual({ method: 'get', resource: 'sender', version: 'v3' });
   });
 });
 

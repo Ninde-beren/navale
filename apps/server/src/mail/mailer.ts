@@ -1,3 +1,4 @@
+import Mailjet from 'node-mailjet';
 import nodemailer from 'nodemailer';
 
 export interface Mail {
@@ -30,79 +31,88 @@ export interface MailConfig {
   smtpUrl?: string | null;
 }
 
-export const MAILJET_API = 'https://api.mailjet.com';
+/** Le strict nécessaire du client `node-mailjet`, pour lui substituer un faux dans les tests. */
+export interface MailjetClient {
+  get(
+    resource: string,
+    config?: { version?: `v${number}` | `v${number}.${number}` },
+  ): { request(): Promise<{ body: unknown }> };
+  post(
+    resource: string,
+    config?: { version?: `v${number}` | `v${number}.${number}` },
+  ): { request(data: object): Promise<{ body: unknown }> };
+}
 
-/** La raison donnée par Mailjet : son `ErrorMessage`, sinon le début du corps, sinon l'en-tête d'authentification. */
-async function mailjetReason(res: Response): Promise<string> {
-  const text = (await res.text()).trim();
-  try {
-    const body = JSON.parse(text) as { ErrorMessage?: string };
-    if (body.ErrorMessage) return body.ErrorMessage;
-  } catch {
-    // Pas du JSON : on garde le texte brut.
+/** Une erreur du client Mailjet, en français ; un 401 est une paire de clés inconnue du compte. */
+function mailjetError(err: unknown, what: string): Error {
+  const e = err as {
+    statusCode?: number;
+    ErrorMessage?: string;
+    originalMessage?: string;
+    message?: string;
+  };
+  if (e.statusCode === 401) {
+    return new Error(
+      'Mailjet ne reconnaît pas cette paire de clés (inactive, régénérée ou supprimée ?)',
+    );
   }
-  return text.slice(0, 300) || res.headers.get('www-authenticate') || 'sans détail';
+  const why = e.ErrorMessage ?? e.originalMessage ?? e.message ?? 'sans détail';
+  return new Error(
+    `Mailjet refuse ${what}${e.statusCode ? ` (HTTP ${e.statusCode})` : ''} : ${why}`,
+  );
 }
 
 /**
- * Mailjet par son API HTTP (v3.1). L'expéditeur doit être validé dans le compte
- * (adresse ou domaine), ce que `verify()` contrôle au démarrage. `null` tant que
- * les clés et `FEEDBACK_TO` ne sont pas définis.
+ * Mailjet par le paquet officiel `node-mailjet`, comme le service de mail de
+ * Tutotou : `Mailjet.apiConnect(clé, secret)`, puis `post('send', { version: 'v3.1' })`.
+ * L'expéditeur doit être validé dans le compte (adresse ou domaine), ce que
+ * `verify()` contrôle au démarrage. `null` tant que les clés et `FEEDBACK_TO`
+ * ne sont pas définis.
  */
-export function mailjetMailer(config: MailConfig, fetchImpl: typeof fetch = fetch): Mailer | null {
+export function mailjetMailer(config: MailConfig, client?: MailjetClient): Mailer | null {
   if (!config.mailjetKey || !config.mailjetSecret || !config.feedbackTo) return null;
   const to = config.feedbackTo;
-  const from = { email: config.mailFromEmail || to, name: config.mailFromName || 'Navale' };
-  const authorization = `Basic ${Buffer.from(`${config.mailjetKey}:${config.mailjetSecret}`).toString('base64')}`;
+  const from = { Email: config.mailFromEmail || to, Name: config.mailFromName || 'Navale' };
+  const mailjet: MailjetClient =
+    client ?? Mailjet.apiConnect(config.mailjetKey, config.mailjetSecret);
   return {
     to,
-    describe: `Mailjet, de ${from.email}`,
+    describe: `Mailjet, de ${from.Email}`,
     async verify() {
-      const res = await fetchImpl(`${MAILJET_API}/v3/REST/sender?Limit=100`, {
-        headers: { authorization },
-      });
-      if (res.status === 401) {
-        // Même réponse qu'en l'absence de clé : la paire est inconnue du compte.
-        throw new Error(
-          'Mailjet ne reconnaît pas cette paire de clés (inactive, régénérée ou supprimée ?)',
-        );
+      let senders: Array<{ Email?: string; Status?: string }>;
+      try {
+        const { body } = await mailjet.get('sender', { version: 'v3' }).request();
+        senders = (body as { Data?: typeof senders }).Data ?? [];
+      } catch (err) {
+        throw mailjetError(err, 'la liste des expéditeurs');
       }
-      if (!res.ok)
-        throw new Error(`Mailjet répond HTTP ${res.status} : ${await mailjetReason(res)}`);
-      const body = (await res.json()) as { Data?: Array<{ Email?: string; Status?: string }> };
-      const email = from.email.toLowerCase();
+      const email = from.Email.toLowerCase();
       const domain = `*${email.slice(email.indexOf('@'))}`;
-      const validated = (body.Data ?? []).some(
+      const validated = senders.some(
         (s) => s.Status === 'Active' && [email, domain].includes((s.Email ?? '').toLowerCase()),
       );
-      if (!validated) throw new Error(`expéditeur ${from.email} non validé chez Mailjet`);
+      if (!validated) throw new Error(`expéditeur ${from.Email} non validé chez Mailjet`);
     },
     async send(mail) {
-      const res = await fetchImpl(`${MAILJET_API}/v3.1/send`, {
-        method: 'POST',
-        headers: { authorization, 'content-type': 'application/json' },
-        body: JSON.stringify({
+      let body: unknown;
+      try {
+        ({ body } = await mailjet.post('send', { version: 'v3.1' }).request({
           Messages: [
             {
-              From: { Email: from.email, Name: from.name },
+              From: from,
               To: [{ Email: to }],
               Subject: mail.subject,
               TextPart: mail.text,
               ...(mail.replyTo ? { ReplyTo: { Email: mail.replyTo } } : {}),
             },
           ],
-        }),
-      });
-      if (!res.ok) {
-        throw new Error(`Mailjet répond HTTP ${res.status} : ${await mailjetReason(res)}`);
+        }));
+      } catch (err) {
+        throw mailjetError(err, "l'envoi");
       }
-      const body = (await res.json()) as {
-        Messages?: Array<{ Status?: string; Errors?: Array<{ ErrorMessage?: string }> }>;
-      };
-      const first = body.Messages?.[0];
-      if (first?.Status !== 'success') {
-        const why = first?.Errors?.map((e) => e.ErrorMessage).join(' ; ') || 'réponse inattendue';
-        throw new Error(`Mailjet n'a pas accepté le message : ${why}`);
+      const first = (body as { Messages?: Array<{ Status?: string }> }).Messages?.[0];
+      if (first && first.Status !== 'success') {
+        throw new Error(`Mailjet n'a pas accepté le message (statut ${first.Status ?? 'inconnu'})`);
       }
     },
   };
