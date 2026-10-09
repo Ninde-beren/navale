@@ -430,6 +430,35 @@
   max-width: 40ch;
 }
 
+/* Nouveautés : les dernières, numérotées par la version qui les apporte, comme les avantages */
+.home-news {
+  list-style: none;
+  margin: clamp(32px, 4vw, 48px) 0 0;
+  padding: 0;
+  display: grid;
+  gap: 32px 48px;
+}
+@media (min-width: 900px) {
+  .home-news {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.home-news li {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line-strong);
+}
+.home-news-tag {
+  font: 500 14px/1 var(--font-mono);
+  color: var(--text-3);
+}
+.home-news p {
+  color: var(--text-2);
+  max-width: 40ch;
+}
+
 /* Prêt en une minute : le code de partie, tel que l'écran central l'affiche */
 .home-ready {
   display: grid;

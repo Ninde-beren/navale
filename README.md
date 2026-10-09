@@ -26,8 +26,6 @@ et salve), seul contre des bots ou à plusieurs, avec reconnexion, reprise aprè
 redémarrage, revanche, sons, Wake Lock et PWA installable. Prérequis : Node 22 ou
 plus (le serveur utilise `node:sqlite`), pnpm 10.
 
-Notes de version, chaque commit numéroté : [CHANGELOG.md](CHANGELOG.md).
-
 ## Commandes
 
 ```bash

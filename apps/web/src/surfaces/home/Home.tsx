@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import { GAME_CODE_LENGTH, isGameCode } from '@navale/protocol';
 import { Wordmark } from '../../shared/ui/Wordmark.js';
 import { PHONE_QUERY, useMedia } from '../../shared/useMedia.js';
+import { NEWS } from './news.js';
 import { canScan, typedCode } from './qrCode.js';
 import { QrScan } from './QrScan.js';
 import { TableScene } from './TableScene.js';
@@ -117,6 +118,27 @@ export function Home() {
               <b>T</b>
               <b>X</b>
             </span>
+          </div>
+        </section>
+
+        <section className="home-section" aria-labelledby="home-news">
+          <div className="home-wrap">
+            <h2 id="home-news">Nouveautés</h2>
+            <p className="home-section-lede">
+              Navale s’améliore à chaque partie jouée. Chaque nouveauté porte le numéro de la
+              version qui l’apporte.
+            </p>
+            <ol className="home-news">
+              {NEWS.map((item) => (
+                <li key={item.n}>
+                  <span className="home-news-tag">
+                    n°{item.n} · {item.day}
+                  </span>
+                  <h3>{item.title}</h3>
+                  <p>{item.text}</p>
+                </li>
+              ))}
+            </ol>
           </div>
         </section>
 
