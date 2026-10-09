@@ -35,6 +35,9 @@ export function BoardPlaying({
   const { settings, players, round, code } = view;
   const { byId, nameOf } = playerLookup(players);
   const compact = layout === 'p2' || layout === 'p3' || flat;
+  // À plat, une copie retournée du centre n'a de sens que si quelqu'un est assis en face :
+  // à deux (les petits côtés) et à quatre (le haut), pas à trois, où le haut est libre.
+  const facing = flat && players.length !== 3;
   const isSalvo = settings.variant === 'simultaneous';
   const active = round?.activePlayerId ? byId.get(round.activePlayerId) : undefined;
   const committed = useCommittedShooters(round);
@@ -129,7 +132,7 @@ export function BoardPlaying({
           </span>
           {layout === 'p3' && followUrl}
         </div>
-        {flat ? (
+        {facing ? (
           // Dos à dos au milieu : la copie à l'envers au-dessus, pour le joueur d'en face, le bloc à l'endroit au-dessous.
           <div className="duo">
             <div className="mirror" aria-hidden="true">
@@ -141,7 +144,7 @@ export function BoardPlaying({
           centreMain
         )}
         {calloutBox(false)}
-        {flat && calloutBox(true)}
+        {facing && calloutBox(true)}
         <ShotLog shots={view.lastShots} playerOf={(id) => byId.get(id)} />
         <div className="controls">
           {view.isHost && (
