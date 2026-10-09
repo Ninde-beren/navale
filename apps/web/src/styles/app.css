@@ -1442,15 +1442,15 @@ body {
 /* ---- À quatre (croquis d'Antoine) : les quatre grilles en croix, sans bande centrale ; dans les coins, les infos
    de partie puis les boutons et réglages en haut à gauche, « Au tour de » à l'envers en haut à droite et à
    l'endroit en bas à gauche, le journal des coups en bas à droite ; quatre annonces autour du centre. ---- */
-/* La colonne centrale a la largeur des grilles du haut et du bas, et la croix se recentre :
-   les grilles de gauche et de droite sont à 48 px des deux autres. */
+/* La colonne centrale a la largeur des grilles du haut et du bas ; les colonnes latérales se partagent
+   le reste, et chaque grille de gauche ou de droite est centrée entre le bord de l'écran et les grilles
+   du haut et du bas. */
 .tv.v2.flat:not(.p2):not(.p3) .board {
   --z: 492px;
-  grid-template-columns: var(--z) auto var(--z);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   grid-template-rows: var(--z) minmax(0, 1fr) var(--z);
-  justify-content: center;
   row-gap: 16px;
-  column-gap: 48px;
+  column-gap: 0;
 }
 .tv.v2.flat:not(.p2):not(.p3) .seat[data-side='bottom'] {
   grid-area: 3 / 2;
@@ -1465,8 +1465,14 @@ body {
 .tv.v2.flat:not(.p2):not(.p3) .seat[data-side='right'] {
   grid-area: 1 / 3 / 4 / 4;
 }
+/* L'aside lui-même disparaît : tout ce qu'il contient est posé dans les coins, et sans fond,
+   ni marge, ni bordure, il ne laisse pas de bande vide entre les grilles du haut et du bas. */
 .tv.v2.flat:not(.p2):not(.p3) .centre {
   grid-area: 2 / 2;
+  padding: 0;
+  gap: 0;
+  background: none;
+  box-shadow: none;
 }
 .tv.v2.flat:not(.p2):not(.p3) .zone .grid {
   --cell: min(
