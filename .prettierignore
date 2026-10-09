@@ -2,3 +2,5 @@ node_modules
 dist
 coverage
 pnpm-lock.yaml
+# Texte juridique officiel, à garder tel que publié.
+LICENSE.md

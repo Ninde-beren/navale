@@ -46,7 +46,7 @@ function fakeClient(script: Array<{ body?: unknown; error?: object }>) {
 }
 const config = {
   feedbackTo: 'antoine@exemple.fr',
-  mailFromEmail: 'contact@tutotou.fr',
+  mailFromEmail: 'contact@exemple.fr',
   mailFromName: 'Navale',
   mailjetKey: 'cle',
   mailjetSecret: 'secret',
@@ -63,7 +63,7 @@ describe('mailjetMailer', () => {
     const { client, calls } = fakeClient([{ body: { Messages: [{ Status: 'success' }] } }]);
     const mailer = mailjetMailer(config, client)!;
     expect(mailer.to).toBe('antoine@exemple.fr');
-    expect(mailer.describe).toBe('Mailjet, de contact@tutotou.fr');
+    expect(mailer.describe).toBe('Mailjet, de contact@exemple.fr');
     await mailer.send({ subject: 'Navale · retour', text: 'Bravo.', replyTo: 'lea@exemple.fr' });
     expect(calls).toEqual([
       {
@@ -73,7 +73,7 @@ describe('mailjetMailer', () => {
         data: {
           Messages: [
             {
-              From: { Email: 'contact@tutotou.fr', Name: 'Navale' },
+              From: { Email: 'contact@exemple.fr', Name: 'Navale' },
               To: [{ Email: 'antoine@exemple.fr' }],
               Subject: 'Navale · retour',
               TextPart: 'Bravo.',
@@ -105,9 +105,9 @@ describe('mailjetMailer', () => {
       body: { Data: list.map(([Email, Status]) => ({ Email, Status })) },
     });
     const { client, calls } = fakeClient([
-      senders([['contact@tutotou.fr', 'Active']]),
-      senders([['*@tutotou.fr', 'Active']]),
-      senders([['contact@tutotou.fr', 'Inactive']]),
+      senders([['contact@exemple.fr', 'Active']]),
+      senders([['*@exemple.fr', 'Active']]),
+      senders([['contact@exemple.fr', 'Inactive']]),
       { error: { statusCode: 401 } },
     ]);
     const mailer = mailjetMailer(config, client)!;
@@ -125,7 +125,7 @@ describe('smtpMailer et choix du transport', () => {
     expect(smtp.describe).toBe('SMTP smtp.exemple.fr:465');
     expect(
       mailerFromConfig({ ...config, smtpUrl: 'smtps://u:p@smtp.exemple.fr:465' })?.describe,
-    ).toBe('Mailjet, de contact@tutotou.fr');
+    ).toBe('Mailjet, de contact@exemple.fr');
     expect(smtpMailer({ feedbackTo: 'a@b.fr' })).toBeNull();
   });
 });

@@ -148,3 +148,9 @@ restent en base, lisibles dans `/admin`. Dans le conteneur : `PORT`, `DATA_DIR=/
 Hors Docker, le serveur de production est un seul fichier (`pnpm build` produit
 `apps/server/dist/main.cjs` avec esbuild) : `pnpm --filter @navale/server start`
 le lance, avec `WEB_DIST` sur `apps/web/dist` et `PUBLIC_URL` défini.
+
+## Licence
+
+[PolyForm Noncommercial 1.0.0](LICENSE.md) : lire, étudier, modifier et utiliser le
+code à des fins non commerciales est permis ; tout usage commercial demande l'accord
+de l'auteur.
