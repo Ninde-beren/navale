@@ -1501,11 +1501,13 @@ body {
 
 /* ---- À trois : la bande de l'écran normal, en haut sur toute la largeur ; les trois grilles en dessous,
    aux dimensions de l'écran normal, celles de gauche et de droite tournées vers leur joueur. ---- */
+/* Une réserve en bas pour les icônes de réglage, que les grilles ne touchent pas. */
 .tv.v2.flat.p3 .board {
   grid-template-columns: repeat(3, 580px);
   grid-template-rows: 376px minmax(0, 1fr);
   justify-content: center;
   align-items: center;
+  padding-bottom: 48px;
 }
 /* Le centre ne positionne rien : les icônes de réglage vont en bas à droite de l'écran, sous les grilles. */
 .tv.v2.flat.p3 .centre {
