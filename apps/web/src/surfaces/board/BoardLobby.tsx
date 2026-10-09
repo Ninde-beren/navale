@@ -9,11 +9,13 @@ import {
   count,
   fleetSummary,
 } from '../../shared/labels.js';
+import { boardUrl, shortUrl } from '../../shared/share.js';
 import { sendCommand, type SocketRef } from '../../shared/socket.js';
 import { useFitText } from '../../shared/useFitText.js';
 import { PlayerAvatar } from '../../shared/ui/Avatar.js';
 import { FeedbackButton } from '../../shared/ui/Feedback.js';
 import { FlatButton } from '../../shared/ui/FlatButton.js';
+import { ShareButton } from '../../shared/ui/ShareButton.js';
 import { Wordmark } from '../../shared/ui/Wordmark.js';
 
 /** Ce qui manque encore pour lancer, dit à la table. */
@@ -75,7 +77,12 @@ export function BoardLobby({ view, socket }: { view: GameView; socket: SocketRef
                 Avec l'appareil photo du téléphone. Ou ouvre le site et saisis le code{' '}
                 <b style={{ color: 'var(--text)' }}>{code}</b>.
               </p>
-              <span className="url">{joinUrl.replace(/^https?:\/\//, '')}</span>
+              <span className="url">{shortUrl(joinUrl)}</span>
+              <div className="remote">
+                <span className="lbl">À distance ? Partage l'écran central</span>
+                <span className="url">{shortUrl(boardUrl(code))}</span>
+                <ShareButton code={code} className="btn sm primary" />
+              </div>
             </div>
           </div>
         </section>

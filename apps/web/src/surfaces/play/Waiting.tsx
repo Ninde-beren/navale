@@ -4,6 +4,7 @@ import type { PlayerView, PublicPlayer } from '@navale/protocol';
 import { sendCommand, type SocketRef } from '../../shared/socket.js';
 import { PlayerAvatar } from '../../shared/ui/Avatar.js';
 import { PhoneScreen } from '../../shared/ui/PhoneScreen.js';
+import { ShareButton } from '../../shared/ui/ShareButton.js';
 import { LeaveButton } from './LeaveButton.js';
 import { MyFleetGrid } from './MyFleetGrid.js';
 
@@ -64,6 +65,7 @@ export function Waiting({
       >
         Modifier ma flotte
       </button>
+      <ShareButton code={view.code} label="Inviter des amis à distance" />
       <LeaveButton code={view.code} socket={socket} onLeft={() => void navigate('/')} />
     </PhoneScreen>
   );

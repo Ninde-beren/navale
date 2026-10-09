@@ -92,6 +92,15 @@ export function Board() {
 
   return (
     <div className="stage">
+      {phone && (view.status === 'LOBBY' || view.status === 'PLAYING') && (
+        // Le lien de l'écran central reçu sur un téléphone : on propose de jouer depuis là.
+        <div className="phone-board-hint">
+          <span>Tu es sur un téléphone ?</span>
+          <Link className="btn primary" to={`/play/${code}`}>
+            Jouer depuis ce téléphone
+          </Link>
+        </div>
+      )}
       <main className={`screen tv v2 ${layout} ${flat && view.status === 'PLAYING' ? 'flat' : ''}`}>
         {screen}
         {conn === 'disconnected' && (

@@ -270,6 +270,52 @@ body {
   color: var(--text-3);
   word-break: break-all;
 }
+/* À distance : le lien de l'écran central mis en avant à côté du QR, avec son bouton de partage
+   (feuille de partage de l'appareil, sinon copie). Les amis l'ouvrent sur un ordinateur ou une
+   tablette et jouent depuis leur téléphone avec le code. */
+.scan .txt .remote {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  padding: 18px 22px;
+  border-radius: 20px;
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.scan .txt .remote .lbl {
+  flex-basis: 100%;
+  font: 700 26px/1.2 var(--font-display);
+}
+.scan .txt .remote .url {
+  color: var(--text);
+}
+/* Le lien de l'écran central ouvert sur un téléphone : un bandeau propose de jouer depuis là. */
+.phone-board-hint {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px 14px;
+  padding: 10px 16px;
+  background: color-mix(in oklab, var(--ink) 90%, transparent);
+  backdrop-filter: blur(8px);
+  font: 500 15px/1.3 var(--font-body);
+  color: var(--text-2);
+}
+/* Le bouton garde une taille de téléphone, pas celle des boutons de l'écran central. */
+.phone-board-hint .btn {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 12px;
+  font-size: 15px;
+}
 .players {
   display: flex;
   flex-direction: column;
