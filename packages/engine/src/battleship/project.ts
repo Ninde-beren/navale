@@ -11,6 +11,7 @@ import { startBlocker } from './rules/start.js';
 import { antiFocusBlocked, legalTargets } from './rules/targets.js';
 import {
   cellsRemaining,
+  commanderOf,
   isSunk,
   playerById,
   shipsRemaining,
@@ -37,6 +38,8 @@ function publicPlayer(state: GameState, p: Player, presence: Presence): PublicPl
     status: p.status,
     connected: p.kind === 'bot' ? true : (presence[p.playerId] ?? false),
     substitute: p.substitute,
+    commanderId: p.commanderId,
+    abilityUsesLeft: p.abilityUsesLeft,
     shipsRemaining: shipsRemaining(p),
     revealed: p.shotsReceived.map((s) => ({ coord: s.coord, result: s.result })),
     sunkShips: p.fleet.filter(isSunk).map((ship) => sunkInfo(state.settings, ship)),
@@ -90,6 +93,8 @@ export function projectPrivate(
   const round = state.round;
   const expected = round?.expectedShooters.includes(playerId) ?? false;
   const pending = round?.committed[playerId] ?? null;
+  const myTurn =
+    state.status === 'PLAYING' && me.status === 'ALIVE' && expected && pending === null;
   return {
     ...board,
     kind: 'player',
@@ -101,7 +106,9 @@ export function projectPrivate(
       antiFocusBlocked: state.status === 'PLAYING' ? antiFocusBlocked(state, playerId) : null,
       pendingShot: pending,
       shotsFired: state.shotsLog.filter((s) => s.shooterId === playerId),
-      canFire: state.status === 'PLAYING' && me.status === 'ALIVE' && expected && pending === null,
+      canFire: myTurn,
+      canUseAbility: myTurn && commanderOf(state, me) !== undefined && me.abilityUsesLeft > 0,
+      radarResults: me.radarResults,
     },
   };
 }
@@ -117,6 +124,10 @@ export function publicEvent(event: GameEvent): VisibleEvent {
       const { targetId: _targetId, coord: _coord, ...committed } = event;
       return committed;
     }
+    case 'RADAR_RESULT': {
+      const { shipCells: _shipCells, ...radar } = event;
+      return radar;
+    }
     default:
       return event;
   }
@@ -129,6 +140,8 @@ export function privateRecipient(event: GameEvent): string | null {
       return event.playerId;
     case 'SHOT_COMMITTED':
       return event.shooterId;
+    case 'RADAR_RESULT':
+      return event.playerId;
     default:
       return null;
   }

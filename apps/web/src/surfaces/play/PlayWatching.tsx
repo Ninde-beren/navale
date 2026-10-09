@@ -1,5 +1,5 @@
 import { coordLabel, type PlayerView, type PublicPlayer } from '@navale/protocol';
-import { RESULT_LABELS } from '../../shared/labels.js';
+import { RESULT_LABELS, count } from '../../shared/labels.js';
 import { playerLookup } from '../../shared/players.js';
 import { PhoneScreen } from '../../shared/ui/PhoneScreen.js';
 import { timerSuffix, useCountdown } from '../../shared/useCountdown.js';
@@ -32,6 +32,7 @@ export function PlayWatching({
       : 'Résolution du tir'
     : `Manche ${(view.round?.index ?? 0) + 1} · ${view.me.cellsRemaining} cases intactes${timerSuffix(secondsLeft)}`;
   const lastShots = [...view.me.shotsFired].reverse().slice(0, 5);
+  const radars = [...view.me.radarResults].reverse().slice(0, 3);
 
   return (
     <PhoneScreen code={view.code} color={me.color} gap={16}>
@@ -40,6 +41,19 @@ export function PlayWatching({
         <p className="muted">{detail}</p>
       </div>
       <MyFleetGrid view={view} me={me} />
+      {radars.length > 0 && (
+        <div className="panel flex flex-col gap-2">
+          <span className="label">Mes radars</span>
+          {radars.map((r) => (
+            <div key={`${r.round}-${r.targetId}`} className="kv">
+              <span>
+                {nameOf(r.targetId)} · autour de {coordLabel(r.center)}
+              </span>
+              <b>{count(r.shipCells, 'case')} de navire</b>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="panel flex flex-col gap-2">
         <span className="label">Mes derniers tirs</span>
         {lastShots.map((s) => (

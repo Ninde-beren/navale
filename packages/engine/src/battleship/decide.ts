@@ -1,16 +1,26 @@
-import type { Actor, ColorId, Command, CommandOf, GameEvent, GameEventOf } from '@navale/protocol';
+import type {
+  Actor,
+  ColorId,
+  Command,
+  CommandOf,
+  GameEvent,
+  GameEventOf,
+  PendingShot,
+} from '@navale/protocol';
 import type { DecideContext, Decision } from '../core/definition.js';
 import { ok, reject } from '../core/definition.js';
 import { botReadyEvents } from './bot/arrival.js';
 import { BOT_NAMES } from './bot/names.js';
 import { evolve } from './evolve.js';
 import { validateFleet } from './placement.js';
+import { abilityEffects, repairableCells } from './rules/abilities.js';
 import { computeRanking, isFinishedAfterRound } from './rules/end.js';
 import { resolveRound, type ShotToResolve } from './rules/resolve.js';
 import { startBlocker } from './rules/start.js';
 import { antiFocusBlocked, legalTargets } from './rules/targets.js';
 import { nextShooters, resolutionOrder } from './rules/turn-order.js';
 import {
+  commanderOf,
   inBounds,
   playerById,
   sameCoord,
@@ -73,6 +83,8 @@ export function decide(state: GameState, command: Command, ctx: DecideContext): 
       return placeFleet(state, command, ctx);
     case 'SET_READY':
       return setReady(state, command, ctx);
+    case 'CHOOSE_COMMANDER':
+      return chooseCommander(state, command, ctx);
     case 'KICK_PLAYER':
       return kickPlayer(state, command);
     case 'ADD_BOT':
@@ -83,6 +95,8 @@ export function decide(state: GameState, command: Command, ctx: DecideContext): 
       return startGame(state, ctx);
     case 'FIRE':
       return fire(state, command, ctx);
+    case 'USE_ABILITY':
+      return useAbility(state, command, ctx);
     case 'FORCE_ROUND':
       return forceRound(state, ctx);
     case 'SUBSTITUTE_PLAYER':
@@ -152,14 +166,6 @@ function roundStarted(state: GameState, index: number, now: number): GameEventOf
   };
 }
 
-/** Les tirs engagés de la manche, dans l'ordre où ils seront résolus. */
-function committedShots(state: GameState, round: Round): ShotToResolve[] {
-  return resolutionOrder(state, round.index, Object.keys(round.committed)).map((shooterId) => ({
-    shooterId,
-    ...round.committed[shooterId]!,
-  }));
-}
-
 /**
  * Résout les tirs d'une manche, prononce les éliminations, clôt la manche,
  * puis ouvre la suivante ou termine la partie. Le serveur espace la
@@ -199,6 +205,61 @@ function resolveAndAdvance(
     events.push(roundStarted(next, roundIndex + 1, ctx.now));
   }
   return events;
+}
+
+/**
+ * Résout une manche de salve : les capacités engagées d'abord (leur usage et leur
+ * effet, dans l'ordre de résolution, chacun appliqué avant le suivant), puis tous
+ * les tirs, ceux des missiles compris, contre l'état ainsi obtenu.
+ */
+function resolveCommitted(
+  state: GameState,
+  round: Round,
+  skipped: string[],
+  ctx: DecideContext,
+): GameEvent[] {
+  let next = state;
+  const prelude: GameEvent[] = [];
+  const shots: ShotToResolve[] = [];
+  for (const shooterId of resolutionOrder(state, round.index, Object.keys(round.committed))) {
+    const pending = round.committed[shooterId]!;
+    const shooter = playerById(next, shooterId);
+    const commander = shooter && commanderOf(next, shooter);
+    if (!pending.ability || !commander) {
+      shots.push({ shooterId, targetId: pending.targetId, coord: pending.coord });
+      continue;
+    }
+    const effects = abilityEffects(next, commander.ability, shooterId, pending, ctx);
+    for (const e of effects.events) {
+      prelude.push(e);
+      next = evolve(next, e);
+    }
+    shots.push(...effects.shots);
+  }
+  return [...prelude, ...resolveAndAdvance(next, shots, skipped, ctx)];
+}
+
+/** Salve : l'action attend les autres ; la dernière engagée déclenche la résolution. */
+function commitAction(
+  state: GameState,
+  round: Round,
+  shooterId: string,
+  pending: PendingShot,
+  ctx: DecideContext,
+): BattleshipDecision {
+  const committed: GameEvent = {
+    type: 'SHOT_COMMITTED',
+    round: round.index,
+    shooterId,
+    targetId: pending.targetId,
+    coord: pending.coord,
+    ...(pending.ability ? { ability: pending.ability } : {}),
+  };
+  const next = evolve(state, committed);
+  const nextRound = next.round ?? round;
+  if (Object.keys(nextRound.committed).length < round.expectedShooters.length)
+    return ok([committed]);
+  return ok([committed, ...resolveCommitted(next, nextRound, [], ctx)]);
 }
 
 // ---- Lobby ---------------------------------------------------------------------
@@ -283,9 +344,34 @@ function setReady(
   if (state.status !== 'LOBBY') return reject('WRONG_STATE', 'La partie a déjà commencé.');
   if (command.ready && me.fleet.length === 0)
     return reject('FLEET_MISSING', 'Place ta flotte avant de te déclarer prêt.');
+  if (
+    command.ready &&
+    state.settings.commanders.length > 0 &&
+    me.kind === 'human' &&
+    me.commanderId === null
+  )
+    return reject('COMMANDER_MISSING', 'Choisis un commandant avant de te déclarer prêt.');
   const already = command.ready ? me.status === 'READY' : me.status === 'PLACING';
   if (already) return ok([]);
   return ok([{ type: 'PLAYER_READY_CHANGED', playerId: me.playerId, ready: command.ready }]);
+}
+
+/** Le commandant se choisit au lobby, parmi ceux que la partie propose ; un bot n'en a pas. */
+function chooseCommander(
+  state: GameState,
+  command: CommandOf<'CHOOSE_COMMANDER'>,
+  ctx: DecideContext,
+): BattleshipDecision {
+  const me = actorPlayer(state, ctx);
+  if (isDecision(me)) return me;
+  if (state.status !== 'LOBBY') return reject('WRONG_STATE', 'Le commandant se choisit au lobby.');
+  if (state.settings.commanders.length === 0)
+    return reject('WRONG_STATE', 'Cette partie se joue sans commandants.');
+  const commander = state.settings.commanders.find((c) => c.id === command.commanderId);
+  if (!commander)
+    return reject('COMMANDER_UNKNOWN', 'Ce commandant n’existe pas dans cette partie.');
+  if (me.commanderId === commander.id) return ok([]);
+  return ok([{ type: 'COMMANDER_CHOSEN', playerId: me.playerId, commanderId: commander.id }]);
 }
 
 function kickPlayer(state: GameState, command: CommandOf<'KICK_PLAYER'>): BattleshipDecision {
@@ -396,20 +482,64 @@ function fire(
     coord: command.coord,
   };
   if (state.settings.variant === 'sequential') return ok(resolveAndAdvance(state, [shot], [], ctx));
+  return commitAction(state, round, me.playerId, shot, ctx);
+}
 
-  const committed: GameEvent = {
-    type: 'SHOT_COMMITTED',
-    round: round.index,
-    shooterId: me.playerId,
-    targetId: target.playerId,
+/**
+ * La capacité de mon commandant, à la place de mon tir : mêmes conditions de tour
+ * qu'un tir, un usage restant, puis selon la capacité : la réparation vise ma propre
+ * flotte sur une case touchée d'un bateau à flot ; le missile vise une cible légale
+ * (c'est un tir, l'anti-acharnement s'applique) ; le radar vise n'importe quel vivant.
+ */
+function useAbility(
+  state: GameState,
+  command: CommandOf<'USE_ABILITY'>,
+  ctx: DecideContext,
+): BattleshipDecision {
+  const me = actorPlayer(state, ctx);
+  if (isDecision(me)) return me;
+  if (state.status !== 'PLAYING' || !state.round)
+    return reject('GAME_NOT_PLAYING', 'La partie n’est pas en cours.');
+  if (me.status !== 'ALIVE') return reject('NOT_ALIVE', 'Tu es éliminé.');
+  const round = state.round;
+  if (!round.expectedShooters.includes(me.playerId))
+    return reject('NOT_YOUR_TURN', 'Ce n’est pas ton tour.');
+  if (round.committed[me.playerId])
+    return reject('ALREADY_COMMITTED', 'Tu as déjà joué dans cette manche.');
+  const commander = commanderOf(state, me);
+  if (!commander || me.abilityUsesLeft <= 0)
+    return reject('ABILITY_UNAVAILABLE', 'Tu n’as plus de capacité à jouer.');
+  const { ability } = commander;
+  if (ability.type === 'repair') {
+    if (command.targetId !== me.playerId)
+      return reject('WRONG_STATE', 'La réparation se fait sur ta propre flotte.');
+    if (!repairableCells(me.fleet).some((c) => sameCoord(c, command.coord)))
+      return reject(
+        'CELL_NOT_REPAIRABLE',
+        'Seule une case touchée d’un bateau encore à flot se répare.',
+      );
+  } else {
+    if (command.targetId === me.playerId)
+      return reject('TARGET_IS_SELF', 'On ne se vise pas soi-même.');
+    const target = playerById(state, command.targetId);
+    if (!target || target.status !== 'ALIVE')
+      return reject('TARGET_NOT_ALIVE', 'Cette cible n’est plus en jeu.');
+    if (ability.type === 'missile' && !legalTargets(state, me.playerId).includes(target.playerId))
+      return reject('TARGET_NOT_LEGAL', 'Cette cible n’est pas autorisée.');
+    if (!inBounds(state.settings, command.coord))
+      return reject('COORD_OUT_OF_BOUNDS', 'Case hors de la grille.');
+  }
+  const pending: PendingShot = {
+    targetId: command.targetId,
     coord: command.coord,
+    ability: ability.type,
   };
-  // Salve : le tir attend les autres ; le dernier engagé déclenche la résolution.
-  const next = evolve(state, committed);
-  const nextRound = next.round ?? round;
-  if (Object.keys(nextRound.committed).length < round.expectedShooters.length)
-    return ok([committed]);
-  return ok([committed, ...resolveAndAdvance(next, committedShots(next, nextRound), [], ctx)]);
+  if (state.settings.variant !== 'sequential')
+    return commitAction(state, round, me.playerId, pending, ctx);
+  const effects = abilityEffects(state, ability, me.playerId, pending, ctx);
+  let next = state;
+  for (const e of effects.events) next = evolve(next, e);
+  return ok([...effects.events, ...resolveAndAdvance(next, effects.shots, [], ctx)]);
 }
 
 function forceRound(state: GameState, ctx: DecideContext): BattleshipDecision {
@@ -417,7 +547,7 @@ function forceRound(state: GameState, ctx: DecideContext): BattleshipDecision {
     return reject('GAME_NOT_PLAYING', 'La partie n’est pas en cours.');
   const round = state.round;
   const skipped = round.expectedShooters.filter((id) => !round.committed[id]);
-  return ok(resolveAndAdvance(state, committedShots(state, round), skipped, ctx));
+  return ok(resolveCommitted(state, round, skipped, ctx));
 }
 
 /**

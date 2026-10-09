@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import clsx from 'clsx';
 import type { GameView, PublicPlayer } from '@navale/protocol';
-import { END_LABELS, VARIANT_LABELS } from '../../shared/labels.js';
+import { END_LABELS, VARIANT_LABELS, commanderOf } from '../../shared/labels.js';
 import { playerLookup } from '../../shared/players.js';
 import { useShotHistory } from '../../shared/shotHistory.js';
 import { sendCommand, type SocketRef } from '../../shared/socket.js';
@@ -131,6 +131,7 @@ export function BoardPlaying({
             active={isActive(p)}
             reveals={reveals[p.playerId] ?? []}
             fresh={fresh?.targetId === p.playerId ? fresh.coord : null}
+            commander={commanderOf(settings, p.commanderId)}
           />
         );
         // À plat, chaque zone est dans un cadre tourné vers le côté de la table où son joueur est assis.

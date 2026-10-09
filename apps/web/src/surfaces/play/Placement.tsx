@@ -10,7 +10,7 @@ import type {
   ShipPlacement,
 } from '@navale/protocol';
 import { placementClasses } from '../../shared/cells.js';
-import { shipLabel } from '../../shared/labels.js';
+import { ABILITY_LABELS, abilityHint, commandersOf, shipLabel } from '../../shared/labels.js';
 import { sendCommand, type SocketRef } from '../../shared/socket.js';
 import { Grid } from '../../shared/ui/Grid.js';
 import { PhoneScreen } from '../../shared/ui/PhoneScreen.js';
@@ -60,6 +60,13 @@ export function Placement({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const drag = useRef<{ ship: number; offset: number; from: Coord; moved: boolean } | null>(null);
+  // Commandants : le choix se fait ici, avant d'être prêt ; il est enregistré tout de suite.
+  const commanders = commandersOf(settings);
+  const chosen = commanders.find((c) => c.id === me.commanderId);
+  const choose = async (commanderId: string) => {
+    const ack = await sendCommand(socket.current, { type: 'CHOOSE_COMMANDER', commanderId });
+    if (!ack.ok) setError(ack.error.message);
+  };
 
   const validation = useMemo(() => validateFleet(settings, ships), [settings, ships]);
   const conflicts = useMemo(() => {
@@ -157,6 +164,29 @@ export function Placement({
           </button>
         ))}
       </div>
+      {commanders.length > 0 && (
+        <div className="field">
+          <span className="label">Ton commandant</span>
+          <div className="targets">
+            {commanders.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                className={clsx(me.commanderId === c.id && 'on')}
+                onClick={() => void choose(c.id)}
+              >
+                <b>{c.name}</b>
+                <small>{ABILITY_LABELS[c.ability.type]}</small>
+              </button>
+            ))}
+          </div>
+          <p className="hint">
+            {chosen
+              ? abilityHint(chosen.ability)
+              : 'Choisis un commandant : sa capacité se joue une fois, à la place d’un tir.'}
+          </p>
+        </div>
+      )}
       {!validation.ok && (
         <p className="hint err">
           {conflicts.size > 0
@@ -188,7 +218,7 @@ export function Placement({
       <button
         className="btn xl me"
         type="button"
-        disabled={!validation.ok || busy}
+        disabled={!validation.ok || busy || (commanders.length > 0 && !chosen)}
         onClick={() => void ready()}
       >
         {busy ? 'Envoi…' : 'Prêt'}

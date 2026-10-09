@@ -60,6 +60,32 @@ export type BotLevel = z.infer<typeof BotLevelSchema>;
 export const PresetIdSchema = z.enum(['classic', 'quick']);
 export type PresetId = z.infer<typeof PresetIdSchema>;
 
+// ---- Commandants et capacités ----------------------------------------------------
+
+export const AbilityTypeSchema = z.enum(['radar', 'missile', 'repair']);
+export type AbilityType = z.infer<typeof AbilityTypeSchema>;
+
+/**
+ * Une capacité, décrite par ses réglages : le radar compte les cases de navire
+ * d'une zone carrée centrée sur la case visée, le missile frappe une case et ses
+ * quatre voisines, la réparation remet en état une case touchée d'un bateau non coulé.
+ */
+export const AbilitySchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('radar'), size: z.number().int().min(1).max(5) }),
+  z.object({ type: z.literal('missile'), pattern: z.enum(['cross']) }),
+  z.object({ type: z.literal('repair') }),
+]);
+export type Ability = z.infer<typeof AbilitySchema>;
+
+/** Un commandant : un nom et une capacité, utilisable `uses` fois par partie. */
+export const CommanderSchema = z.object({
+  id: z.string().min(1).max(32),
+  name: z.string().min(1).max(32),
+  ability: AbilitySchema,
+  uses: z.number().int().min(1).max(5),
+});
+export type Commander = z.infer<typeof CommanderSchema>;
+
 // ---- Paramètres de partie ------------------------------------------------------
 
 export const ShipSpecSchema = z.object({
@@ -94,6 +120,8 @@ export const GameSettingsSchema = z.object({
   afkBotSeconds: z.number().int().min(1).max(600).nullable().default(45),
   /** Niveau du bot qui relaie un joueur absent. */
   afkBotLevel: BotLevelSchema.default('normal'),
+  /** Commandants proposés aux joueurs ; vide = partie sans capacités. */
+  commanders: z.array(CommanderSchema).max(8).default([]),
 });
 export type GameSettings = z.infer<typeof GameSettingsSchema>;
 
@@ -117,8 +145,23 @@ export const ShipSchema = z.object({
 });
 export type Ship = z.infer<typeof ShipSchema>;
 
-export const PendingShotSchema = z.object({ targetId: z.string(), coord: CoordSchema });
+/** L'action engagée pour la manche : un tir, ou une capacité visant cette case. */
+export const PendingShotSchema = z.object({
+  targetId: z.string(),
+  coord: CoordSchema,
+  ability: AbilityTypeSchema.optional(),
+});
 export type PendingShot = z.infer<typeof PendingShotSchema>;
+
+/** Ce qu'un radar a appris : privé, seul son auteur reçoit `shipCells`. */
+export const RadarResultSchema = z.object({
+  round: z.number().int().min(0),
+  targetId: z.string(),
+  center: CoordSchema,
+  size: z.number().int().min(1),
+  shipCells: z.number().int().min(0),
+});
+export type RadarResult = z.infer<typeof RadarResultSchema>;
 
 export const SunkInfoSchema = z.object({
   shipId: z.string(),

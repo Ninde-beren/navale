@@ -1,6 +1,10 @@
 import type {
+  Ability,
+  AbilityType,
   BotLevel,
+  Commander,
   EndCondition,
+  GameSettings,
   RankEntry,
   SalvoOrder,
   ShipSpec,
@@ -69,6 +73,38 @@ export function antiFocusLabel(max: number | null): string {
   return max === 1
     ? 'Jamais deux fois de suite sur le même'
     : `${max} tirs de suite au plus sur le même`;
+}
+
+export const ABILITY_LABELS: Record<AbilityType, string> = {
+  radar: 'Radar',
+  missile: 'Missile',
+  repair: 'Réparation',
+};
+
+/** Ce que fait la capacité, en une phrase. */
+export function abilityHint(ability: Ability): string {
+  switch (ability.type) {
+    case 'radar':
+      return `Révèle, pour toi seul, combien de cases de navire se cachent dans une zone de ${ability.size} × ${ability.size}.`;
+    case 'missile':
+      return 'Frappe une case et ses quatre voisines d’un coup.';
+    case 'repair':
+      return 'Remet en état une case touchée d’un bateau encore à flot.';
+  }
+}
+
+/** Les commandants de la partie ; les journaux d'avant ce réglage n'en ont pas. */
+export function commandersOf(settings: GameSettings): Commander[] {
+  return settings.commanders ?? [];
+}
+
+export function commanderOf(settings: GameSettings, id: string | null): Commander | undefined {
+  return id === null ? undefined : commandersOf(settings).find((c) => c.id === id);
+}
+
+/** « Amiral · Radar ». */
+export function commanderLabel(commander: Commander): string {
+  return `${commander.name} · ${ABILITY_LABELS[commander.ability.type]}`;
 }
 
 /** « Bot après 45 s d'absence » ; `null` = on attend l'absent. */

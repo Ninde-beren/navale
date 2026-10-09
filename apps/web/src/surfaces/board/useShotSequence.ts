@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { coordLabel, type Coord, type PublicPlayer, type VisibleEnvelope } from '@navale/protocol';
 import { play, playSunkJingle } from '../../shared/audio.js';
-import { RESULT_LABELS } from '../../shared/labels.js';
+import { ABILITY_LABELS, RESULT_LABELS } from '../../shared/labels.js';
 import { ShotFx, sleep } from './shotFx.js';
 
 /** Une case révélée par l'animation, en attendant l'instantané qui la confirmera. */
@@ -15,6 +15,7 @@ const SOUND = { MISS: 'miss', HIT: 'hit', SUNK: 'sunk' } as const;
 /** Le petit air du tireur part juste après l'explosion du coulé. */
 const JINGLE_DELAY_MS = 550;
 const ELIMINATED_CALLOUT_MS = 1600;
+const ABILITY_CALLOUT_MS = 1800;
 
 /**
  * La séquence animée de l'écran central. Chaque SHOT_RESOLVED reçu rejoint la file
@@ -103,6 +104,19 @@ export function useShotSequence({
       lastSeq.current = eventSeq;
       if (event.type === 'SHOT_RESOLVED') {
         void fx.play(event, revealDelayMs);
+      } else if (event.type === 'ABILITY_USED') {
+        // La capacité s'annonce avant ses effets (radar, réparation, tirs du missile).
+        const who =
+          event.ability === 'repair'
+            ? nameOf(event.playerId)
+            : `${nameOf(event.playerId)} → ${nameOf(event.targetId)}`;
+        const where = `${coordLabel(event.coord)} · ${who}`;
+        const word = ABILITY_LABELS[event.ability].toUpperCase();
+        void fx.enqueue(async () => {
+          setCallout({ word, where, cls: 'ability' });
+          await sleep(ABILITY_CALLOUT_MS);
+          setCallout(null);
+        });
       } else if (event.type === 'PLAYER_ELIMINATED') {
         const where = `${nameOf(event.playerId)} · ${event.rank}e`;
         void fx.enqueue(async () => {

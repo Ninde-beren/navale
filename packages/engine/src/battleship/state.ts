@@ -1,12 +1,14 @@
 import type {
   BotLevel,
   ColorId,
+  Commander,
   Coord,
   GameSettings,
   GameStatus,
   PendingShot,
   PlayerKind,
   PlayerStatus,
+  RadarResult,
   RankEntry,
   ResolvedShot,
   Ship,
@@ -20,6 +22,12 @@ export interface Player {
   level?: BotLevel;
   /** Humain absent relayé par un bot : le niveau de ce bot ; `null` quand il joue lui-même. */
   substitute: BotLevel | null;
+  /** Son commandant, parmi `settings.commanders` ; `null` sans choix (bots, parties sans commandants). */
+  commanderId: string | null;
+  /** Usages restants de la capacité de son commandant. */
+  abilityUsesLeft: number;
+  /** Privé : ce que ses radars lui ont appris. */
+  radarResults: RadarResult[];
   name: string;
   color: ColorId;
   seat: number;
@@ -79,6 +87,11 @@ export function coordKey(c: Coord): string {
 
 export function playerById(state: GameState, playerId: string): Player | undefined {
   return state.players.find((p) => p.playerId === playerId);
+}
+
+/** Le commandant d'un joueur, d'après les réglages de la partie ; `undefined` sans commandant. */
+export function commanderOf(state: GameState, player: Player): Commander | undefined {
+  return state.settings.commanders.find((c) => c.id === player.commanderId);
 }
 
 export function alivePlayers(state: GameState): Player[] {

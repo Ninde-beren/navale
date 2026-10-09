@@ -1,4 +1,5 @@
 import type { GameEvent } from '@navale/protocol';
+import { normalizeSettings } from './settings.js';
 import { playerById, sameCoord, type GameState, type Player } from './state.js';
 
 /** Applique un événement à l'état. Pure, sans validation : l'événement est un fait accompli. */
@@ -17,7 +18,7 @@ function apply(state: GameState, event: GameEvent): GameState {
         ...state,
         gameId: event.gameId,
         code: event.code,
-        settings: event.settings,
+        settings: normalizeSettings(event.settings),
         createdAt: event.createdAt,
       };
     case 'PLAYER_JOINED': {
@@ -26,6 +27,9 @@ function apply(state: GameState, event: GameEvent): GameState {
         kind: event.kind,
         ...(event.level ? { level: event.level } : {}),
         substitute: null,
+        commanderId: null,
+        abilityUsesLeft: 0,
+        radarResults: [],
         name: event.name,
         color: event.color,
         seat: event.seat,
@@ -56,11 +60,40 @@ function apply(state: GameState, event: GameEvent): GameState {
         ...p,
         status: event.ready ? 'READY' : 'PLACING',
       }));
+    case 'COMMANDER_CHOSEN': {
+      const commander = state.settings.commanders.find((c) => c.id === event.commanderId);
+      return mapPlayer(state, event.playerId, (p) => ({
+        ...p,
+        commanderId: event.commanderId,
+        abilityUsesLeft: commander?.uses ?? 0,
+      }));
+    }
+    case 'ABILITY_USED':
+      return mapPlayer(state, event.playerId, (p) => ({
+        ...p,
+        abilityUsesLeft: Math.max(0, p.abilityUsesLeft - 1),
+      }));
+    case 'RADAR_RESULT': {
+      const { type: _type, playerId, ...result } = event;
+      return mapPlayer(state, playerId, (p) => ({
+        ...p,
+        radarResults: [...p.radarResults, result],
+      }));
+    }
+    case 'SHIP_REPAIRED':
+      return mapPlayer(state, event.playerId, (p) => ({
+        ...p,
+        fleet: p.fleet.map((ship) => ({
+          ...ship,
+          hits: ship.hits.filter((h) => !sameCoord(h, event.coord)),
+        })),
+        shotsReceived: p.shotsReceived.filter((s) => !sameCoord(s.coord, event.coord)),
+      }));
     case 'GAME_STARTED':
       return {
         ...state,
         status: 'PLAYING',
-        settings: event.settings,
+        settings: normalizeSettings(event.settings),
         startedAt: event.startedAt,
         lastShooterSeat: null,
         round: null,
@@ -85,7 +118,11 @@ function apply(state: GameState, event: GameEvent): GameState {
           ...state.round,
           committed: {
             ...state.round.committed,
-            [event.shooterId]: { targetId: event.targetId, coord: event.coord },
+            [event.shooterId]: {
+              targetId: event.targetId,
+              coord: event.coord,
+              ...(event.ability ? { ability: event.ability } : {}),
+            },
           },
         },
       };

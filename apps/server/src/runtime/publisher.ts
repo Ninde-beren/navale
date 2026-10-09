@@ -32,7 +32,8 @@ export class Publisher {
     let releaseAt = this.settledAt(gameId, now);
     for (const envelope of envelopes) {
       this.schedule(releaseAt - now, () => this.emitEvent(gameId, envelope));
-      if (envelope.event.type === 'SHOT_RESOLVED')
+      // Chaque tir, et chaque capacité jouée, a droit à son temps d'annonce sur l'écran central.
+      if (envelope.event.type === 'SHOT_RESOLVED' || envelope.event.type === 'ABILITY_USED')
         releaseAt += runtime.state.settings.revealDelayMs;
     }
     this.releaseAt.set(gameId, releaseAt);

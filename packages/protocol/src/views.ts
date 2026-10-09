@@ -8,6 +8,7 @@ import {
   PendingShotSchema,
   PlayerKindSchema,
   PlayerStatusSchema,
+  RadarResultSchema,
   RankEntrySchema,
   ResolvedShotSchema,
   ShipSchema,
@@ -27,6 +28,9 @@ export const PublicPlayerSchema = z.object({
   connected: z.boolean(),
   /** Humain absent relayé par un bot : le niveau de ce bot ; `null` sinon. */
   substitute: BotLevelSchema.nullable(),
+  /** Son commandant (`settings.commanders`), s'il en a choisi un, et les usages qui lui restent. */
+  commanderId: z.string().nullable(),
+  abilityUsesLeft: z.number().int().min(0),
   shipsRemaining: z.number().int().min(0),
   revealed: z.array(z.object({ coord: CoordSchema, result: z.enum(['MISS', 'HIT']) })),
   sunkShips: z.array(
@@ -80,6 +84,10 @@ export const PrivateMeSchema = z.object({
   pendingShot: PendingShotSchema.nullable(),
   shotsFired: z.array(ResolvedShotSchema),
   canFire: z.boolean(),
+  /** Je peux jouer ma capacité à la place d'un tir : mon tour, un usage restant. */
+  canUseAbility: z.boolean(),
+  /** Ce que mes radars ont appris, du plus ancien au plus récent. */
+  radarResults: z.array(RadarResultSchema),
 });
 export type PrivateMe = z.infer<typeof PrivateMeSchema>;
 

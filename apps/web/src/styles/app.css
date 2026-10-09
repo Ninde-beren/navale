@@ -827,6 +827,22 @@ body {
   color: var(--text-2);
   font: 500 11px/1 var(--font-body);
 }
+/* ---------- Commandants et capacités ----------
+   L'annonce d'une capacité en vert, le commandant sur la plaque (le point dit s'il lui
+   reste sa capacité), et la zone du dernier radar rappelée sur la grille du téléphone. */
+.tv.v2 .callout.big.ability {
+  --c: var(--ok);
+}
+.tv.v2 .nameplate .role.cmd {
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-2);
+}
+.grid .cell.scan {
+  outline: 2px dashed var(--pc);
+  outline-offset: -2px;
+}
+
 /* Le retour après un relais : un vrai message, en bas, qui ne cache pas le rappel d'écran allumé. */
 .wake-toast.resumed {
   top: auto;

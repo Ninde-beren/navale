@@ -1,7 +1,7 @@
 import clsx from 'clsx';
-import type { Coord, PublicPlayer } from '@navale/protocol';
+import type { Commander, Coord, PublicPlayer } from '@navale/protocol';
 import { publicGridClasses } from '../../shared/cells.js';
-import { ordinal } from '../../shared/labels.js';
+import { abilityHint, ordinal } from '../../shared/labels.js';
 import { PlayerAvatar } from '../../shared/ui/Avatar.js';
 import { Grid } from '../../shared/ui/Grid.js';
 import type { Reveal } from './useShotSequence.js';
@@ -14,9 +14,12 @@ export function PlayerZone({
   grid,
   reveals,
   fresh,
+  commander,
 }: {
   player: PublicPlayer;
   seat: number;
+  /** Son commandant, si la partie en propose ; le point dit s'il lui reste sa capacité. */
+  commander?: Commander | undefined;
   /** C'est à lui de tirer (ou, en salve, il n'a pas encore tiré). */
   active: boolean;
   grid: { width: number; height: number };
@@ -35,6 +38,11 @@ export function PlayerZone({
       <div className="nameplate">
         <PlayerAvatar player={player} />
         <h2>{player.name}</h2>
+        {commander && (
+          <span className="role cmd" title={abilityHint(commander.ability)}>
+            {commander.name} {player.abilityUsesLeft > 0 ? '●' : '○'}
+          </span>
+        )}
         {player.substitute ? (
           <span className="role">bot en relais</span>
         ) : (

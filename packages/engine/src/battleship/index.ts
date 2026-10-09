@@ -3,6 +3,7 @@ import type { GameDefinition } from '../core/definition.js';
 import { decide } from './decide.js';
 import { evolve } from './evolve.js';
 import { projectPrivate, projectPublic } from './project.js';
+import { normalizeSettings } from './settings.js';
 import type { GameState, InitialStateInput } from './state.js';
 
 export function initialState(input: InitialStateInput): GameState {
@@ -10,7 +11,7 @@ export function initialState(input: InitialStateInput): GameState {
     gameId: input.gameId,
     code: input.code,
     status: 'LOBBY',
-    settings: input.settings,
+    settings: normalizeSettings(input.settings),
     players: [],
     round: null,
     shotsLog: [],

@@ -16,11 +16,15 @@ export const CommandSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('PLACE_FLEET'), ships: z.array(ShipPlacementSchema).max(8) }),
   z.object({ type: z.literal('SET_READY'), ready: z.boolean() }),
+  /** Au lobby, si la partie propose des commandants : le mien. */
+  z.object({ type: z.literal('CHOOSE_COMMANDER'), commanderId: z.string().max(32) }),
   z.object({ type: z.literal('KICK_PLAYER'), playerId: z.string() }),
   z.object({ type: z.literal('ADD_BOT'), level: BotLevelSchema.optional() }),
   z.object({ type: z.literal('REMOVE_BOT'), playerId: z.string() }),
   z.object({ type: z.literal('START_GAME') }),
   z.object({ type: z.literal('FIRE'), targetId: z.string(), coord: CoordSchema }),
+  /** Mon action de la manche, à la place d'un tir : la capacité de mon commandant sur cette case. */
+  z.object({ type: z.literal('USE_ABILITY'), targetId: z.string(), coord: CoordSchema }),
   z.object({ type: z.literal('FORCE_ROUND') }),
   /** Joueur absent : un bot prend son tour (serveur), le joueur reprend la main à son retour. */
   z.object({ type: z.literal('SUBSTITUTE_PLAYER'), playerId: z.string() }),

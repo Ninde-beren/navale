@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router';
 import clsx from 'clsx';
 import type { PlayerView, PublicPlayer } from '@navale/protocol';
+import { commanderOf } from '../../shared/labels.js';
 import { sendCommand, type SocketRef } from '../../shared/socket.js';
 import { PlayerAvatar } from '../../shared/ui/Avatar.js';
 import { PhoneScreen } from '../../shared/ui/PhoneScreen.js';
@@ -38,6 +39,9 @@ export function Waiting({
               <PlayerAvatar player={p} size="sm" />
               {p.name}
               {p.playerId === me.playerId && <span className="faint">(toi)</span>}
+              {commanderOf(view.settings, p.commanderId) && (
+                <span className="faint">· {commanderOf(view.settings, p.commanderId)!.name}</span>
+              )}
             </span>
             <span className={clsx('chip', p.status === 'READY' ? 'ready' : 'placing')}>
               {p.status === 'READY' ? 'Prêt' : 'Placement'}

@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { PRESETS, defaultPresetFor } from '@navale/engine';
+import { COMMANDERS, PRESETS, defaultPresetFor } from '@navale/engine';
 import type { EndCondition, PresetId, SalvoOrder, SunkReveal, Variant } from '@navale/protocol';
 import { api, ApiError } from '../../shared/api.js';
 import { publicGridClasses } from '../../shared/cells.js';
 import {
+  ABILITY_LABELS,
   END_LABELS,
   SALVO_ORDER_LABELS,
   SUNK_REVEAL_LABELS,
@@ -92,6 +93,7 @@ export function CreateGame() {
   const [salvoOrder, setSalvoOrder] = useState<SalvoOrder>('commit');
   const [afk, setAfk] = useState<AfkChoice>('45');
   const afkBotSeconds = afk === 'none' ? null : Number(afk);
+  const [commanders, setCommanders] = useState(false);
   // Anti-acharnement : sans objet à deux joueurs, le champ n'apparaît qu'à partir de trois.
   const [antiFocus, setAntiFocus] = useState<AntiFocusChoice>('none');
   const antiFocusMaxStreak = maxPlayers >= 3 && antiFocus !== 'none' ? Number(antiFocus) : null;
@@ -145,6 +147,7 @@ export function CreateGame() {
           salvoOrder,
           antiFocusMaxStreak,
           afkBotSeconds,
+          commanders: commanders ? [...COMMANDERS] : [],
         },
         preset: effectivePreset,
       });
@@ -246,6 +249,22 @@ export function CreateGame() {
               </div>
             )}
             <div className="field">
+              <span className="label">Commandants</span>
+              <Seg
+                value={commanders ? 'on' : 'off'}
+                options={[
+                  ['off', 'Sans'],
+                  ['on', 'Avec'],
+                ]}
+                onChange={(v) => setCommanders(v === 'on')}
+              />
+              <p className="hint">
+                {commanders
+                  ? `Chacun choisit le sien : ${COMMANDERS.map((c) => `${c.name} (${ABILITY_LABELS[c.ability.type].toLowerCase()})`).join(', ')}. Une capacité, à jouer une fois à la place d’un tir.`
+                  : 'Au tir seulement, sans capacité spéciale.'}
+              </p>
+            </div>
+            <div className="field">
               <span className="label">Joueurs au maximum</span>
               <Seg
                 value={String(maxPlayers)}
@@ -281,6 +300,7 @@ export function CreateGame() {
                 `${count(fleet.length, 'bateau', 'bateaux')}, ${count(cells, 'case')}`,
                 timer === 'none' ? 'sans chrono' : `chrono ${timer} s`,
                 afkBotLabel(afkBotSeconds).toLowerCase(),
+                ...(commanders ? ['commandants'] : []),
                 ...(antiFocusMaxStreak !== null
                   ? [antiFocusLabel(antiFocusMaxStreak).toLowerCase()]
                   : []),

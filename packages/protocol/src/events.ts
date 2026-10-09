@@ -1,10 +1,12 @@
 import { z } from 'zod';
 import {
+  AbilityTypeSchema,
   BotLevelSchema,
   ColorIdSchema,
   CoordSchema,
   GameSettingsSchema,
   PlayerKindSchema,
+  RadarResultSchema,
   RankEntrySchema,
   ResolvedShotSchema,
   ShipSchema,
@@ -24,6 +26,14 @@ const ShotCommittedSchema = z.object({
   shooterId: z.string(),
   targetId: z.string(),
   coord: CoordSchema,
+  /** Une capacité engagée à la place d'un tir ; le type, lui, est public. */
+  ability: AbilityTypeSchema.optional(),
+});
+
+/** Privé : seul l'auteur du radar reçoit `shipCells`. */
+const RadarResultEventSchema = RadarResultSchema.extend({
+  type: z.literal('RADAR_RESULT'),
+  playerId: z.string(),
 });
 
 /**
@@ -59,6 +69,7 @@ export const GameEventSchema = z.discriminatedUnion('type', [
   }),
   FleetPlacedSchema,
   z.object({ type: z.literal('PLAYER_READY_CHANGED'), playerId: z.string(), ready: z.boolean() }),
+  z.object({ type: z.literal('COMMANDER_CHOSEN'), playerId: z.string(), commanderId: z.string() }),
   z.object({
     type: z.literal('GAME_STARTED'),
     settings: GameSettingsSchema,
@@ -73,6 +84,22 @@ export const GameEventSchema = z.discriminatedUnion('type', [
     deadline: z.number().nullable(),
   }),
   ShotCommittedSchema,
+  /** Une capacité jouée : qui, laquelle, sur qui et où. Ses effets suivent (radar, réparation, tirs). */
+  z.object({
+    type: z.literal('ABILITY_USED'),
+    round: z.number().int().min(0),
+    playerId: z.string(),
+    ability: AbilityTypeSchema,
+    targetId: z.string(),
+    coord: CoordSchema,
+  }),
+  RadarResultEventSchema,
+  z.object({
+    type: z.literal('SHIP_REPAIRED'),
+    round: z.number().int().min(0),
+    playerId: z.string(),
+    coord: CoordSchema,
+  }),
   ResolvedShotSchema.extend({ type: z.literal('SHOT_RESOLVED') }),
   z.object({
     type: z.literal('PLAYER_ELIMINATED'),
@@ -116,6 +143,7 @@ export const VisibleEventSchema = z.union([
   GameEventSchema,
   FleetPlacedSchema.omit({ ships: true }),
   ShotCommittedSchema.omit({ targetId: true, coord: true }),
+  RadarResultEventSchema.omit({ shipCells: true }),
 ]);
 export type VisibleEvent = z.infer<typeof VisibleEventSchema>;
 

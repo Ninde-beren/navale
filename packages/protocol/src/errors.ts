@@ -27,6 +27,10 @@ export const ErrorCodeSchema = z.enum([
   'LAST_HUMAN',
   'NOT_A_BOT',
   'PLAYER_UNKNOWN',
+  'COMMANDER_UNKNOWN',
+  'COMMANDER_MISSING',
+  'ABILITY_UNAVAILABLE',
+  'CELL_NOT_REPAIRABLE',
 ]);
 export type ErrorCode = z.infer<typeof ErrorCodeSchema>;
 

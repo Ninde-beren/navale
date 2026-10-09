@@ -23,11 +23,14 @@ export { privateRecipient, publicEvent } from './battleship/project.js';
 
 // ---- Bataille navale : réglages et flotte, partagés avec le web -----------------
 export {
+  COMMANDERS,
   PRESETS,
   defaultPresetFor,
   makeSettings,
+  normalizeSettings,
   validateSettings,
 } from './battleship/settings.js';
+export { radarZone, missileCells, repairableCells } from './battleship/rules/abilities.js';
 export {
   cellsOf,
   randomFleet,

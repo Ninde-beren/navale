@@ -85,9 +85,14 @@ export function PlayPlaying({
       if (ack.ok) setSentInRound(roundIndex);
       return ack;
     };
+    const useAbility = async (targetId: string, coord: Coord) => {
+      const ack = await sendCommand(socket.current, { type: 'USE_ABILITY', targetId, coord });
+      if (ack.ok) setSentInRound(roundIndex);
+      return ack;
+    };
     return (
       <>
-        <PlayAim key={roundIndex} view={view} me={me} onFire={fire} />
+        <PlayAim key={roundIndex} view={view} me={me} onFire={fire} onAbility={useAbility} />
         {notice}
       </>
     );

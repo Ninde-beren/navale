@@ -1,5 +1,5 @@
 import { coordLabel, type PlayerView, type PublicPlayer } from '@navale/protocol';
-import { count } from '../../shared/labels.js';
+import { ABILITY_LABELS, count } from '../../shared/labels.js';
 import { playerLookup } from '../../shared/players.js';
 import { useCommittedShooters } from '../../shared/store.js';
 import { PlayerAvatar } from '../../shared/ui/Avatar.js';
@@ -18,11 +18,12 @@ export function PlaySealed({ view, me }: { view: PlayerView; me: PublicPlayer })
   const waitingFor = shooters.filter((p) => !committed.includes(p.playerId)).length;
   const pending = view.me.pendingShot;
   const sealedTarget = pending ? byId.get(pending.targetId) : undefined;
+  const ability = pending?.ability;
 
   return (
     <PhoneScreen code={view.code} color={me.color}>
       <div>
-        <h1 className="h1">Tir engagé</h1>
+        <h1 className="h1">{ability ? 'Capacité engagée' : 'Tir engagé'}</h1>
         <p className="muted">
           Manche {(view.round?.index ?? 0) + 1} · Salve ·{' '}
           {waitingFor > 0 ? (
@@ -64,8 +65,17 @@ export function PlaySealed({ view, me }: { view: PlayerView; me: PublicPlayer })
           </svg>
           <div>
             <div className="line">
-              Ton tir : <b className="mono">{coordLabel(pending.coord)}</b> sur{' '}
-              <span className="pc">{nameOf(pending.targetId)}</span>
+              {ability === 'repair' ? (
+                <>
+                  Ta réparation : <b className="mono">{coordLabel(pending.coord)}</b>
+                </>
+              ) : (
+                <>
+                  {ability ? `Ton ${ABILITY_LABELS[ability].toLowerCase()}` : 'Ton tir'} :{' '}
+                  <b className="mono">{coordLabel(pending.coord)}</b> sur{' '}
+                  <span className="pc">{nameOf(pending.targetId)}</span>
+                </>
+              )}
             </div>
             <div className="hint">Scellé. Personne ne le voit avant la résolution.</div>
           </div>

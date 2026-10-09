@@ -7,6 +7,9 @@ import {
   VARIANT_LABELS,
   afkBotLabel,
   antiFocusLabel,
+  commanderLabel,
+  commanderOf,
+  commandersOf,
   count,
   fleetSummary,
 } from '../../shared/labels.js';
@@ -100,6 +103,11 @@ export function BoardLobby({ view, socket }: { view: GameView; socket: SocketRef
                 <PlayerAvatar player={p} />
                 <div className="nm">
                   {p.name}
+                  {commanderOf(settings, p.commanderId) && (
+                    <span className="chip plain">
+                      {commanderLabel(commanderOf(settings, p.commanderId)!)}
+                    </span>
+                  )}
                   {p.kind === 'bot' && (
                     <span className="chip plain">
                       Bot
@@ -202,6 +210,7 @@ export function BoardLobby({ view, socket }: { view: GameView; socket: SocketRef
             {typeof settings.afkBotSeconds === 'number' && (
               <span className="chip plain">{afkBotLabel(settings.afkBotSeconds)}</span>
             )}
+            {commandersOf(settings).length > 0 && <span className="chip plain">Commandants</span>}
             <FlatButton variant="chip" />
           </div>
           <div className="launch">

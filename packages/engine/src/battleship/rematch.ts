@@ -34,6 +34,9 @@ export function rematchEvents(
       ...(p.level ? { level: p.level } : {}),
     });
     if (p.kind === 'bot') events.push(...botReadyEvents(state.settings, p.playerId, ctx.random));
+    // Même commandant qu'à la partie précédente, usages remis à neuf.
+    if (p.commanderId !== null)
+      events.push({ type: 'COMMANDER_CHOSEN', playerId: p.playerId, commanderId: p.commanderId });
   }
   return events;
 }
