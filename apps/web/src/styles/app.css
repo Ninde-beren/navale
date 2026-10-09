@@ -1440,8 +1440,8 @@ body {
 }
 
 /* ---- À quatre (croquis d'Antoine) : les quatre grilles en croix, sans bande centrale ; dans les coins, les infos
-   de partie en haut à gauche, « Au tour de » en diagonale en haut à droite et en bas à gauche (lisible par deux
-   joueurs chacun), boutons de l'hôte et icônes de réglage en bas à droite. Pas de journal. ---- */
+   de partie puis les boutons et réglages en haut à gauche, « Au tour de » à l'envers en haut à droite et à
+   l'endroit en bas à gauche, le journal des coups en bas à droite ; quatre annonces autour du centre. ---- */
 .tv.v2.flat:not(.p2):not(.p3) .board {
   --z: 492px;
   grid-template-columns: var(--z) minmax(0, 1fr) var(--z);
@@ -1483,54 +1483,78 @@ body {
   white-space: normal;
   font-size: 20px;
 }
+/* Le journal des coups en bas à droite, sous la grille de droite. */
 .tv.v2.flat:not(.p2):not(.p3) .centre .log {
-  display: none;
-}
-/* « Au tour de » en diagonale : la copie .mirror en haut à droite (joueurs du haut et de droite),
-   l'originale .upright en bas à gauche (joueurs du bas et de gauche). */
-.tv.v2.flat:not(.p2):not(.p3) .centre .duo {
-  display: contents;
-}
-.tv.v2.flat:not(.p2):not(.p3) .centre .mirror {
-  position: absolute;
-  right: 56px;
-  top: 100px;
-  transform: rotate(225deg);
-}
-.tv.v2.flat:not(.p2):not(.p3) .centre .upright {
-  position: absolute;
-  left: 56px;
-  bottom: 100px;
-  transform: rotate(45deg);
-}
-.tv.v2.flat:not(.p2):not(.p3) .centre .controls {
   position: absolute;
   left: auto;
   top: auto;
   right: var(--s-8);
   bottom: var(--s-8);
   width: var(--z);
+}
+/* « Au tour de » droit dans deux coins opposés, centré dans le coin libre (entre le bord de l'écran
+   et les grilles voisines) : la copie .mirror à l'envers en haut à droite, l'originale .upright à
+   l'endroit en bas à gauche. Le coin libre fait 685 × 269 px avec les grilles ci-dessus. */
+.tv.v2.flat:not(.p2):not(.p3) .centre .duo {
+  display: contents;
+}
+.tv.v2.flat:not(.p2):not(.p3) .centre .mirror,
+.tv.v2.flat:not(.p2):not(.p3) .centre .upright {
+  position: absolute;
+  width: 685px;
+  height: 269px;
+  display: grid;
+  place-items: center;
+}
+.tv.v2.flat:not(.p2):not(.p3) .centre .mirror {
+  right: var(--s-8);
+  top: var(--s-8);
+  transform: rotate(180deg);
+}
+.tv.v2.flat:not(.p2):not(.p3) .centre .upright {
+  left: var(--s-8);
+  bottom: var(--s-8);
+}
+/* Boutons de l'hôte et icônes de réglage en haut à gauche, sous les infos de partie. */
+.tv.v2.flat:not(.p2):not(.p3) .centre .controls {
+  position: absolute;
+  right: auto;
+  bottom: auto;
+  left: var(--s-8);
+  top: 116px;
+  width: var(--z);
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 .tv.v2.flat:not(.p2):not(.p3) .centre .controls .foot {
   display: none;
 }
-/* Le callout, à l'endroit et à l'envers, au milieu de l'écran. */
+/* Quatre annonces autour du centre, une par sens de lecture. */
 .tv.v2.flat:not(.p2):not(.p3) .callout.big {
   position: absolute;
   inset: auto;
   left: 50%;
-  top: calc(50% + 90px);
+  top: 50%;
   translate: -50% -50%;
   margin: 0;
   padding: 16px 44px 26px;
   border-radius: 28px;
   z-index: 5;
 }
-.tv.v2.flat:not(.p2):not(.p3) .callout.big.flip {
-  top: calc(50% - 90px);
+.tv.v2.flat:not(.p2):not(.p3) .callout.big.dir-up {
+  top: calc(50% + 110px);
+}
+.tv.v2.flat:not(.p2):not(.p3) .callout.big.dir-flip {
+  top: calc(50% - 110px);
   rotate: 180deg;
+}
+.tv.v2.flat:not(.p2):not(.p3) .callout.big.dir-left {
+  left: calc(50% - 320px);
+  rotate: 90deg;
+}
+.tv.v2.flat:not(.p2):not(.p3) .callout.big.dir-right {
+  left: calc(50% + 320px);
+  rotate: -90deg;
 }
 .tv.v2.flat:not(.p2):not(.p3) .callout.big .word {
   font-size: 96px;
@@ -1649,16 +1673,19 @@ body {
 .tv.v2.flat.p2 .callout.big {
   position: absolute;
   inset: auto;
-  left: calc(50% + 150px);
+  left: 50%;
   top: 50%;
   translate: -50% -50%;
-  rotate: -90deg;
   margin: 0;
   padding: 16px 44px 26px;
   border-radius: 28px;
   z-index: 5;
 }
-.tv.v2.flat.p2 .callout.big.flip {
+.tv.v2.flat.p2 .callout.big.dir-right {
+  left: calc(50% + 150px);
+  rotate: -90deg;
+}
+.tv.v2.flat.p2 .callout.big.dir-left {
   left: calc(50% - 150px);
   rotate: 90deg;
 }

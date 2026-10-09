@@ -89,15 +89,25 @@ export function BoardPlaying({
   ) : (
     <ActiveTurn player={active} compact={compact} timer={timerSuffix(secondsLeft)} />
   );
-  const calloutBox = (flip: boolean) => (
+  // L'annonce de chaque tir, une copie par sens de lecture : à plat, vers chaque côté occupé ;
+  // sinon une seule, à l'endroit.
+  const calloutDirections: Array<'up' | 'flip' | 'left' | 'right'> = !flat
+    ? ['up']
+    : players.length === 2
+      ? ['left', 'right']
+      : players.length === 3
+        ? ['up']
+        : ['up', 'flip', 'left', 'right'];
+  const callouts = calloutDirections.map((dir, i) => (
     <div
-      className={clsx('callout big', flip && 'flip', callout?.cls, callout && 'show')}
-      aria-hidden={flip || undefined}
+      key={dir}
+      className={clsx('callout big', `dir-${dir}`, callout?.cls, callout && 'show')}
+      aria-hidden={i > 0 || undefined}
     >
       <span className="word">{callout?.word ?? ''}</span>
       <span className="where">{callout?.where ?? ''}</span>
     </div>
-  );
+  ));
 
   return (
     <div className="board" ref={rootRef}>
@@ -143,8 +153,7 @@ export function BoardPlaying({
         ) : (
           centreMain
         )}
-        {calloutBox(false)}
-        {facing && calloutBox(true)}
+        {callouts}
         <ShotLog shots={view.lastShots} playerOf={(id) => byId.get(id)} />
         <div className="controls">
           {view.isHost && (
