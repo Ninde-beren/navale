@@ -8,7 +8,7 @@ import { validateFleet } from './placement.js';
 import { computeRanking, isFinishedAfterRound } from './rules/end.js';
 import { resolveRound, type ShotToResolve } from './rules/resolve.js';
 import { startBlocker } from './rules/start.js';
-import { legalTargets } from './rules/targets.js';
+import { antiFocusBlocked, legalTargets } from './rules/targets.js';
 import { nextShooters, resolutionOrder } from './rules/turn-order.js';
 import {
   inBounds,
@@ -365,8 +365,15 @@ function fire(
   const target = playerById(state, command.targetId);
   if (!target || target.status !== 'ALIVE')
     return reject('TARGET_NOT_ALIVE', 'Cette cible n’est plus en jeu.');
-  if (!legalTargets(state, me.playerId).includes(target.playerId))
-    return reject('TARGET_NOT_LEGAL', 'Cette cible n’est pas autorisée.');
+  if (!legalTargets(state, me.playerId).includes(target.playerId)) {
+    const max = state.settings.antiFocusMaxStreak ?? 0;
+    return antiFocusBlocked(state, me.playerId) === target.playerId
+      ? reject(
+          'TARGET_NOT_LEGAL',
+          `Pas plus de ${max} tir${max > 1 ? 's' : ''} de suite sur le même joueur : vise quelqu’un d’autre.`,
+        )
+      : reject('TARGET_NOT_LEGAL', 'Cette cible n’est pas autorisée.');
+  }
   if (!inBounds(state.settings, command.coord))
     return reject('COORD_OUT_OF_BOUNDS', 'Case hors de la grille.');
   if (target.shotsReceived.some((s) => sameCoord(s.coord, command.coord)))

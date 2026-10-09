@@ -63,6 +63,14 @@ export function fleetSummary(fleet: ShipSpec[]): string {
   return fleet.map((s) => `${shipLabel(s.type)} ${s.size}`).join(', ');
 }
 
+/** « Jamais deux fois de suite sur le même », « 2 tirs de suite au plus sur le même » ; `null` = libre. */
+export function antiFocusLabel(max: number | null): string {
+  if (max === null) return 'Cibles libres';
+  return max === 1
+    ? 'Jamais deux fois de suite sur le même'
+    : `${max} tirs de suite au plus sur le même`;
+}
+
 /** Les options d'un sélecteur, dans l'ordre des libellés. */
 export function choices<T extends string>(labels: Record<T, string>): Array<[T, string]> {
   return Object.entries(labels) as Array<[T, string]>;

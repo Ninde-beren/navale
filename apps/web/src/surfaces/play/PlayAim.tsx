@@ -32,6 +32,9 @@ export function PlayAim({
 }) {
   const { byId } = playerLookup(view.players);
   const targets = view.me.legalTargets.map((id) => byId.get(id)).filter((p) => p !== undefined);
+  // Anti-acharnement : le joueur absent de la liste, et pourquoi.
+  const blocked = view.me.antiFocusBlocked ? byId.get(view.me.antiFocusBlocked) : undefined;
+  const streak = view.settings.antiFocusMaxStreak ?? 0;
   const [targetId, setTargetId] = useState<string | null>(null);
   const [cell, setCell] = useState<Coord | null>(null);
   const [tab, setTab] = useState<'aim' | 'mine'>('aim');
@@ -86,6 +89,13 @@ export function PlayAim({
             />
           )}
           <TargetGrid view={view} target={target} cell={cell} onCell={setCell} />
+          {blocked && (
+            <p className="hint">
+              {streak === 1
+                ? `Tu viens de tirer sur ${blocked.name} : vise quelqu’un d’autre cette fois.`
+                : `${streak} tirs de suite sur ${blocked.name} : vise quelqu’un d’autre.`}
+            </p>
+          )}
           <p className="hint">
             {targets.length > 1 ? `Cible : ${target.name} · ` : ''}
             {cell ? `case ${coordLabel(cell)}` : 'tape une case non révélée'}

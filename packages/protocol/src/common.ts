@@ -82,6 +82,11 @@ export const GameSettingsSchema = z.object({
   roundTimerSeconds: z.number().int().min(15).max(300).nullable().default(null),
   revealDelayMs: z.number().int().min(0).max(10000).default(2500),
   salvoOrder: SalvoOrderSchema.default('commit'),
+  /**
+   * Anti-acharnement : au plus N tirs de suite d'un même tireur sur un même joueur,
+   * tant qu'il reste une autre cible ; `null` = libre. Sans effet à deux joueurs.
+   */
+  antiFocusMaxStreak: z.number().int().min(1).max(10).nullable().default(null),
 });
 export type GameSettings = z.infer<typeof GameSettingsSchema>;
 

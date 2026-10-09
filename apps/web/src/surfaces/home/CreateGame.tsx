@@ -12,6 +12,7 @@ import {
   choices,
   count,
   fleetSummary,
+  antiFocusLabel,
 } from '../../shared/labels.js';
 import { saveSession } from '../../shared/session.js';
 import { Grid } from '../../shared/ui/Grid.js';
@@ -24,6 +25,12 @@ const PRESET_LABELS: Record<PresetId, string> = {
   quick: 'Rapide 8×8',
 };
 /** En liste, pas en objet : les clés numériques passeraient avant « Aucun ». */
+type AntiFocusChoice = 'none' | '2' | '1';
+const ANTI_FOCUS_CHOICES: Array<[AntiFocusChoice, string]> = [
+  ['none', 'Libre'],
+  ['2', '2 de suite au plus'],
+  ['1', 'Alterner à chaque tir'],
+];
 const TIMER_CHOICES = [
   ['none', 'Aucun'],
   ['45', '45 s'],
@@ -75,6 +82,9 @@ export function CreateGame() {
   const [timer, setTimer] = useState<TimerChoice>('none');
   const [timerTouched, setTimerTouched] = useState(false);
   const [salvoOrder, setSalvoOrder] = useState<SalvoOrder>('commit');
+  // Anti-acharnement : sans objet à deux joueurs, le champ n'apparaît qu'à partir de trois.
+  const [antiFocus, setAntiFocus] = useState<AntiFocusChoice>('none');
+  const antiFocusMaxStreak = maxPlayers >= 3 && antiFocus !== 'none' ? Number(antiFocus) : null;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const effectivePreset = preset ?? defaultPresetFor(maxPlayers);
@@ -123,6 +133,7 @@ export function CreateGame() {
           sunkReveal,
           roundTimerSeconds: timer === 'none' ? null : Number(timer),
           salvoOrder,
+          antiFocusMaxStreak,
         },
         preset: effectivePreset,
       });
@@ -201,6 +212,19 @@ export function CreateGame() {
                   : 'À l’échéance, le tour passe ou la salve se résout avec les tirs manquants.'}
               </p>
             </div>
+            {maxPlayers >= 3 && (
+              <div className="field">
+                <span className="label">Acharnement</span>
+                <Seg value={antiFocus} options={ANTI_FOCUS_CHOICES} onChange={setAntiFocus} />
+                <p className="hint">
+                  {antiFocus === 'none'
+                    ? 'Chacun vise qui il veut, autant qu’il veut.'
+                    : antiFocus === '1'
+                      ? 'On ne vise jamais le même joueur deux manches de suite.'
+                      : 'Après deux tirs de suite sur le même joueur, il faut en viser un autre.'}
+                </p>
+              </div>
+            )}
             <div className="field">
               <span className="label">Joueurs au maximum</span>
               <Seg
@@ -236,6 +260,9 @@ export function CreateGame() {
                 `grille ${grid.width} × ${grid.height}`,
                 `${count(fleet.length, 'bateau', 'bateaux')}, ${count(cells, 'case')}`,
                 timer === 'none' ? 'sans chrono' : `chrono ${timer} s`,
+                ...(antiFocusMaxStreak !== null
+                  ? [antiFocusLabel(antiFocusMaxStreak).toLowerCase()]
+                  : []),
                 ...(variant === 'simultaneous'
                   ? [SALVO_ORDER_LABELS[salvoOrder].toLowerCase()]
                   : []),

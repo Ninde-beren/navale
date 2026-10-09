@@ -5,6 +5,7 @@ import {
   END_LABELS,
   SALVO_ORDER_LABELS,
   VARIANT_LABELS,
+  antiFocusLabel,
   count,
   fleetSummary,
 } from '../../shared/labels.js';
@@ -184,6 +185,9 @@ export function BoardLobby({ view, socket }: { view: GameView; socket: SocketRef
             </span>
             {settings.variant === 'simultaneous' && (
               <span className="chip plain">{SALVO_ORDER_LABELS[settings.salvoOrder]}</span>
+            )}
+            {settings.antiFocusMaxStreak !== null && (
+              <span className="chip plain">{antiFocusLabel(settings.antiFocusMaxStreak)}</span>
             )}
           </div>
           <div className="launch">

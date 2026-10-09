@@ -39,6 +39,7 @@ export function makeSettings(
     roundTimerSeconds: null,
     revealDelayMs: 2500,
     salvoOrder: 'commit',
+    antiFocusMaxStreak: null,
     ...PRESETS[preset],
     ...partial,
   };

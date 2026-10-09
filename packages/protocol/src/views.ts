@@ -73,6 +73,8 @@ export const PrivateMeSchema = z.object({
   fleet: z.array(ShipSchema),
   cellsRemaining: z.number().int().min(0),
   legalTargets: z.array(z.string()),
+  /** Le joueur que la règle anti-acharnement m'interdit en ce moment, s'il y en a un. */
+  antiFocusBlocked: z.string().nullable(),
   pendingShot: PendingShotSchema.nullable(),
   shotsFired: z.array(ResolvedShotSchema),
   canFire: z.boolean(),

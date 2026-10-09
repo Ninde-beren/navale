@@ -8,7 +8,7 @@ import type {
 } from '@navale/protocol';
 import type { Presence } from '../core/definition.js';
 import { startBlocker } from './rules/start.js';
-import { legalTargets } from './rules/targets.js';
+import { antiFocusBlocked, legalTargets } from './rules/targets.js';
 import {
   cellsRemaining,
   isSunk,
@@ -97,6 +97,7 @@ export function projectPrivate(
       fleet: me.fleet,
       cellsRemaining: cellsRemaining(me),
       legalTargets: state.status === 'PLAYING' ? legalTargets(state, playerId) : [],
+      antiFocusBlocked: state.status === 'PLAYING' ? antiFocusBlocked(state, playerId) : null,
       pendingShot: pending,
       shotsFired: state.shotsLog.filter((s) => s.shooterId === playerId),
       canFire: state.status === 'PLAYING' && me.status === 'ALIVE' && expected && pending === null,
