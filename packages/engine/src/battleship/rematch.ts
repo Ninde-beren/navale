@@ -31,6 +31,7 @@ export function rematchEvents(
       color: p.color,
       seat: p.seat,
       kind: p.kind,
+      ...(p.level ? { level: p.level } : {}),
     });
     if (p.kind === 'bot') events.push(...botReadyEvents(state.settings, p.playerId, ctx.random));
   }

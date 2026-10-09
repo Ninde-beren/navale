@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  BotLevelSchema,
   ColorIdSchema,
   CoordSchema,
   GameSettingsSchema,
@@ -45,6 +46,8 @@ export const GameEventSchema = z.discriminatedUnion('type', [
     color: ColorIdSchema,
     seat: z.number().int().min(0),
     kind: PlayerKindSchema,
+    /** Bots seulement : le niveau choisi par l'hôte, `normal` par défaut. */
+    level: BotLevelSchema.optional(),
   }),
   z.object({ type: z.literal('PLAYER_LEFT'), playerId: z.string() }),
   z.object({ type: z.literal('PLAYER_KICKED'), playerId: z.string() }),

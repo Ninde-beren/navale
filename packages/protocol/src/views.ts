@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  BotLevelSchema,
   ColorIdSchema,
   CoordSchema,
   GameSettingsSchema,
@@ -20,6 +21,8 @@ export const PublicPlayerSchema = z.object({
   color: ColorIdSchema,
   seat: z.number().int().min(0),
   kind: PlayerKindSchema,
+  /** Bots seulement : leur niveau, pour l'afficher. */
+  level: BotLevelSchema.optional(),
   status: PlayerStatusSchema,
   connected: z.boolean(),
   shipsRemaining: z.number().int().min(0),

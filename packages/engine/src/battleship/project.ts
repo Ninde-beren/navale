@@ -33,6 +33,7 @@ function publicPlayer(state: GameState, p: Player, presence: Presence): PublicPl
     color: p.color,
     seat: p.seat,
     kind: p.kind,
+    ...(p.level ? { level: p.level } : {}),
     status: p.status,
     connected: p.kind === 'bot' ? true : (presence[p.playerId] ?? false),
     shipsRemaining: shipsRemaining(p),

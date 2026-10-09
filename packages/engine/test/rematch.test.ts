@@ -1,10 +1,3 @@
-import { describe, expect, it } from 'vitest';
-import { evolve } from '../src/battleship/evolve.js';
-import { initialState } from '../src/battleship/index.js';
-import { validateFleet } from '../src/battleship/placement.js';
-import { rematchEvents } from '../src/battleship/rematch.js';
-import { HOST, Harness, SYSTEM, TINY_FLEET, player, startedGame, tinySettings } from './helpers.js';
-
 /** Antoine, Julie et un bot ; Antoine coule Julie en deux tirs, la partie s'arrête à la première flotte coulée. */
 function finishedWithBot() {
   const h = new Harness(tinySettings({ endCondition: 'first_fleet_sunk' }));
@@ -25,6 +18,14 @@ function finishedWithBot() {
   expect(h.state.status).toBe('FINISHED');
   return { h, a, j, bot };
 }
+import { describe, expect, it } from 'vitest';
+import { rematchEvents } from '../src/battleship/rematch.js';
+import { mulberry32 } from '../src/core/random.js';
+import { makeSettings } from '../src/battleship/settings.js';
+import { evolve } from '../src/battleship/evolve.js';
+import { initialState } from '../src/battleship/index.js';
+import { validateFleet } from '../src/battleship/placement.js';
+import { Harness, HOST, player, startedGame, SYSTEM, TINY_FLEET, tinySettings } from './helpers.js';
 
 describe('revanche', () => {
   it('seul l’hôte relance, seulement une partie terminée, et une seule fois', () => {
@@ -41,6 +42,20 @@ describe('revanche', () => {
     expect(h.state.status).toBe('FINISHED');
     expect(h.state.rematchGameId).toBe(created.newGameId);
     h.expectReject(HOST, { type: 'REMATCH' }, 'WRONG_STATE');
+  });
+
+  it('garde le niveau de chaque bot dans le journal de la revanche', () => {
+    const h = new Harness(makeSettings({ variant: 'sequential', maxPlayers: 3 }, 'quick'));
+    h.join('Antoine', 'red');
+    h.expectOk(HOST, { type: 'ADD_BOT', level: 'easy' });
+    const events = rematchEvents(h.state, 'g2', {
+      actor: HOST,
+      now: 0,
+      newId: () => 'x',
+      random: mulberry32(1),
+    });
+    const bot = events.find((e) => e.type === 'PLAYER_JOINED' && e.kind === 'bot');
+    expect(bot).toMatchObject({ level: 'easy' });
   });
 
   it('ouvre une nouvelle partie au même code : mêmes joueurs en placement, bots prêts', () => {

@@ -69,7 +69,7 @@ export function decide(state: GameState, command: Command, ctx: DecideContext): 
     case 'KICK_PLAYER':
       return kickPlayer(state, command);
     case 'ADD_BOT':
-      return addBot(state, ctx);
+      return addBot(state, command, ctx);
     case 'REMOVE_BOT':
       return removeBot(state, command);
     case 'START_GAME':
@@ -286,7 +286,11 @@ function kickPlayer(state: GameState, command: CommandOf<'KICK_PLAYER'>): Battle
   return ok([{ type: 'PLAYER_KICKED', playerId: target.playerId }]);
 }
 
-function addBot(state: GameState, ctx: DecideContext): BattleshipDecision {
+function addBot(
+  state: GameState,
+  command: CommandOf<'ADD_BOT'>,
+  ctx: DecideContext,
+): BattleshipDecision {
   if (state.status !== 'LOBBY') return reject('WRONG_STATE', 'Les bots s’ajoutent au lobby.');
   if (state.players.length >= state.settings.maxPlayers)
     return reject('GAME_FULL', 'La partie est pleine.');
@@ -303,6 +307,7 @@ function addBot(state: GameState, ctx: DecideContext): BattleshipDecision {
       color: freeColor(state),
       seat: freeSeat(state),
       kind: 'bot',
+      level: command.level ?? 'normal',
     },
     ...botReadyEvents(state.settings, playerId, ctx.random),
   ]);

@@ -1,4 +1,5 @@
 import type {
+  BotLevel,
   ColorId,
   Coord,
   GameSettings,
@@ -15,6 +16,8 @@ import type {
 export interface Player {
   playerId: string;
   kind: PlayerKind;
+  /** Bots seulement : niveau de jeu, `normal` par défaut. */
+  level?: BotLevel;
   name: string;
   color: ColorId;
   seat: number;

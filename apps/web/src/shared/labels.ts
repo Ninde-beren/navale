@@ -1,4 +1,5 @@
 import type {
+  BotLevel,
   EndCondition,
   RankEntry,
   SalvoOrder,
@@ -26,6 +27,12 @@ export const END_LABELS: Record<EndCondition, string> = {
 export const SALVO_ORDER_LABELS: Record<SalvoOrder, string> = {
   commit: 'Le plus rapide d’abord',
   seats: 'Ordre des sièges',
+};
+
+export const BOT_LEVEL_LABELS: Record<BotLevel, string> = {
+  easy: 'Facile',
+  normal: 'Normal',
+  hard: 'Difficile',
 };
 
 export const SUNK_REVEAL_LABELS: Record<SunkReveal, string> = {

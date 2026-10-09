@@ -1,6 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { chooseShot, woundedCells } from '../src/battleship/bot/strategy.js';
+import { chooseShot, densestCells, woundedCells } from '../src/battleship/bot/strategy.js';
 import { projectPrivate } from '../src/battleship/project.js';
 import { makeSettings } from '../src/battleship/settings.js';
 import { coordKey } from '../src/battleship/state.js';
@@ -88,6 +88,59 @@ describe('bot : chasse et ciblage', () => {
     expect(['1,0', '0,1']).toContain(coordKey(shot.coord));
   });
 
+  it('facile : une case non révélée au hasard, sans s’acharner sur une touche', () => {
+    const { h, ids } = startedGame(
+      2,
+      makeSettings({ variant: 'sequential', maxPlayers: 2 }, 'quick'),
+    );
+    const [a, j] = ids as [string, string];
+    turn(h, j, { x: 1, y: 0 }); // Antoine touche le croiseur de Julie en B1
+    turn(h, a, { x: 7, y: 7 });
+    const view = projectPrivate(h.state, a);
+    const rnd = mulberry32(9);
+    const shots = Array.from({ length: 30 }, () => chooseShot(view, rnd, 'easy')!);
+    for (const shot of shots) {
+      expect(shot.targetId).toBe(j);
+      expect(coordKey(shot.coord)).not.toBe('1,0');
+    }
+    const neighbours = ['0,0', '2,0', '1,1'];
+    expect(shots.some((s) => !neighbours.includes(coordKey(s.coord)))).toBe(true);
+  });
+
+  it('difficile : en chasse, vise le centre de la grille, là où le plus de placements passent', () => {
+    const { h, ids } = startedGame(
+      2,
+      makeSettings({ variant: 'sequential', maxPlayers: 2 }, 'quick'),
+    );
+    const [a, j] = ids as [string, string];
+    const view = projectPrivate(h.state, a);
+    const rnd = mulberry32(2);
+    for (let i = 0; i < 20; i++) {
+      const shot = chooseShot(view, rnd, 'hard')!;
+      expect(shot.targetId).toBe(j);
+      expect([3, 4]).toContain(shot.coord.x);
+      expect([3, 4]).toContain(shot.coord.y);
+    }
+    expect(densestCells(view, view.players[1]!)).toHaveLength(4);
+  });
+
+  it('difficile : après une touche, la case que le plus de placements traversent, puis le bout de la ligne', () => {
+    const { h, ids } = startedGame(
+      2,
+      makeSettings({ variant: 'sequential', maxPlayers: 2 }, 'quick'),
+    );
+    const [a, j] = ids as [string, string];
+    turn(h, j, { x: 1, y: 0 }); // touche en B1 : C1 est traversée par plus de placements que A1 ou B2
+    turn(h, a, { x: 7, y: 7 });
+    let view = projectPrivate(h.state, a);
+    const rnd = mulberry32(4);
+    for (let i = 0; i < 10; i++) expect(coordKey(chooseShot(view, rnd, 'hard')!.coord)).toBe('2,0');
+    turn(h, j, { x: 2, y: 0 }); // deuxième touche alignée : D1 l'emporte sur A1, le bord
+    turn(h, a, { x: 6, y: 7 });
+    view = projectPrivate(h.state, a);
+    for (let i = 0; i < 10; i++) expect(coordKey(chooseShot(view, rnd, 'hard')!.coord)).toBe('3,0');
+  });
+
   it('renvoie null sans cible légale', () => {
     const { h, ids } = startedGame(
       2,
@@ -97,7 +150,7 @@ describe('bot : chasse et ciblage', () => {
     expect(chooseShot(projectPrivate(h.state, ids[0]!), mulberry32(1))).toBeNull();
   });
 
-  it('ne tire jamais une case révélée ni une cible illégale, sur des parties au hasard', () => {
+  it('ne tire jamais une case révélée ni une cible illégale, à aucun niveau, sur des parties au hasard', () => {
     fc.assert(
       fc.property(
         fc.integer({ min: 1, max: 100_000 }),
@@ -109,13 +162,15 @@ describe('bot : chasse et ciblage', () => {
           for (const p of h.state.players) {
             if (p.status !== 'ALIVE') continue;
             const view = projectPrivate(h.state, p.playerId);
-            const shot = chooseShot(view, rnd);
-            expect(shot).not.toBeNull();
-            expect(legalTargets(h.state, p.playerId)).toContain(shot!.targetId);
-            const target = h.state.players.find((t) => t.playerId === shot!.targetId)!;
-            expect(
-              target.shotsReceived.some((s) => coordKey(s.coord) === coordKey(shot!.coord)),
-            ).toBe(false);
+            for (const level of ['easy', 'normal', 'hard'] as const) {
+              const shot = chooseShot(view, rnd, level);
+              expect(shot).not.toBeNull();
+              expect(legalTargets(h.state, p.playerId)).toContain(shot!.targetId);
+              const target = h.state.players.find((t) => t.playerId === shot!.targetId)!;
+              expect(
+                target.shotsReceived.some((s) => coordKey(s.coord) === coordKey(shot!.coord)),
+              ).toBe(false);
+            }
           }
         },
       ),

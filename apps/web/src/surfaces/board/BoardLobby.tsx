@@ -1,5 +1,7 @@
-import type { GameView } from '@navale/protocol';
+import { useState } from 'react';
+import type { BotLevel, GameView } from '@navale/protocol';
 import {
+  BOT_LEVEL_LABELS,
   END_LABELS,
   SALVO_ORDER_LABELS,
   VARIANT_LABELS,
@@ -32,6 +34,8 @@ function startHint(view: GameView): string {
 /** Écran central avant le lancement : le code et le QR, les joueurs, les réglages, le lancement. */
 export function BoardLobby({ view, socket }: { view: GameView; socket: SocketRef }) {
   const { settings, players, code } = view;
+  // Niveau du prochain bot ajouté ; chaque bot garde le sien.
+  const [botLevel, setBotLevel] = useState<BotLevel>('normal');
   const free = settings.maxPlayers - players.length;
   const cells = settings.fleet.reduce((n, s) => n + s.size, 0);
   const joinUrl = `${location.origin}/play/${code}`;
@@ -86,7 +90,14 @@ export function BoardLobby({ view, socket }: { view: GameView; socket: SocketRef
                 <PlayerAvatar player={p} />
                 <div className="nm">
                   {p.name}
-                  {p.kind === 'bot' && <span className="chip plain">Bot</span>}
+                  {p.kind === 'bot' && (
+                    <span className="chip plain">
+                      Bot
+                      {p.level && p.level !== 'normal'
+                        ? ` · ${BOT_LEVEL_LABELS[p.level].toLowerCase()}`
+                        : ''}
+                    </span>
+                  )}
                 </div>
                 <span className="flex items-center gap-3">
                   {p.status === 'READY' ? (
@@ -123,9 +134,29 @@ export function BoardLobby({ view, socket }: { view: GameView; socket: SocketRef
             ))}
             {view.isHost && free > 0 && (
               <div className="prow add">
+                <div
+                  className="seg bot-level"
+                  role="radiogroup"
+                  aria-label="Niveau du prochain bot"
+                >
+                  {(Object.keys(BOT_LEVEL_LABELS) as BotLevel[]).map((level) => (
+                    <button
+                      key={level}
+                      type="button"
+                      role="radio"
+                      aria-checked={botLevel === level}
+                      className={botLevel === level ? 'on' : ''}
+                      onClick={() => setBotLevel(level)}
+                    >
+                      {BOT_LEVEL_LABELS[level]}
+                    </button>
+                  ))}
+                </div>
                 <button
                   className="btn ghost"
-                  onClick={() => void sendCommand(socket.current, { type: 'ADD_BOT' })}
+                  onClick={() =>
+                    void sendCommand(socket.current, { type: 'ADD_BOT', level: botLevel })
+                  }
                 >
                   + Ajouter un bot
                 </button>

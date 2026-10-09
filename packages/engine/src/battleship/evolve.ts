@@ -24,6 +24,7 @@ function apply(state: GameState, event: GameEvent): GameState {
       const player: Player = {
         playerId: event.playerId,
         kind: event.kind,
+        ...(event.level ? { level: event.level } : {}),
         name: event.name,
         color: event.color,
         seat: event.seat,

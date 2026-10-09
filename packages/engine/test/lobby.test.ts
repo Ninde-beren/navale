@@ -1,12 +1,12 @@
+const quick = () => makeSettings({ variant: 'sequential', maxPlayers: 3 }, 'quick');
 import { describe, expect, it } from 'vitest';
+import { botLevel } from '../src/battleship/bot/strategy.js';
+import { projectPrivate, projectPublic } from '../src/battleship/project.js';
 import type { Command } from '@navale/protocol';
 import { HOST_COMMANDS } from '../src/battleship/decide.js';
 import { evolve } from '../src/battleship/evolve.js';
-import { projectPublic } from '../src/battleship/project.js';
 import { makeSettings } from '../src/battleship/settings.js';
-import { FIXED_QUICK, HOST, Harness, JOIN, SYSTEM, player } from './helpers.js';
-
-const quick = () => makeSettings({ variant: 'sequential', maxPlayers: 3 }, 'quick');
+import { FIXED_QUICK, Harness, HOST, JOIN, player, SYSTEM } from './helpers.js';
 
 describe('lobby', () => {
   it('fait rejoindre, attribue les sièges dans l’ordre, refuse pseudo et couleur pris', () => {
@@ -125,6 +125,21 @@ describe('lobby', () => {
     h.ready(a);
     h.start();
     expect(h.state.status).toBe('PLAYING');
+  });
+
+  it('donne au bot le niveau choisi, normal par défaut, visible dans les vues', () => {
+    const h = new Harness(quick());
+    h.join('Antoine', 'red');
+    const [joined] = h.expectOk(HOST, { type: 'ADD_BOT', level: 'hard' });
+    expect(joined).toMatchObject({ type: 'PLAYER_JOINED', kind: 'bot', level: 'hard' });
+    const [plain] = h.expectOk(HOST, { type: 'ADD_BOT' });
+    expect(plain).toMatchObject({ type: 'PLAYER_JOINED', kind: 'bot', level: 'normal' });
+    const [, hard, normal] = h.state.players;
+    expect(hard?.level).toBe('hard');
+    expect(normal?.level).toBe('normal');
+    const pub = projectPublic(h.state);
+    expect(pub.players.map((p) => p.level)).toEqual([undefined, 'hard', 'normal']);
+    expect(botLevel(projectPrivate(h.state, hard!.playerId))).toBe('hard');
   });
 
   it('refuse une partie sans aucun humain et limite les bots à maxPlayers - 1', () => {
