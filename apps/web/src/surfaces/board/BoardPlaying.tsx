@@ -129,11 +129,16 @@ export function BoardPlaying({
           </span>
           {layout === 'p3' && followUrl}
         </div>
-        {centreMain}
-        {flat && (
-          <div className="mirror" aria-hidden="true">
+        {flat ? (
+          // Dos à dos au milieu : la copie à l'envers au-dessus, pour le joueur d'en face, le bloc à l'endroit au-dessous.
+          <div className="duo">
+            <div className="mirror" aria-hidden="true">
+              {centreMain}
+            </div>
             {centreMain}
           </div>
+        ) : (
+          centreMain
         )}
         {calloutBox(false)}
         {flat && calloutBox(true)}

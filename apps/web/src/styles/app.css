@@ -1336,7 +1336,6 @@ body {
    des côtés gauche et droit débordent dans les coins libres de la grille.
    Le centre répète son contenu à l'envers (.mirror) et le callout en deux sens. */
 .tv.v2.flat .board {
-  position: relative;
   height: 1016px;
   --z: 400px;
   grid-template-columns: var(--z) minmax(0, 1fr) var(--z);
@@ -1369,7 +1368,8 @@ body {
   grid-area: 1 / 3 / 4 / 4;
   transform: rotate(-90deg);
 }
-/* Le centre ne positionne rien lui-même : ses blocs de coin et le callout se posent sur le plateau. */
+/* Le centre ne positionne rien lui-même : ses blocs de coin et le callout se posent sur l'écran
+   (pas sur le plateau, qui reste non positionné pour que le calque des effets de tir garde son repère). */
 .tv.v2.flat .centre {
   grid-area: 2 / 2;
   position: static;
@@ -1415,8 +1415,8 @@ body {
 /* À quatre, la bande centrale est basse : la marque, le journal et les commandes vont dans les coins libres. */
 .tv.v2.flat:not(.p2):not(.p3) .centre .top {
   position: absolute;
-  left: 0;
-  top: 0;
+  left: var(--s-8);
+  top: var(--s-8);
   width: var(--z);
   gap: 8px 14px;
 }
@@ -1427,14 +1427,14 @@ body {
 }
 .tv.v2.flat:not(.p2):not(.p3) .centre .log {
   position: absolute;
-  right: 0;
-  top: 0;
+  right: var(--s-8);
+  top: var(--s-8);
   width: var(--z);
 }
 .tv.v2.flat:not(.p2):not(.p3) .centre .controls {
   position: absolute;
-  right: 0;
-  bottom: 0;
+  right: var(--s-8);
+  bottom: var(--s-8);
   width: var(--z);
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -1444,6 +1444,14 @@ body {
 }
 .tv.v2.flat .centre .turn {
   flex: none;
+}
+.tv.v2.flat .centre .duo {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 16px;
 }
 .tv.v2.flat .centre .mirror {
   transform: rotate(180deg);
@@ -1474,16 +1482,16 @@ body {
 }
 .tv.v2.flat.p3 .centre .controls {
   position: absolute;
-  right: 0;
-  bottom: 0;
+  right: var(--s-8);
+  bottom: var(--s-8);
   width: var(--z);
   flex-wrap: wrap;
   justify-content: flex-end;
 }
 .tv.v2.flat.p3 .centre .log {
   position: absolute;
-  left: 0;
-  bottom: 0;
+  left: var(--s-8);
+  bottom: var(--s-8);
   width: var(--z);
 }
 /* À deux : un joueur à chaque petit côté, les grilles tournées, le centre en colonne. */
@@ -1582,9 +1590,6 @@ body {
 .tv.v2.flat.p2 .centre {
   justify-content: flex-start;
   gap: 20px;
-}
-.tv.v2.flat.p2 .centre .turn {
-  flex: 1 1 auto;
 }
 .tv.v2.flat.p2 .centre .top .meta {
   margin-left: 0;
