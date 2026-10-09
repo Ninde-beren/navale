@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  MAILJET_API,
-  mailerFromConfig,
-  mailjetMailer,
-  parseAddress,
-  smtpMailer,
-} from '../src/mail/mailer.js';
+import { MAILJET_API, mailerFromConfig, mailjetMailer, smtpMailer } from '../src/mail/mailer.js';
 
 interface Call {
   url: string;
@@ -26,25 +20,12 @@ function fakeFetch(responses: Array<{ status: number; body: unknown }>) {
 }
 const config = {
   feedbackTo: 'antoine@exemple.fr',
-  mailFrom: 'Navale <contact@tutotou.fr>',
+  mailFromEmail: 'contact@tutotou.fr',
+  mailFromName: 'Navale',
   mailjetKey: 'cle',
   mailjetSecret: 'secret',
 };
 const auth = `Basic ${Buffer.from('cle:secret').toString('base64')}`;
-
-describe('parseAddress', () => {
-  it('sépare le nom et l’adresse, ou garde une adresse nue', () => {
-    expect(parseAddress('Navale <navale@exemple.fr>')).toEqual({
-      name: 'Navale',
-      email: 'navale@exemple.fr',
-    });
-    expect(parseAddress('"Navale" <navale@exemple.fr>')).toEqual({
-      name: 'Navale',
-      email: 'navale@exemple.fr',
-    });
-    expect(parseAddress('  navale@exemple.fr ')).toEqual({ name: '', email: 'navale@exemple.fr' });
-  });
-});
 
 describe('mailjetMailer', () => {
   it('est absent tant que les clés ou le destinataire manquent', () => {

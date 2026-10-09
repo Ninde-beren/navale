@@ -136,7 +136,7 @@ téléphones), `WEB_NETWORK` (réseau externe du reverse proxy, `web`),
 `LOG_LEVEL` (`info`, ou `debug` pour chercher), `NAVALE_PORT` et `BIND` (port et
 interface exposés hors Docker, `127.0.0.1:5251`), `ADMIN_USER` et
 `ADMIN_PASSWORD` (espace `/admin`), et pour les retours du bouton
-« Un avis ? » par mail : `FEEDBACK_TO` (destinataire), `MAIL_FROM` (expéditeur,
+« Un avis ? » par mail : `FEEDBACK_TO` (destinataire), `MAIL_FROM_EMAIL` et `MAIL_FROM_NAME` (expéditeur,
 validé chez Mailjet), puis `MAILJET_API_KEY` et `MAILJET_API_SECRET` (le compte
 du service de mail de Tutotou) ou à défaut `SMTP_URL` ; sans transport, ils
 restent en base, lisibles dans `/admin`. Dans le conteneur : `PORT`, `DATA_DIR=/data`,

@@ -26,8 +26,10 @@ export interface ServerConfig {
   feedbackTo?: string | null;
   /** Transport des mails, `smtps://utilisateur:motdepasse@hote:465` ; sans lui, pas d'envoi. */
   smtpUrl?: string | null;
-  /** Expéditeur des mails ; par défaut le destinataire lui-même. Validé chez Mailjet, le cas échéant. */
-  mailFrom?: string | null;
+  /** Adresse d'expédition des mails ; par défaut le destinataire. Validée chez Mailjet, le cas échéant. */
+  mailFromEmail?: string | null;
+  /** Nom affiché de l'expéditeur ; « Navale » par défaut. */
+  mailFromName?: string | null;
   /** Clés de l'API Mailjet (compte du service de mail de Tutotou) ; prioritaires sur SMTP. */
   mailjetKey?: string | null;
   mailjetSecret?: string | null;
@@ -53,7 +55,8 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): ServerConfi
     adminPassword: env.ADMIN_PASSWORD || null,
     feedbackTo: env.FEEDBACK_TO || null,
     smtpUrl: env.SMTP_URL || null,
-    mailFrom: env.MAIL_FROM || null,
+    mailFromEmail: env.MAIL_FROM_EMAIL || null,
+    mailFromName: env.MAIL_FROM_NAME || null,
     mailjetKey: env.MAILJET_API_KEY || null,
     mailjetSecret: env.MAILJET_API_SECRET || null,
   };

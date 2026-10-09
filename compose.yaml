@@ -21,7 +21,8 @@ services:
       # Retours du bouton « Un avis ? » par mail ; sans transport, ils restent lisibles dans /admin.
       FEEDBACK_TO: ${FEEDBACK_TO:-}
       SMTP_URL: ${SMTP_URL:-}
-      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Navale}
       MAILJET_API_KEY: ${MAILJET_API_KEY:-}
       MAILJET_API_SECRET: ${MAILJET_API_SECRET:-}
     ports:

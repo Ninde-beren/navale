@@ -19,21 +19,15 @@ export interface Mailer {
 
 export interface MailConfig {
   feedbackTo?: string | null;
-  /** Expéditeur, `Navale <navale@exemple.fr>` ou une adresse nue ; par défaut le destinataire. */
-  mailFrom?: string | null;
+  /** Adresse d'expédition ; par défaut le destinataire. Validée chez Mailjet, le cas échéant. */
+  mailFromEmail?: string | null;
+  /** Nom affiché de l'expéditeur ; « Navale » par défaut. */
+  mailFromName?: string | null;
   /** Clés de l'API Mailjet, le compte déjà utilisé par le service de mail de Tutotou. */
   mailjetKey?: string | null;
   mailjetSecret?: string | null;
   /** `smtps://utilisateur:motdepasse@hote:465` ou `smtp://…:587` (STARTTLS). */
   smtpUrl?: string | null;
-}
-
-/** « Navale <navale@exemple.fr> » → nom et adresse ; une adresse nue garde un nom vide. */
-export function parseAddress(value: string): { email: string; name: string } {
-  const m = /^\s*(?:"?([^"<]*?)"?\s*)?<([^>]+)>\s*$/.exec(value);
-  return m
-    ? { name: (m[1] ?? '').trim(), email: (m[2] ?? '').trim() }
-    : { name: '', email: value.trim() };
 }
 
 export const MAILJET_API = 'https://api.mailjet.com';
@@ -58,7 +52,7 @@ async function mailjetReason(res: Response): Promise<string> {
 export function mailjetMailer(config: MailConfig, fetchImpl: typeof fetch = fetch): Mailer | null {
   if (!config.mailjetKey || !config.mailjetSecret || !config.feedbackTo) return null;
   const to = config.feedbackTo;
-  const from = parseAddress(config.mailFrom || to);
+  const from = { email: config.mailFromEmail || to, name: config.mailFromName || 'Navale' };
   const authorization = `Basic ${Buffer.from(`${config.mailjetKey}:${config.mailjetSecret}`).toString('base64')}`;
   return {
     to,
@@ -90,7 +84,7 @@ export function mailjetMailer(config: MailConfig, fetchImpl: typeof fetch = fetc
         body: JSON.stringify({
           Messages: [
             {
-              From: { Email: from.email, Name: from.name || 'Navale' },
+              From: { Email: from.email, Name: from.name },
               To: [{ Email: to }],
               Subject: mail.subject,
               TextPart: mail.text,
@@ -118,7 +112,8 @@ export function mailjetMailer(config: MailConfig, fetchImpl: typeof fetch = fetc
 export function smtpMailer(config: MailConfig): Mailer | null {
   if (!config.smtpUrl || !config.feedbackTo) return null;
   const to = config.feedbackTo;
-  const from = config.mailFrom || to;
+  const email = config.mailFromEmail || to;
+  const from = config.mailFromName ? { name: config.mailFromName, address: email } : email;
   const transport = nodemailer.createTransport(config.smtpUrl);
   let host = 'SMTP';
   try {
