@@ -32,6 +32,9 @@ change (toute divergence est un bug).
 - Tests : Vitest. Le moteur est testé en premier et reste à 100 % de couverture.
   Un bug de règle se corrige en ajoutant d'abord le test qui le reproduit.
 - Commits en français, préfixe conventionnel (`feat:`, `fix:`, `docs:`, `chore:`, `test:`).
+- Notes de version dans `CHANGELOG.md` : chaque commit de `main` y figure avec son numéro
+  (`git rev-list --count <commit>`, l'historique reste linéaire), dans la section de la
+  feuille de route. Les compléter à chaque livraison.
 
 ## Ce qu'il ne faut pas faire
 
