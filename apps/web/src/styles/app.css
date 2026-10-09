@@ -1457,9 +1457,10 @@ body {
   transform: rotate(180deg);
 }
 /* À trois : le bas, puis la gauche et la droite ; le haut reste au centre. */
+/* À trois, la colonne centrale se contente de 464 px : les zones prennent le reste (cases jusqu'à 56 px en 10×10). */
 .tv.v2.flat.p3 .board {
-  --z: 500px;
-  grid-template-rows: minmax(0, 1fr) var(--z);
+  --z: 680px;
+  grid-template-rows: minmax(0, 1fr) auto;
 }
 .tv.v2.flat.p3 .seat[data-side='bottom'] {
   grid-area: 2 / 2;
@@ -1475,10 +1476,23 @@ body {
 }
 .tv.v2.flat.p3 .zone .grid {
   --cell: min(
-    48px,
-    calc((431px - var(--lbl) - var(--cols) * var(--gap)) / var(--cols)),
-    calc((431px - var(--lbl) - var(--rows) * var(--gap)) / var(--rows))
+    64px,
+    calc((611px - var(--lbl) - var(--cols) * var(--gap)) / var(--cols)),
+    calc((611px - var(--lbl) - var(--rows) * var(--gap)) / var(--rows))
   );
+}
+/* À trois, les coins du haut comme du bas sont libres : la marque en haut à gauche, le journal en bas à gauche, les commandes en bas à droite. */
+.tv.v2.flat.p3 .centre .top {
+  position: absolute;
+  left: var(--s-8);
+  top: var(--s-8);
+  width: var(--z);
+  gap: 8px 14px;
+}
+.tv.v2.flat.p3 .centre .top .meta {
+  margin-left: 0;
+  white-space: normal;
+  font-size: 20px;
 }
 .tv.v2.flat.p3 .centre .controls {
   position: absolute;
@@ -1495,8 +1509,9 @@ body {
   width: var(--z);
 }
 /* À deux : un joueur à chaque petit côté, les grilles tournées, le centre en colonne. */
+/* À deux, la colonne centrale se contente de 356 px : les grilles prennent le reste (cases jusqu'à 63 px en 10×10, 72 px en 8×8). */
 .tv.v2.flat.p2 .board {
-  --z: 640px;
+  --z: 736px;
   grid-template-rows: minmax(0, 1fr);
 }
 .tv.v2.flat.p2 .seat[data-side='left'] {
@@ -1509,7 +1524,7 @@ body {
   grid-area: 1 / 2;
   display: flex;
   flex-direction: column;
-  padding: 24px 28px;
+  padding: 24px 20px;
 }
 .tv.v2.flat.p2 .centre .top {
   grid-column: auto;
@@ -1520,9 +1535,9 @@ body {
 }
 .tv.v2.flat.p2 .zone .grid {
   --cell: min(
-    52px,
-    calc((571px - var(--lbl) - var(--cols) * var(--gap)) / var(--cols)),
-    calc((571px - var(--lbl) - var(--rows) * var(--gap)) / var(--rows))
+    72px,
+    calc((681px - var(--lbl) - var(--cols) * var(--gap)) / var(--cols)),
+    calc((681px - var(--lbl) - var(--rows) * var(--gap)) / var(--rows))
   );
 }
 /* Le callout, dans les deux sens, au milieu du plateau. */
@@ -1604,6 +1619,11 @@ body {
   margin-left: 0;
   text-align: center;
   white-space: normal;
+}
+.tv.v2.flat.p2 .centre .controls > span {
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 100%;
 }
 
 /* La bascule : une puce au lobby, une icône en partie. */
