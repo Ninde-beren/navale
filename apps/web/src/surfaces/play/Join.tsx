@@ -7,6 +7,8 @@ import {
   type ColorId,
   type GameView,
 } from '@navale/protocol';
+import { rememberName, useProfile, useRecord } from '../../shared/profile.js';
+import { recordLabel } from '../../shared/record.js';
 import { sendCommand, type SocketRef } from '../../shared/socket.js';
 import { initialOf } from '../../shared/ui/Avatar.js';
 import { PhoneHeader } from '../../shared/ui/PhoneScreen.js';
@@ -21,10 +23,12 @@ export function Join({
   onJoined: (playerId: string, token: string) => void;
 }) {
   const taken = new Map(view.players.map((p) => [p.color, p.name]));
-  const [name, setName] = useState('');
+  // Le pseudo de la dernière fois est proposé d'office.
+  const [name, setName] = useState(() => useProfile.getState().name);
   const [color, setColor] = useState<ColorId | null>(COLOR_IDS.find((c) => !taken.has(c)) ?? null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const record = recordLabel(useRecord());
   const full = view.players.length >= view.settings.maxPlayers;
   const valid = name.trim().length >= PLAYER_NAME_LENGTH.min && color !== null && !taken.has(color);
 
@@ -40,6 +44,7 @@ export function Join({
       return;
     }
     const { playerId, playerToken } = JoinedSchema.parse(ack.data);
+    rememberName(name.trim());
     onJoined(playerId, playerToken);
   };
 
@@ -66,6 +71,7 @@ export function Join({
           onChange={(e) => setName(e.target.value)}
         />
       </label>
+      {record && <p className="hint">Ton bilan sur ce téléphone : {record}.</p>}
       <div className="field">
         <span className="label">Ta couleur</span>
         <div className="swatches">

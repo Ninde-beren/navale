@@ -2,6 +2,8 @@ import clsx from 'clsx';
 import { useNavigate } from 'react-router';
 import type { PlayerView, PublicPlayer } from '@navale/protocol';
 import { STATS, ordinal } from '../../shared/labels.js';
+import { useRecord } from '../../shared/profile.js';
+import { recordLabel } from '../../shared/record.js';
 import { clearPlayer } from '../../shared/session.js';
 import { PhoneScreen } from '../../shared/ui/PhoneScreen.js';
 import { MyFleetGrid } from './MyFleetGrid.js';
@@ -9,6 +11,7 @@ import { MyFleetGrid } from './MyFleetGrid.js';
 /** Fin de partie, ou élimination quand la partie continue sans moi : mon rang et mes chiffres. */
 export function PlayFinished({ view, me }: { view: PlayerView; me: PublicPlayer }) {
   const navigate = useNavigate();
+  const record = recordLabel(useRecord());
   const finished = view.status === 'FINISHED';
   const entry = view.ranking?.find((r) => r.playerId === me.playerId);
   const rank = me.rank ?? entry?.rank ?? null;
@@ -37,6 +40,7 @@ export function PlayFinished({ view, me }: { view: PlayerView; me: PublicPlayer 
           ))}
         </div>
       )}
+      {record && <p className="muted">Ton bilan sur ce téléphone : {record}.</p>}
       <a className="btn ghost" href={`/board/${view.code}`} target="_blank" rel="noreferrer">
         Regarder l'écran central
       </a>

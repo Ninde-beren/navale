@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router';
+import { useRecordOutcome } from '../../shared/profile.js';
 import { getSession, saveSession, clearPlayer } from '../../shared/session.js';
 import { useGameSocket } from '../../shared/socket.js';
 import { isPlayerView, useGame } from '../../shared/store.js';
@@ -28,6 +29,8 @@ export function Play() {
     : ({ kind: 'join', code } as const);
   const socket = useGameSocket(auth, `${auth.kind}:${code}:${generation}`);
   const { view, conn, error } = useGame();
+  // Le bilan de ce téléphone : l'issue de la partie est notée dès que mon rang est connu.
+  useRecordOutcome(view);
   // Le téléphone reste allumé pendant la partie : pas de tour manqué.
   const wake = useWakeLock(view?.status === 'PLAYING');
   // Faux chargement au lancement, en même temps que l'écran central.
