@@ -1439,9 +1439,11 @@ body {
   gap: 16px;
 }
 
-/* ---- À quatre : les quatre côtés autour d'une bande centrale ; marque, journal et commandes dans les coins libres. ---- */
+/* ---- À quatre (croquis d'Antoine) : les quatre grilles en croix, sans bande centrale ; dans les coins, les infos
+   de partie en haut à gauche, « Au tour de » en diagonale en haut à droite et en bas à gauche (lisible par deux
+   joueurs chacun), boutons de l'hôte et icônes de réglage en bas à droite. Pas de journal. ---- */
 .tv.v2.flat:not(.p2):not(.p3) .board {
-  --z: 400px;
+  --z: 492px;
   grid-template-columns: var(--z) minmax(0, 1fr) var(--z);
   grid-template-rows: var(--z) minmax(0, 1fr) var(--z);
   gap: 16px;
@@ -1464,9 +1466,9 @@ body {
 }
 .tv.v2.flat:not(.p2):not(.p3) .zone .grid {
   --cell: min(
-    36px,
-    calc((331px - var(--lbl) - var(--cols) * var(--gap)) / var(--cols)),
-    calc((331px - var(--lbl) - var(--rows) * var(--gap)) / var(--rows))
+    48px,
+    calc((437px - var(--lbl) - var(--cols) * var(--gap)) / var(--cols)),
+    calc((437px - var(--lbl) - var(--rows) * var(--gap)) / var(--rows))
   );
 }
 .tv.v2.flat:not(.p2):not(.p3) .centre .top {
@@ -1482,11 +1484,24 @@ body {
   font-size: 20px;
 }
 .tv.v2.flat:not(.p2):not(.p3) .centre .log {
+  display: none;
+}
+/* « Au tour de » en diagonale : la copie .mirror en haut à droite (joueurs du haut et de droite),
+   l'originale .upright en bas à gauche (joueurs du bas et de gauche). */
+.tv.v2.flat:not(.p2):not(.p3) .centre .duo {
+  display: contents;
+}
+.tv.v2.flat:not(.p2):not(.p3) .centre .mirror {
   position: absolute;
-  left: auto;
-  right: var(--s-8);
-  top: var(--s-8);
-  width: var(--z);
+  right: 56px;
+  top: 100px;
+  transform: rotate(225deg);
+}
+.tv.v2.flat:not(.p2):not(.p3) .centre .upright {
+  position: absolute;
+  left: 56px;
+  bottom: 100px;
+  transform: rotate(45deg);
 }
 .tv.v2.flat:not(.p2):not(.p3) .centre .controls {
   position: absolute;
@@ -1518,7 +1533,7 @@ body {
   rotate: 180deg;
 }
 .tv.v2.flat:not(.p2):not(.p3) .callout.big .word {
-  font-size: 112px;
+  font-size: 96px;
 }
 .tv.v2.flat:not(.p2):not(.p3) .callout.big .where {
   font-size: 32px;
