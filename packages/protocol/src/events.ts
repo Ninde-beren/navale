@@ -30,7 +30,7 @@ const ShotCommittedSchema = z.object({
   ability: AbilityTypeSchema.optional(),
 });
 
-/** Privé : seul l'auteur du radar reçoit `shipCells`. */
+/** Privé : seul l'auteur du radar reçoit `shipCells` et `contacts`. */
 const RadarResultEventSchema = RadarResultSchema.extend({
   type: z.literal('RADAR_RESULT'),
   playerId: z.string(),
@@ -143,7 +143,7 @@ export const VisibleEventSchema = z.union([
   GameEventSchema,
   FleetPlacedSchema.omit({ ships: true }),
   ShotCommittedSchema.omit({ targetId: true, coord: true }),
-  RadarResultEventSchema.omit({ shipCells: true }),
+  RadarResultEventSchema.omit({ shipCells: true, contacts: true }),
 ]);
 export type VisibleEvent = z.infer<typeof VisibleEventSchema>;
 

@@ -71,9 +71,11 @@ describe('commandants, de bout en bout', () => {
     ).toMatchObject({ ok: true });
     await until(() => lastView(a).me.radarResults.length === 1);
     expect(lastView(a).me.radarResults[0]).toMatchObject({ targetId: bId, shipCells: 6 });
+    expect(lastView(a).me.radarResults[0]?.contacts).toHaveLength(6);
     for (const client of [board, b]) {
       await until(() => client.events.some((e) => e.event.type === 'RADAR_RESULT'));
       expect(client.received.some((m) => m.includes('shipCells'))).toBe(false);
+      expect(client.received.some((m) => m.includes('contacts'))).toBe(false);
       const types = client.events.map((e) => e.event.type);
       expect(types, types.join(',')).toContain('ABILITY_USED');
     }

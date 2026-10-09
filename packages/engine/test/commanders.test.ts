@@ -114,10 +114,26 @@ describe('capacités, en tour par tour', () => {
       size: 3,
       shipCells: 6,
     });
+    expect(radar.contacts).toEqual([
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 2, y: 0 },
+      { x: 0, y: 2 },
+      { x: 1, y: 2 },
+      { x: 2, y: 2 },
+    ]);
     expect(publicEvent(radar)).not.toHaveProperty('shipCells');
+    expect(publicEvent(radar)).not.toHaveProperty('contacts');
     expect(privateRecipient(radar)).toBe(a);
     expect(projectPrivate(h.state, a).me.radarResults).toEqual([
-      { round: 0, targetId: j, center: { x: 1, y: 1 }, size: 3, shipCells: 6 },
+      {
+        round: 0,
+        targetId: j,
+        center: { x: 1, y: 1 },
+        size: 3,
+        shipCells: 6,
+        contacts: radar.contacts,
+      },
     ]);
     expect(projectPrivate(h.state, j).me.radarResults).toEqual([]);
     expect(projectPublic(h.state).players[0]!.abilityUsesLeft).toBe(0);

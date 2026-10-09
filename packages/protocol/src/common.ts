@@ -153,13 +153,18 @@ export const PendingShotSchema = z.object({
 });
 export type PendingShot = z.infer<typeof PendingShotSchema>;
 
-/** Ce qu'un radar a appris : privé, seul son auteur reçoit `shipCells`. */
+/**
+ * Ce qu'un radar a appris, privé : seul son auteur reçoit `shipCells` et `contacts`.
+ * `contacts` = les cases de la zone qui portent un navire ; absent des radars joués
+ * avant le 2026-10-10 au soir, qui ne donnaient que le total.
+ */
 export const RadarResultSchema = z.object({
   round: z.number().int().min(0),
   targetId: z.string(),
   center: CoordSchema,
   size: z.number().int().min(1),
   shipCells: z.number().int().min(0),
+  contacts: z.array(CoordSchema).optional(),
 });
 export type RadarResult = z.infer<typeof RadarResultSchema>;
 

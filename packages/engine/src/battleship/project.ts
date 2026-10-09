@@ -125,7 +125,7 @@ export function publicEvent(event: GameEvent): VisibleEvent {
       return committed;
     }
     case 'RADAR_RESULT': {
-      const { shipCells: _shipCells, ...radar } = event;
+      const { shipCells: _shipCells, contacts: _contacts, ...radar } = event;
       return radar;
     }
     default:

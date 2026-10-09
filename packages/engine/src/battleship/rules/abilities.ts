@@ -5,9 +5,9 @@ import type { ShotToResolve } from './resolve.js';
 
 /*
  * Les capacités des commandants, décrites par `settings.commanders`. Chacune
- * remplace le tir de la manche : le radar apprend (en privé) combien de cases
- * de navire se cachent dans une zone, le missile tire sur une case et ses
- * voisines, la réparation remet en état une case touchée. Ce module calcule les
+ * remplace le tir de la manche : le radar apprend, en privé, quelles cases d'une
+ * zone portent un navire, sans tirer ; le missile tire sur une case et ses
+ * voisines ; la réparation remet en état une case touchée. Ce module calcule les
  * zones et les effets ; `decide` vérifie qui a le droit de jouer quoi.
  */
 
@@ -38,10 +38,10 @@ export function repairableCells(fleet: Ship[]): Coord[] {
   return fleet.filter((ship) => !isSunk(ship)).flatMap((ship) => ship.hits);
 }
 
-/** Combien de cases de navire une flotte a dans ces cases. */
-function shipCellsIn(fleet: Ship[], cells: Coord[]): number {
-  const zone = new Set(cells.map(coordKey));
-  return fleet.reduce((n, ship) => n + ship.cells.filter((c) => zone.has(coordKey(c))).length, 0);
+/** Les cases de la liste qui portent un navire de cette flotte, dans l'ordre de la liste. */
+function shipCellsAmong(fleet: Ship[], cells: Coord[]): Coord[] {
+  const hull = new Set(fleet.flatMap((ship) => ship.cells.map(coordKey)));
+  return cells.filter((c) => hull.has(coordKey(c)));
 }
 
 export interface AbilityEffects {
@@ -76,6 +76,7 @@ export function abilityEffects(
     case 'radar': {
       const target = playerById(state, pending.targetId);
       const cells = radarZone(state.settings, pending.coord, ability.size);
+      const contacts = target ? shipCellsAmong(target.fleet, cells) : [];
       return {
         events: [
           used,
@@ -86,7 +87,8 @@ export function abilityEffects(
             targetId: pending.targetId,
             center: pending.coord,
             size: ability.size,
-            shipCells: target ? shipCellsIn(target.fleet, cells) : 0,
+            shipCells: contacts.length,
+            contacts,
           },
         ],
         shots: [],

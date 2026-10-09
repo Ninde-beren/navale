@@ -85,7 +85,7 @@ export const ABILITY_LABELS: Record<AbilityType, string> = {
 export function abilityHint(ability: Ability): string {
   switch (ability.type) {
     case 'radar':
-      return `Révèle, pour toi seul, combien de cases de navire se cachent dans une zone de ${ability.size} × ${ability.size}.`;
+      return `Révèle, pour toi seul et sans tirer, les cases de navire d’une zone de ${ability.size} × ${ability.size}.`;
     case 'missile':
       return 'Frappe une case et ses quatre voisines d’un coup.';
     case 'repair':

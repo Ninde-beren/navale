@@ -8,6 +8,7 @@ import {
   type Coord,
   type PlayerView,
   type PublicPlayer,
+  type RadarResult,
 } from '@navale/protocol';
 import { ownGridClasses, publicGridClasses } from '../../shared/cells.js';
 import { ABILITY_LABELS, abilityHint, commanderOf, count } from '../../shared/labels.js';
@@ -70,9 +71,9 @@ export function PlayAim({
     targets.find((p) => p.playerId === lastTarget) ??
     targets[0];
   if (!target) return null;
-  // Mon dernier radar sur cette cible : sa zone reste dessinée sur la grille.
-  const lastRadar = view.me.radarResults.filter((r) => r.targetId === target.playerId).at(-1);
-  const zone = lastRadar ? radarZone(view.settings, lastRadar.center, lastRadar.size) : [];
+  // Mes radars sur cette cible : les navires ne bougent pas, ce qu'ils ont vu reste vrai.
+  const radars = view.me.radarResults.filter((r) => r.targetId === target.playerId);
+  const lastRadar = radars.at(-1);
   const verb = verbOf(ability);
 
   const act = async () => {
@@ -150,14 +151,17 @@ export function PlayAim({
             view={view}
             target={target}
             cell={cell}
-            zone={zone}
+            radars={radars}
             allowRevealed={ability?.type === 'radar'}
             onCell={setCell}
           />
           {lastRadar && (
             <p className="hint">
               Radar autour de {coordLabel(lastRadar.center)} : {count(lastRadar.shipCells, 'case')}{' '}
-              de navire.
+              de navire
+              {lastRadar.contacts
+                ? '. Rond vert : navire détecté ; pointillés : de l’eau.'
+                : ' dans la zone en pointillés.'}
             </p>
           )}
           {blocked && ability?.type !== 'radar' && (
@@ -246,19 +250,23 @@ function TargetPicker({
   );
 }
 
-/** La grille de la cible : ce qui est révélé, mes tirs, la zone de mon dernier radar, et la case choisie. */
+/**
+ * La grille de la cible : ce qui est révélé, mes tirs, ce que mes radars ont vu
+ * (navire détecté, ou eau) et la case choisie. Un radar d'avant les contacts ne
+ * donnait qu'un total : sa zone reste en pointillés, sans détail.
+ */
 function TargetGrid({
   view,
   target,
   cell,
-  zone,
+  radars,
   allowRevealed,
   onCell,
 }: {
   view: PlayerView;
   target: PublicPlayer;
   cell: Coord | null;
-  zone: Coord[];
+  radars: RadarResult[];
   /** Le radar peut se centrer sur une case déjà révélée ; un tir, non. */
   allowRevealed: boolean;
   onCell: (cell: Coord) => void;
@@ -267,7 +275,22 @@ function TargetGrid({
   const mine = new Set(
     view.me.shotsFired.filter((s) => s.targetId === target.playerId).map((s) => coordKey(s.coord)),
   );
-  const scanned = new Set(zone.map(coordKey));
+  const scanned = new Set<string>();
+  const contacts = new Set<string>();
+  const unknown = new Set<string>();
+  for (const r of radars) {
+    for (const c of radarZone(view.settings, r.center, r.size))
+      (r.contacts ? scanned : unknown).add(coordKey(c));
+    for (const c of r.contacts ?? []) contacts.add(coordKey(c));
+  }
+  const radarClass = (key: string) =>
+    revealed.has(key)
+      ? null
+      : contacts.has(key)
+        ? 'blip'
+        : scanned.has(key)
+          ? 'scan clear'
+          : unknown.has(key) && 'scan';
   const classes = publicGridClasses(target.revealed, target.sunkShips);
   return (
     <div className={`flex justify-center c-${target.color}`}>
@@ -279,7 +302,7 @@ function TargetGrid({
           clsx(
             classes(x, y),
             mine.has(coordKey({ x, y })) && 'mine',
-            scanned.has(coordKey({ x, y })) && 'scan',
+            radarClass(coordKey({ x, y })),
             cell && sameCoord(cell, { x, y }) && 'sel',
           )
         }
