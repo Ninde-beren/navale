@@ -1483,15 +1483,22 @@ body {
   white-space: normal;
   font-size: 20px;
 }
-/* Le journal des coups en bas à droite, sous la grille de droite : un petit historique, cinq coups. */
+/* En bas à droite : le journal des coups (trois derniers) au-dessus des icônes de réglage. */
 .tv.v2.flat:not(.p2):not(.p3) .centre .log {
   position: absolute;
   left: auto;
   top: auto;
   right: var(--s-8);
-  bottom: var(--s-8);
+  bottom: calc(var(--s-8) + 72px);
   width: var(--z);
   gap: 8px;
+}
+/* Les icônes sortent du bloc des commandes (lui-même en position absolue) : `fixed` se cale sur
+   l'écran, qui est transformé (mis à l'échelle) et sert donc de repère. */
+.tv.v2.flat:not(.p2):not(.p3) .centre .controls > span {
+  position: fixed;
+  right: var(--s-8);
+  bottom: var(--s-8);
 }
 /* « Au tour de » droit dans deux coins opposés, centré dans le coin libre (entre le bord de l'écran
    et les grilles voisines) : la copie .mirror à l'envers en haut à droite, l'originale .upright à
@@ -1516,7 +1523,7 @@ body {
   left: var(--s-8);
   bottom: var(--s-8);
 }
-/* Boutons de l'hôte et icônes de réglage en haut à gauche, sous les infos de partie. */
+/* Boutons de l'hôte en haut à gauche, sous les infos de partie (les icônes, elles, sont en bas à droite). */
 .tv.v2.flat:not(.p2):not(.p3) .centre .controls {
   position: absolute;
   right: auto;
@@ -1530,7 +1537,7 @@ body {
 .tv.v2.flat:not(.p2):not(.p3) .centre .controls .foot {
   display: none;
 }
-/* Quatre annonces autour du centre, une par sens de lecture. */
+/* Quatre annonces, une par sens de lecture, chacune au milieu de la grille qui fait face à son lecteur. */
 .tv.v2.flat:not(.p2):not(.p3) .callout.big {
   position: absolute;
   inset: auto;
@@ -1543,18 +1550,18 @@ body {
   z-index: 5;
 }
 .tv.v2.flat:not(.p2):not(.p3) .callout.big.dir-up {
-  top: calc(50% + 110px);
+  top: calc(50% + 262px);
 }
 .tv.v2.flat:not(.p2):not(.p3) .callout.big.dir-flip {
-  top: calc(50% - 110px);
+  top: calc(50% - 262px);
   rotate: 180deg;
 }
 .tv.v2.flat:not(.p2):not(.p3) .callout.big.dir-left {
-  left: calc(50% - 320px);
+  left: calc(50% - 682px);
   rotate: 90deg;
 }
 .tv.v2.flat:not(.p2):not(.p3) .callout.big.dir-right {
-  left: calc(50% + 320px);
+  left: calc(50% + 682px);
   rotate: -90deg;
 }
 .tv.v2.flat:not(.p2):not(.p3) .callout.big .word {

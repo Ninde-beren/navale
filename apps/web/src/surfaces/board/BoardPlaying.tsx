@@ -44,7 +44,7 @@ export function BoardPlaying({
   const committed = useCommittedShooters(round);
   const secondsLeft = useCountdown(round?.deadline ?? null);
   // À plat, le journal a la place d'un petit historique, au-delà de la dernière manche.
-  const history = useShotHistory(view.lastShots, view.gameId, 5);
+  const history = useShotHistory(view.lastShots, view.gameId, 3);
   const { rootRef, reveals, fresh, callout, salvoStep } = useShotSequence({
     events: useGame((s) => s.events),
     players,
