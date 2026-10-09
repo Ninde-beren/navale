@@ -1483,7 +1483,7 @@ body {
   white-space: normal;
   font-size: 20px;
 }
-/* Le journal des coups en bas à droite, sous la grille de droite. */
+/* Le journal des coups en bas à droite, sous la grille de droite : un petit historique, cinq coups. */
 .tv.v2.flat:not(.p2):not(.p3) .centre .log {
   position: absolute;
   left: auto;
@@ -1491,6 +1491,7 @@ body {
   right: var(--s-8);
   bottom: var(--s-8);
   width: var(--z);
+  gap: 8px;
 }
 /* « Au tour de » droit dans deux coins opposés, centré dans le coin libre (entre le bord de l'écran
    et les grilles voisines) : la copie .mirror à l'envers en haut à droite, l'originale .upright à
