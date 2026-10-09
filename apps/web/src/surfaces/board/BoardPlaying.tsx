@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import clsx from 'clsx';
 import type { GameView, PublicPlayer } from '@navale/protocol';
 import { END_LABELS, VARIANT_LABELS } from '../../shared/labels.js';
@@ -101,14 +102,19 @@ export function BoardPlaying({
       : players.length === 3
         ? ['up']
         : ['up', 'flip'];
+  // Pendant le fondu de sortie, l'annonce garde sa couleur et son texte : sinon la boîte
+  // repasse à l'orange du « touché » et se vide avant d'avoir disparu.
+  const lastCallout = useRef(callout);
+  if (callout) lastCallout.current = callout;
+  const shown = callout ?? lastCallout.current;
   const callouts = calloutDirections.map((dir, i) => (
     <div
       key={dir}
-      className={clsx('callout big', `dir-${dir}`, callout?.cls, callout && 'show')}
+      className={clsx('callout big', `dir-${dir}`, shown?.cls, callout && 'show')}
       aria-hidden={i > 0 || undefined}
     >
-      <span className="word">{callout?.word ?? ''}</span>
-      <span className="where">{callout?.where ?? ''}</span>
+      <span className="word">{shown?.word ?? ''}</span>
+      <span className="where">{shown?.where ?? ''}</span>
     </div>
   ));
 

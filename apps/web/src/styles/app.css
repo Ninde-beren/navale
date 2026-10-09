@@ -1442,11 +1442,15 @@ body {
 /* ---- À quatre (croquis d'Antoine) : les quatre grilles en croix, sans bande centrale ; dans les coins, les infos
    de partie puis les boutons et réglages en haut à gauche, « Au tour de » à l'envers en haut à droite et à
    l'endroit en bas à gauche, le journal des coups en bas à droite ; quatre annonces autour du centre. ---- */
+/* La colonne centrale a la largeur des grilles du haut et du bas, et la croix se recentre :
+   les grilles de gauche et de droite sont à 48 px des deux autres. */
 .tv.v2.flat:not(.p2):not(.p3) .board {
   --z: 492px;
-  grid-template-columns: var(--z) minmax(0, 1fr) var(--z);
+  grid-template-columns: var(--z) auto var(--z);
   grid-template-rows: var(--z) minmax(0, 1fr) var(--z);
-  gap: 16px;
+  justify-content: center;
+  row-gap: 16px;
+  column-gap: 48px;
 }
 .tv.v2.flat:not(.p2):not(.p3) .seat[data-side='bottom'] {
   grid-area: 3 / 2;
