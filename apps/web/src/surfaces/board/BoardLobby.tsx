@@ -13,6 +13,7 @@ import { sendCommand, type SocketRef } from '../../shared/socket.js';
 import { useFitText } from '../../shared/useFitText.js';
 import { PlayerAvatar } from '../../shared/ui/Avatar.js';
 import { FeedbackButton } from '../../shared/ui/Feedback.js';
+import { FlatButton } from '../../shared/ui/FlatButton.js';
 import { Wordmark } from '../../shared/ui/Wordmark.js';
 
 /** Ce qui manque encore pour lancer, dit à la table. */
@@ -189,6 +190,7 @@ export function BoardLobby({ view, socket }: { view: GameView; socket: SocketRef
             {settings.antiFocusMaxStreak !== null && (
               <span className="chip plain">{antiFocusLabel(settings.antiFocusMaxStreak)}</span>
             )}
+            <FlatButton variant="chip" />
           </div>
           <div className="launch">
             {view.isHost ? (

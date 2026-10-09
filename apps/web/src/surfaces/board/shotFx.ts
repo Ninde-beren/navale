@@ -103,7 +103,9 @@ export class ShotFx {
     // 1. Départ
     // `launching`, pas `launch` : cette classe-là habille le bloc de lancement du lobby.
     replay(plate.parentElement!, 'launching');
-    this.$('.centre .dimmable')?.classList.add('dim');
+    this.root()
+      ?.querySelectorAll('.centre .dimmable')
+      .forEach((el) => el.classList.add('dim'));
     await this.fly(d, flight, { missile, trail, glow, hot });
     if (this.disposed) return;
 
@@ -132,7 +134,9 @@ export class ShotFx {
     fx.classList.remove('go');
     await sleep(250);
     targetZone?.classList.remove('impact', 'wet');
-    this.$('.centre .dimmable')?.classList.remove('dim');
+    this.root()
+      ?.querySelectorAll('.centre .dimmable')
+      .forEach((el) => el.classList.remove('dim'));
   }
 
   private fly(

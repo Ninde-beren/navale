@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Link, useParams } from 'react-router';
 import { useMusic } from '../../shared/audio.js';
+import { useBoardPrefs } from '../../shared/boardPrefs.js';
 import { getSession } from '../../shared/session.js';
 import { useGameSocket } from '../../shared/socket.js';
 import { useGame } from '../../shared/store.js';
@@ -24,6 +25,8 @@ export function Board() {
     `board:${code}`,
   );
   const { view, conn, error } = useGame();
+  // Tablette posée à plat : grilles tournées vers les joueurs, pendant la partie seulement.
+  const flat = useBoardPrefs((s) => s.flat);
   // La table reste allumée du lobby à la fin de partie (E6-S10).
   const wake = useWakeLock(view?.status === 'LOBBY' || view?.status === 'PLAYING');
   // Musique de fond tant que la table est ouverte ; la victoire la coupe.
@@ -66,7 +69,7 @@ export function Board() {
       splash ? (
         <Splash duration={SPLASH_MS} />
       ) : (
-        <BoardPlaying key={view.gameId} view={view} socket={socket} layout={layout} />
+        <BoardPlaying key={view.gameId} view={view} socket={socket} layout={layout} flat={flat} />
       )
     ) : view.status === 'FINISHED' ? (
       <BoardFinished key={view.gameId} view={view} socket={socket} />
@@ -82,7 +85,7 @@ export function Board() {
 
   return (
     <div className="stage">
-      <main className={`screen tv v2 ${layout}`}>
+      <main className={`screen tv v2 ${layout} ${flat && view.status === 'PLAYING' ? 'flat' : ''}`}>
         {screen}
         {conn === 'disconnected' && (
           <div className="chip out" style={{ position: 'absolute', right: 32, bottom: 32 }}>

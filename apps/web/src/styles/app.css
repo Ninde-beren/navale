@@ -1329,3 +1329,290 @@ body {
     box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.7);
   }
 }
+
+/* ---------- Tablette à plat : chaque grille tournée vers son joueur ----------
+   Les zones sont dans des cadres (.seat) tournés par côté de table ; la zone
+   elle-même garde ses propres transformations (secousse d'impact). Les cadres
+   des côtés gauche et droit débordent dans les coins libres de la grille.
+   Le centre répète son contenu à l'envers (.mirror) et le callout en deux sens. */
+.tv.v2.flat .board {
+  position: relative;
+  height: 1016px;
+  --z: 400px;
+  grid-template-columns: var(--z) minmax(0, 1fr) var(--z);
+  grid-template-rows: var(--z) minmax(0, 1fr) var(--z);
+  gap: 16px;
+}
+.tv.v2.flat .seat {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+}
+/* Dans son cadre, la zone oublie la case que lui donnait la disposition classique (.zone[data-seat]). */
+.tv.v2.flat .seat > .zone {
+  grid-area: auto;
+}
+.tv.v2.flat .seat[data-side='bottom'] {
+  grid-area: 3 / 2;
+}
+.tv.v2.flat .seat[data-side='top'] {
+  grid-area: 1 / 2;
+  transform: rotate(180deg);
+}
+/* Les cadres latéraux prennent toute la colonne (les coins sont libres) : la zone tournée s'y centre sans déborder. */
+.tv.v2.flat .seat[data-side='left'] {
+  grid-area: 1 / 1 / 4 / 2;
+  transform: rotate(90deg);
+}
+.tv.v2.flat .seat[data-side='right'] {
+  grid-area: 1 / 3 / 4 / 4;
+  transform: rotate(-90deg);
+}
+/* Le centre ne positionne rien lui-même : ses blocs de coin et le callout se posent sur le plateau. */
+.tv.v2.flat .centre {
+  grid-area: 2 / 2;
+  position: static;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 24px;
+  justify-content: center;
+}
+.tv.v2.flat .centre .turn {
+  flex-direction: row;
+  justify-content: center;
+  text-align: left;
+  gap: 14px;
+}
+.tv.v2.flat .centre .turn .txt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.tv.v2.flat .centre .turn .avatar.xl {
+  width: 60px;
+  height: 60px;
+  font-size: 30px;
+}
+.tv.v2.flat .centre .turn h3 {
+  font-size: 34px;
+}
+.tv.v2.flat .centre .turn .label,
+.tv.v2.flat .centre .turn .sub {
+  font-size: 18px;
+}
+.tv.v2.flat .zone .grid {
+  --cell: min(
+    36px,
+    calc((331px - var(--lbl) - var(--cols) * var(--gap)) / var(--cols)),
+    calc((331px - var(--lbl) - var(--rows) * var(--gap)) / var(--rows))
+  );
+}
+/* À quatre, la bande centrale est basse : la marque, le journal et les commandes vont dans les coins libres. */
+.tv.v2.flat:not(.p2):not(.p3) .centre .top {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--z);
+  gap: 8px 14px;
+}
+.tv.v2.flat:not(.p2):not(.p3) .centre .top .meta {
+  margin-left: 0;
+  white-space: normal;
+  font-size: 20px;
+}
+.tv.v2.flat:not(.p2):not(.p3) .centre .log {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: var(--z);
+}
+.tv.v2.flat:not(.p2):not(.p3) .centre .controls {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: var(--z);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.tv.v2.flat:not(.p2):not(.p3) .centre .controls .foot {
+  display: none;
+}
+.tv.v2.flat .centre .turn {
+  flex: none;
+}
+.tv.v2.flat .centre .mirror {
+  transform: rotate(180deg);
+}
+/* À trois : le bas, puis la gauche et la droite ; le haut reste au centre. */
+.tv.v2.flat.p3 .board {
+  --z: 500px;
+  grid-template-rows: minmax(0, 1fr) var(--z);
+}
+.tv.v2.flat.p3 .seat[data-side='bottom'] {
+  grid-area: 2 / 2;
+}
+.tv.v2.flat.p3 .seat[data-side='left'] {
+  grid-area: 1 / 1 / 3 / 2;
+}
+.tv.v2.flat.p3 .seat[data-side='right'] {
+  grid-area: 1 / 3 / 3 / 4;
+}
+.tv.v2.flat.p3 .centre {
+  grid-area: 1 / 2;
+}
+.tv.v2.flat.p3 .zone .grid {
+  --cell: min(
+    48px,
+    calc((431px - var(--lbl) - var(--cols) * var(--gap)) / var(--cols)),
+    calc((431px - var(--lbl) - var(--rows) * var(--gap)) / var(--rows))
+  );
+}
+.tv.v2.flat.p3 .centre .controls {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: var(--z);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.tv.v2.flat.p3 .centre .log {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: var(--z);
+}
+/* À deux : un joueur à chaque petit côté, les grilles tournées, le centre en colonne. */
+.tv.v2.flat.p2 .board {
+  --z: 640px;
+  grid-template-rows: minmax(0, 1fr);
+}
+.tv.v2.flat.p2 .seat[data-side='left'] {
+  grid-area: 1 / 1;
+}
+.tv.v2.flat.p2 .seat[data-side='right'] {
+  grid-area: 1 / 3;
+}
+.tv.v2.flat.p2 .centre {
+  grid-area: 1 / 2;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 28px;
+}
+.tv.v2.flat.p2 .centre .top {
+  grid-column: auto;
+}
+.tv.v2.flat.p2 .centre .turn {
+  grid-column: auto;
+  justify-content: center;
+}
+.tv.v2.flat.p2 .zone .grid {
+  --cell: min(
+    52px,
+    calc((571px - var(--lbl) - var(--cols) * var(--gap)) / var(--cols)),
+    calc((571px - var(--lbl) - var(--rows) * var(--gap)) / var(--rows))
+  );
+}
+/* Le callout, dans les deux sens, au milieu du plateau. */
+.tv.v2.flat .callout.big,
+.tv.v2.flat.p2 .callout.big {
+  position: absolute;
+  inset: auto;
+  left: 50%;
+  top: calc(50% + 90px);
+  translate: -50% -50%;
+  margin: 0;
+  padding: 16px 44px 26px;
+  border-radius: 28px;
+  z-index: 5;
+}
+.tv.v2.flat .callout.big.flip {
+  top: calc(50% - 90px);
+  rotate: 180deg;
+}
+.tv.v2.flat .callout.big .word,
+.tv.v2.flat.p2 .callout.big .word {
+  font-size: 112px;
+}
+.tv.v2.flat .callout.big .where,
+.tv.v2.flat.p2 .callout.big .where {
+  font-size: 32px;
+}
+.tv.v2.flat .callout.big .where .coord,
+.tv.v2.flat.p2 .callout.big .where .coord {
+  font-size: 38px;
+}
+.tv.v2.flat.p2 .callout.big,
+.tv.v2.flat.p3 .callout.big {
+  top: calc(50% + 130px);
+}
+.tv.v2.flat.p2 .callout.big.flip,
+.tv.v2.flat.p3 .callout.big.flip {
+  top: calc(50% - 130px);
+}
+.tv.v2.flat.p2 .callout.big .word,
+.tv.v2.flat.p3 .callout.big .word {
+  font-size: 150px;
+}
+/* Dans les coins : ni marge automatique ni zone de grille héritées de la colonne centrale
+   (en position absolue dans une grille, un bloc se place dans la zone de grille qu'on lui a donnée). */
+.tv.v2.flat .centre .top,
+.tv.v2.flat .centre .log,
+.tv.v2.flat .centre .controls {
+  margin: 0;
+  grid-area: auto;
+}
+.tv.v2.flat:not(.p2):not(.p3) .centre .log {
+  left: auto;
+}
+.tv.v2.flat:not(.p2):not(.p3) .centre .controls,
+.tv.v2.flat.p3 .centre .controls {
+  left: auto;
+  top: auto;
+}
+.tv.v2.flat.p3 .centre .log {
+  right: auto;
+  top: auto;
+}
+/* À deux, la colonne est étroite : commandes et adresse de suivi passent à la ligne. */
+.tv.v2.flat.p2 .centre {
+  justify-content: flex-start;
+  gap: 20px;
+}
+.tv.v2.flat.p2 .centre .turn {
+  flex: 1 1 auto;
+}
+.tv.v2.flat.p2 .centre .top .meta {
+  margin-left: 0;
+  white-space: normal;
+}
+.tv.v2.flat.p2 .centre .controls {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.tv.v2.flat.p2 .centre .controls .foot {
+  width: 100%;
+  margin-left: 0;
+  text-align: center;
+  white-space: normal;
+}
+
+/* La bascule : une puce au lobby, une icône en partie. */
+.chip.toggle {
+  cursor: pointer;
+}
+.chip.toggle.on {
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--text-2);
+}
+.icon-btn.flat {
+  color: var(--text-3);
+}
+.icon-btn.flat.on {
+  color: var(--text);
+  box-shadow: inset 0 0 0 2px var(--text-2);
+}

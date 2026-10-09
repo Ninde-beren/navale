@@ -6,6 +6,7 @@ import { sendCommand, type SocketRef } from '../../shared/socket.js';
 import { useCommittedShooters, useGame } from '../../shared/store.js';
 import { PlayerAvatar } from '../../shared/ui/Avatar.js';
 import { FeedbackButton } from '../../shared/ui/Feedback.js';
+import { FlatButton } from '../../shared/ui/FlatButton.js';
 import { SoundButton } from '../../shared/ui/SoundButton.js';
 import { Wordmark } from '../../shared/ui/Wordmark.js';
 import { timerSuffix, useCountdown } from '../../shared/useCountdown.js';
@@ -23,14 +24,17 @@ export function BoardPlaying({
   view,
   socket,
   layout,
+  flat = false,
 }: {
   view: GameView;
   socket: SocketRef;
   layout: 'p2' | 'p3' | '';
+  /** Tablette à plat : chaque zone dans un cadre tourné vers son joueur, centre lisible dans les deux sens. */
+  flat?: boolean;
 }) {
   const { settings, players, round, code } = view;
   const { byId, nameOf } = playerLookup(players);
-  const compact = layout === 'p2' || layout === 'p3';
+  const compact = layout === 'p2' || layout === 'p3' || flat;
   const isSalvo = settings.variant === 'simultaneous';
   const active = round?.activePlayerId ? byId.get(round.activePlayerId) : undefined;
   const committed = useCommittedShooters(round);
@@ -65,19 +69,56 @@ export function BoardPlaying({
     />
   );
 
+  const centreMain = isSalvo ? (
+    <>
+      {resolving && compact ? (
+        resolvingPanel
+      ) : (
+        <SalvoCollect
+          shooters={shooters}
+          committed={committed}
+          secondsLeft={secondsLeft}
+          compact={compact}
+        />
+      )}
+      {!compact && resolvingPanel}
+    </>
+  ) : (
+    <ActiveTurn player={active} compact={compact} timer={timerSuffix(secondsLeft)} />
+  );
+  const calloutBox = (flip: boolean) => (
+    <div
+      className={clsx('callout big', flip && 'flip', callout?.cls, callout && 'show')}
+      aria-hidden={flip || undefined}
+    >
+      <span className="word">{callout?.word ?? ''}</span>
+      <span className="where">{callout?.where ?? ''}</span>
+    </div>
+  );
+
   return (
     <div className="board" ref={rootRef}>
-      {players.map((p, seat) => (
-        <PlayerZone
-          key={p.playerId}
-          player={p}
-          seat={seat}
-          grid={settings.grid}
-          active={isActive(p)}
-          reveals={reveals[p.playerId] ?? []}
-          fresh={fresh?.targetId === p.playerId ? fresh.coord : null}
-        />
-      ))}
+      {players.map((p, seat) => {
+        const zone = (
+          <PlayerZone
+            key={p.playerId}
+            player={p}
+            seat={seat}
+            grid={settings.grid}
+            active={isActive(p)}
+            reveals={reveals[p.playerId] ?? []}
+            fresh={fresh?.targetId === p.playerId ? fresh.coord : null}
+          />
+        );
+        // À plat, chaque zone est dans un cadre tourné vers le côté de la table où son joueur est assis.
+        return flat ? (
+          <div key={p.playerId} className="seat" data-side={sideOf(players.length, seat)}>
+            {zone}
+          </div>
+        ) : (
+          zone
+        );
+      })}
       <aside className={`centre c-${active?.color ?? 'blue'}`}>
         <div className="top">
           <Wordmark />
@@ -88,27 +129,14 @@ export function BoardPlaying({
           </span>
           {layout === 'p3' && followUrl}
         </div>
-        {isSalvo ? (
-          <>
-            {resolving && compact ? (
-              resolvingPanel
-            ) : (
-              <SalvoCollect
-                shooters={shooters}
-                committed={committed}
-                secondsLeft={secondsLeft}
-                compact={compact}
-              />
-            )}
-            {!compact && resolvingPanel}
-          </>
-        ) : (
-          <ActiveTurn player={active} compact={compact} timer={timerSuffix(secondsLeft)} />
+        {centreMain}
+        {flat && (
+          <div className="mirror" aria-hidden="true">
+            {centreMain}
+          </div>
         )}
-        <div className={clsx('callout big', callout?.cls, callout && 'show')}>
-          <span className="word">{callout?.word ?? ''}</span>
-          <span className="where">{callout?.where ?? ''}</span>
-        </div>
+        {calloutBox(false)}
+        {flat && calloutBox(true)}
         <ShotLog shots={view.lastShots} playerOf={(id) => byId.get(id)} />
         <div className="controls">
           {view.isHost && (
@@ -132,6 +160,7 @@ export function BoardPlaying({
           )}
           <span className="flex items-center gap-3">
             <SoundButton />
+            <FlatButton />
             <FeedbackButton />
           </span>
           {layout !== 'p3' && followUrl}
@@ -140,6 +169,20 @@ export function BoardPlaying({
       <FxLayer />
     </div>
   );
+}
+
+/**
+ * Côté de la table d'un siège, tablette à plat : à deux, les petits côtés ; à
+ * trois, le bas puis la droite et la gauche ; à quatre, le tour complet.
+ */
+export function sideOf(players: number, seat: number): 'bottom' | 'right' | 'top' | 'left' {
+  const sides =
+    players <= 2
+      ? (['left', 'right'] as const)
+      : players === 3
+        ? (['bottom', 'right', 'left'] as const)
+        : (['bottom', 'right', 'top', 'left'] as const);
+  return sides[seat % sides.length] ?? 'bottom';
 }
 
 /** Tour par tour : le joueur qui choisit sa cible. */
