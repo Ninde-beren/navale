@@ -152,7 +152,7 @@ function committedShots(state: GameState, round: Round): ShotToResolve[] {
 /**
  * Résout les tirs d'une manche, prononce les éliminations, clôt la manche,
  * puis ouvre la suivante ou termine la partie. Le serveur espace la
- * publication de ces événements (ADR-006), le moteur les produit d'un coup.
+ * publication de ces événements au rythme de l'écran central, le moteur les produit d'un coup.
  */
 function resolveAndAdvance(
   state: GameState,

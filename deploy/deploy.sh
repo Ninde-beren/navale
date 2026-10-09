@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Déploie Navale d'une commande (E8-S3) : copie le dépôt sur le serveur, construit
+# Déploie Navale d'une commande : copie le dépôt sur le serveur, construit
 # l'image là-bas, relance le conteneur, puis vérifie la santé.
 #
 #   NAVALE_HOST=debian@mon-vps PUBLIC_URL=https://navale.exemple.fr deploy/deploy.sh

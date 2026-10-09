@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 export type WakeLockState = 'idle' | 'on' | 'unsupported' | 'denied';
 
 /**
- * Garde l'écran allumé tant que `active` (E6-S10, E7-S3). Le verrou tombe
+ * Garde l'écran allumé tant que `active`. Le verrou tombe
  * quand l'onglet passe en arrière-plan : il est redemandé au retour.
  * Sans API ou en cas de refus, l'appelant affiche un message discret.
  */

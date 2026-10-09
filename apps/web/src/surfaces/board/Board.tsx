@@ -27,7 +27,7 @@ export function Board() {
   const { view, conn, error } = useGame();
   // Tablette posée à plat : grilles tournées vers les joueurs, pendant la partie seulement.
   const flat = useBoardPrefs((s) => s.flat);
-  // La table reste allumée du lobby à la fin de partie (E6-S10).
+  // La table reste allumée du lobby à la fin de partie.
   const wake = useWakeLock(view?.status === 'LOBBY' || view?.status === 'PLAYING');
   // Musique de fond tant que la table est ouverte ; la victoire la coupe.
   useMusic(view?.status === 'LOBBY' || view?.status === 'PLAYING');

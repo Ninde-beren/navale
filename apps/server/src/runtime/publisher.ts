@@ -6,7 +6,7 @@ import type { GameServer, GameSocket } from '../realtime/types.js';
 import type { GameRuntime } from './game-runtime.js';
 
 /**
- * Publie les événements aux bonnes rooms, en respectant la cadence (ADR-006) :
+ * Publie les événements aux bonnes rooms, au rythme de l'écran central :
  * tout ce qui suit un SHOT_RESOLVED est retardé de `revealDelayMs`, puis un
  * instantané à jour part vers chaque socket de la partie. Ce que chacun a le droit
  * de voir d'un événement, c'est le moteur qui le dit (`publicEvent`, `privateRecipient`).

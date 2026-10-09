@@ -15,7 +15,7 @@ export interface ShotFxHooks {
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Séquence d'un tir sur l'écran central, reprise de la maquette (`docs/maquettes/fx.js`) :
+ * Séquence d'un tir sur l'écran central, reprise des maquettes de conception :
  * flash sur la plaque du tireur, missile qui suit une trajectoire courbe en ne
  * laissant sa trace que derrière lui, explosion ou plouf sur la case, puis le
  * callout. Dessin en CSS/SVG (classes de `mockup.css`), positions mesurées dans le DOM.

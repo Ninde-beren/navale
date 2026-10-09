@@ -8,7 +8,7 @@ import { decideContext, type GameRuntime } from './game-runtime.js';
 import type { Publisher } from './publisher.js';
 
 /**
- * Revanche (E1-S15, E6-S9) : sur REMATCH_CREATED, ouvre la nouvelle partie avec
+ * Revanche : sur REMATCH_CREATED, ouvre la nouvelle partie avec
  * le journal initial produit par le moteur, y transfère les jetons, puis fait
  * basculer chaque socket de l'ancienne partie vers la nouvelle avec un
  * instantané. Les clients n'ont rien à ressaisir : même code, mêmes jetons.

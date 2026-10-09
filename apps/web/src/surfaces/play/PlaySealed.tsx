@@ -7,7 +7,7 @@ import { PhoneScreen } from '../../shared/ui/PhoneScreen.js';
 import { mmss, useCountdown } from '../../shared/useCountdown.js';
 import { MyFleetGrid } from './MyFleetGrid.js';
 
-/** Salve : mon tir est engagé, j'attends les autres (E5-S7). */
+/** Salve : mon tir est engagé, j'attends les autres. */
 export function PlaySealed({ view, me }: { view: PlayerView; me: PublicPlayer }) {
   const { byId, nameOf } = playerLookup(view.players);
   const committed = useCommittedShooters(view.round);

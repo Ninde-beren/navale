@@ -12,7 +12,7 @@ export const PUBLIC_URL_MARK = '__PUBLIC_URL__';
 
 /**
  * Production : le serveur sert le build web, une seule origine et un seul port
- * (E0-S4). Les fichiers hachés de `assets/` sont immuables ; `index.html`, le
+ * Les fichiers hachés de `assets/` sont immuables ; `index.html`, le
  * service worker et le manifeste se revalident à chaque chargement, sinon une
  * mise à jour ne serait jamais vue. Toute route inconnue hors API et temps réel
  * renvoie l'application : le routage se fait côté client.

@@ -5,8 +5,9 @@ Monorepo pnpm TypeScript : moteur pur, protocole Zod, serveur Node, PWA React.
 ## Périmètre
 
 Ne rien lire ni modifier hors de `navale/` sans demander. Le cahier des charges
-est dans `../docs/` : le lire avant d'implémenter une fonctionnalité, et le
-mettre à jour quand une décision change (toute divergence est un bug).
+est dans `../docs/`, à côté du dépôt et hors de lui (il n'est pas publié) : le lire
+avant d'implémenter une fonctionnalité, et le mettre à jour quand une décision
+change (toute divergence est un bug).
 
 ## Règles d'architecture
 
@@ -14,7 +15,7 @@ mettre à jour quand une décision change (toute divergence est un bug).
   Deux fonctions pures par jeu, `decide(state, command, ctx)` et
   `evolve(state, event)`, plus les projections `projectPublic` / `projectPrivate`.
 - Le client envoie des **commandes**, le serveur publie des **événements**.
-  Les deux vocabulaires ne se mélangent jamais (voir `../docs/05-protocole.md`).
+  Les deux vocabulaires ne se mélangent jamais (voir `packages/protocol`).
 - Toute donnée qui sort du serveur passe par une projection. Aucun composant
   React ne reçoit l'état complet d'une partie.
 - Toute règle de jeu est lue dans `settings`. Pas de constante métier dans le code.
@@ -36,5 +37,5 @@ mettre à jour quand une décision change (toute divergence est un bug).
 
 - Calculer un résultat de tir côté client, même « pour l'animation ».
 - Envoyer la flotte d'un joueur à qui que ce soit d'autre que lui.
-- Ajouter une règle de jeu sans la rendre paramétrable et sans la documenter dans `../docs/`.
+- Ajouter une règle de jeu sans la rendre paramétrable et sans la documenter dans le cahier des charges.
 - Rejouer le journal d'événements à un client qui se reconnecte : il reçoit un instantané.

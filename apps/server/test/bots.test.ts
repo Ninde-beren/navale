@@ -108,7 +108,7 @@ describe('bots', () => {
   });
 });
 
-describe('cadence (ADR-006)', () => {
+describe('cadence de publication', () => {
   it('retarde la manche suivante de revealDelayMs après un tir résolu', async () => {
     const g = await createGame({
       settings: { variant: 'sequential', maxPlayers: 2, revealDelayMs: 300 },

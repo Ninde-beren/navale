@@ -22,7 +22,7 @@ export default defineConfig({
     },
     tailwindcss(),
     ...(https ? [basicSsl()] : []),
-    // PWA installable (E7-S4) : manifeste, icônes, service worker minimal qui ne
+    // PWA installable : manifeste, icônes, service worker minimal qui ne
     // met en cache que l'application elle-même. L'API et le temps réel passent
     // toujours par le réseau ; il n'y a pas de mode hors-ligne.
     VitePWA({

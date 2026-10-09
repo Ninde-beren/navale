@@ -17,7 +17,7 @@ export interface BotDriverOptions {
 /**
  * Pilote des bots : à chaque manche où un bot est attendu, attend que l'écran
  * central ait fini d'annoncer, puis un délai de réflexion, et envoie FIRE par la
- * même voie qu'un humain, à partir de la seule vue privée du bot (ADR-012).
+ * même voie qu'un humain, à partir de la seule vue privée du bot : il ne peut pas tricher.
  */
 export class BotDriver {
   /** Un tir programmé par bot, sous la clé `gameId:botId`. */

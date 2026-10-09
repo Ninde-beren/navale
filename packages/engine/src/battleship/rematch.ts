@@ -4,7 +4,7 @@ import { botReadyEvents } from './bot/arrival.js';
 import type { GameState } from './state.js';
 
 /**
- * Journal initial de la revanche (E1-S15) : même code, mêmes réglages, mêmes
+ * Journal initial de la revanche : même code, mêmes réglages, mêmes
  * joueurs avec les mêmes identifiants et les mêmes sièges, en placement ; les
  * bots arrivent prêts avec une flotte neuve. Le serveur ouvre la nouvelle
  * partie avec ces événements et y transfère les jetons.

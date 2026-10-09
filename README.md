@@ -13,17 +13,18 @@ navale-app/
 └── apps/web            React + Vite + PWA : surfaces /board (écran central) et /play (téléphone)
 ```
 
-Le cahier des charges est dans `../docs/`. Lire `../docs/README.md` puis
-`../docs/06-architecture.md` avant de toucher au code.
+Le cahier des charges (vision, protocole, architecture, feuille de route) est tenu à
+part et n'est pas publié. Pour lire le code, l'essentiel est ici : la section « Le
+moteur en deux fonctions » plus bas, les règles d'architecture de `CLAUDE.md`, et le
+commentaire en tête de chaque module.
 
 ## État
 
-Jalons M1 à M5 livrés : moteur et protocole testés, serveur et application web
-jouables de bout en bout dans les deux variantes, seul contre des bots ou à
-plusieurs, avec reconnexion, reprise après redémarrage, revanche, sons, Wake
-Lock et PWA installable. Reste le jalon M6, le déploiement
-(`../docs/07-roadmap.md`). Prérequis : Node 22 ou plus (le serveur utilise
-`node:sqlite`), pnpm 10.
+Jouable de bout en bout et en ligne sur https://navale.sigilbo.fr : moteur et
+protocole testés, serveur et application web dans les deux variantes (tour par tour
+et salve), seul contre des bots ou à plusieurs, avec reconnexion, reprise après
+redémarrage, revanche, sons, Wake Lock et PWA installable. Prérequis : Node 22 ou
+plus (le serveur utilise `node:sqlite`), pnpm 10.
 
 ## Commandes
 

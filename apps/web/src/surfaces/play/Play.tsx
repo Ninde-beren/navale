@@ -28,7 +28,7 @@ export function Play() {
     : ({ kind: 'join', code } as const);
   const socket = useGameSocket(auth, `${auth.kind}:${code}:${generation}`);
   const { view, conn, error } = useGame();
-  // Le téléphone reste allumé pendant la partie : pas de tour manqué (E7-S3).
+  // Le téléphone reste allumé pendant la partie : pas de tour manqué.
   const wake = useWakeLock(view?.status === 'PLAYING');
   // Faux chargement au lancement, en même temps que l'écran central.
   const splash = useLaunchSplash(view?.status, SPLASH_MS);
