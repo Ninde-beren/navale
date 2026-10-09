@@ -85,10 +85,16 @@ describe('mailjetMailer', () => {
         body: { Messages: [{ Status: 'error', Errors: [{ ErrorMessage: 'expéditeur inconnu' }] }] },
       },
       { status: 401, body: { ErrorMessage: 'Unauthorized' } },
+      { status: 500, body: { ErrorMessage: 'Internal error' } },
     ]);
     const mailer = mailjetMailer(config, fetchImpl)!;
     await expect(mailer.send({ subject: 's', text: 't' })).rejects.toThrow('expéditeur inconnu');
-    await expect(mailer.send({ subject: 's', text: 't' })).rejects.toThrow('HTTP 401');
+    await expect(mailer.send({ subject: 's', text: 't' })).rejects.toThrow(
+      'HTTP 401 : Unauthorized',
+    );
+    await expect(mailer.send({ subject: 's', text: 't' })).rejects.toThrow(
+      'HTTP 500 : Internal error',
+    );
   });
 
   it('vérifie la clé et que l’expéditeur, adresse ou domaine, est validé', async () => {
@@ -106,7 +112,7 @@ describe('mailjetMailer', () => {
     await expect(mailer.verify()).resolves.toBeUndefined();
     await expect(mailer.verify()).resolves.toBeUndefined();
     await expect(mailer.verify()).rejects.toThrow('non validé');
-    await expect(mailer.verify()).rejects.toThrow('refuse la clé');
+    await expect(mailer.verify()).rejects.toThrow('ne reconnaît pas cette paire de clés');
   });
 });
 

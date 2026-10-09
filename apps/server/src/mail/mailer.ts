@@ -38,6 +38,18 @@ export function parseAddress(value: string): { email: string; name: string } {
 
 export const MAILJET_API = 'https://api.mailjet.com';
 
+/** La raison donnée par Mailjet : son `ErrorMessage`, sinon le début du corps, sinon l'en-tête d'authentification. */
+async function mailjetReason(res: Response): Promise<string> {
+  const text = (await res.text()).trim();
+  try {
+    const body = JSON.parse(text) as { ErrorMessage?: string };
+    if (body.ErrorMessage) return body.ErrorMessage;
+  } catch {
+    // Pas du JSON : on garde le texte brut.
+  }
+  return text.slice(0, 300) || res.headers.get('www-authenticate') || 'sans détail';
+}
+
 /**
  * Mailjet par son API HTTP (v3.1). L'expéditeur doit être validé dans le compte
  * (adresse ou domaine), ce que `verify()` contrôle au démarrage. `null` tant que
@@ -55,7 +67,14 @@ export function mailjetMailer(config: MailConfig, fetchImpl: typeof fetch = fetc
       const res = await fetchImpl(`${MAILJET_API}/v3/REST/sender?Limit=100`, {
         headers: { authorization },
       });
-      if (!res.ok) throw new Error(`Mailjet refuse la clé (HTTP ${res.status})`);
+      if (res.status === 401) {
+        // Même réponse qu'en l'absence de clé : la paire est inconnue du compte.
+        throw new Error(
+          'Mailjet ne reconnaît pas cette paire de clés (inactive, régénérée ou supprimée ?)',
+        );
+      }
+      if (!res.ok)
+        throw new Error(`Mailjet répond HTTP ${res.status} : ${await mailjetReason(res)}`);
       const body = (await res.json()) as { Data?: Array<{ Email?: string; Status?: string }> };
       const email = from.email.toLowerCase();
       const domain = `*${email.slice(email.indexOf('@'))}`;
@@ -81,7 +100,7 @@ export function mailjetMailer(config: MailConfig, fetchImpl: typeof fetch = fetc
         }),
       });
       if (!res.ok) {
-        throw new Error(`Mailjet répond HTTP ${res.status} : ${(await res.text()).slice(0, 300)}`);
+        throw new Error(`Mailjet répond HTTP ${res.status} : ${await mailjetReason(res)}`);
       }
       const body = (await res.json()) as {
         Messages?: Array<{ Status?: string; Errors?: Array<{ ErrorMessage?: string }> }>;
