@@ -81,7 +81,7 @@ export function BoardLobby({ view, socket }: { view: GameView; socket: SocketRef
               <div className="remote">
                 <span className="lbl">À distance ? Partage l'écran central</span>
                 <span className="url">{shortUrl(boardUrl(code))}</span>
-                <ShareButton code={code} className="btn sm primary" />
+                <ShareButton code={code} variant="icon" />
               </div>
             </div>
           </div>

@@ -288,8 +288,27 @@ body {
   flex-basis: 100%;
   font: 700 26px/1.2 var(--font-display);
 }
+/* Le lien prend la ligne, l'icône de partage à sa droite : partage natif, sinon copie, coche quand c'est copié. */
 .scan .txt .remote .url {
   color: var(--text);
+  flex: 1 1 0;
+  min-width: 0;
+}
+.scan .txt .remote .icon-btn {
+  flex: none;
+}
+.icon-btn.share.copied {
+  background: var(--ok);
+  color: var(--ink);
+}
+.icon-btn.share.failed {
+  background: var(--danger);
+  color: var(--text);
+}
+.scan .txt .remote .note {
+  flex-basis: 100%;
+  font: 500 22px/1.2 var(--font-body);
+  color: var(--danger);
 }
 /* Le lien de l'écran central ouvert sur un téléphone : un bandeau propose de jouer depuis là. */
 .phone-board-hint {
