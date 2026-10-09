@@ -51,5 +51,8 @@ ssh "$HOST" "for i in 1 2 3 4 5 6 7 8; do \
   echo 'le conteneur ne répond pas' >&2; cd '$DIR' && docker compose logs --tail 30; exit 1"
 
 echo "→ santé sur l'URL publique"
-ssh "$HOST" "cd '$DIR' && . ./.env && wget -qO- --timeout 8 \"\$PUBLIC_URL/api/health\" && echo \
+# PUBLIC_URL est lu dans le .env sans le « sourcer » : ce fichier n'est pas du shell
+# (une valeur comme « Navale <contact@exemple.fr> » y est légitime).
+ssh "$HOST" "cd '$DIR' && PUBLIC_URL=\$(grep '^PUBLIC_URL=' .env | tail -1 | cut -d= -f2- | tr -d '\"') \
+  && wget -qO- --timeout 8 \"\$PUBLIC_URL/api/health\" && echo \
   || echo \"pas encore joignable sur \$PUBLIC_URL : DNS ou bloc Caddy à poser\""
