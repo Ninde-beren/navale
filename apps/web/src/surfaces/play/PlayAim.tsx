@@ -42,7 +42,13 @@ export function PlayAim({
   const [error, setError] = useState<string | null>(null);
   const secondsLeft = useCountdown(view.round?.deadline ?? null);
 
-  const target = targets.find((p) => p.playerId === targetId) ?? targets[0];
+  // Sans choix explicite, on reste sur la cible du dernier tir tant qu'elle est permise
+  // (l'anti-acharnement peut l'interdire), sinon la première de la liste.
+  const lastTarget = view.me.shotsFired.at(-1)?.targetId;
+  const target =
+    targets.find((p) => p.playerId === targetId) ??
+    targets.find((p) => p.playerId === lastTarget) ??
+    targets[0];
   if (!target) return null;
 
   const fire = async () => {
