@@ -1596,12 +1596,12 @@ body {
   justify-content: center;
   align-items: start;
 }
-/* Le centre ne positionne rien (les icônes se posent sur l'écran) et garde la hauteur de la bande. */
+/* Le centre garde la hauteur de la bande et reste positionné : l'annonce de chaque tir se centre
+   dedans, comme à l'écran normal (les icônes, en `fixed`, n'en dépendent pas). */
 .tv.v2.flat.p3 .centre {
   grid-column: 1 / span 3;
   grid-row: 1;
   align-self: stretch;
-  position: static;
 }
 /* Grilles un peu plus petites qu'à l'écran normal (cases jusqu'à 56 px), centrées, de l'air autour. */
 .tv.v2.flat.p3 .zone .grid {
