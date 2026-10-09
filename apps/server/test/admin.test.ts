@@ -128,6 +128,8 @@ describe('chiffres de /admin', () => {
     expect(stat(html, 'games-online')).toBe(1);
     expect(stat(html, 'players-connected')).toBe(1);
     expect(html).toContain(g.code);
+    // Lien vers l'écran central en spectateur, dans un nouvel onglet.
+    expect(html).toContain(`href="/board/${g.code}" target="_blank" rel="noopener noreferrer"`);
     expect(html).toContain('personne de connecté');
     expect(stat(html, 'games-total')).toBe(0);
 

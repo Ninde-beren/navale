@@ -78,6 +78,7 @@ function openGamesTable(live: LiveStats, now: number): string {
             <td class="num">${g.humans + g.bots} / ${g.maxPlayers}</td>
             <td>${g.startedAt ? `${duration(now - g.startedAt)} de jeu` : `ouverte ${ago(g.createdAt, now)}`}</td>
             <td>${online ? ago(g.lastActivityAt, now) : 'personne de connecté'}</td>
+            <td><a class="btn" href="/board/${esc(g.code)}" target="_blank" rel="noopener noreferrer">Voir l’écran</a></td>
           </tr>`;
     })
     .join('');
@@ -87,7 +88,7 @@ function openGamesTable(live: LiveStats, now: number): string {
           <th class="num" title="Humains connectés / inscrits">Joueurs</th>
           <th class="num">Bots</th>
           <th class="num" title="Écran central, spectateurs, téléphones qui choisissent leur nom">Écrans</th>
-          <th class="num">Places</th><th>Depuis</th><th>Dernière action</th>
+          <th class="num">Places</th><th>Depuis</th><th>Dernière action</th><th></th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`;
@@ -271,6 +272,8 @@ export function renderAdminPage({
   .num { text-align: right; font-variant-numeric: tabular-nums; }
   .code { color: var(--text); font-family: ui-monospace, 'SF Mono', monospace; letter-spacing: 0.08em; }
   tr.idle td { color: var(--text-3); }
+  .btn { display: inline-block; padding: 3px 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface-2); color: var(--text); font-size: 13px; text-decoration: none; }
+  .btn:hover { border-color: var(--miss); color: var(--miss); }
   .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; background: var(--surface-2); color: var(--text-2); }
   .pill-on, .pill-playing { color: var(--accent); }
   .pill-finished { color: var(--ok); }
@@ -307,7 +310,7 @@ export function renderAdminPage({
     <div class="card">
       <h3>Parties ouvertes</h3>
       ${openGamesTable(live, now)}
-      <p class="note">Une partie est en ligne quand au moins un écran ou un téléphone y est connecté. Les autres attendent leur expiration (2 h en salle d’attente, 6 h en jeu). Joueurs : humains connectés / inscrits.</p>
+      <p class="note">Une partie est en ligne quand au moins un écran ou un téléphone y est connecté. Les autres attendent leur expiration (2 h en salle d’attente, 6 h en jeu). Joueurs : humains connectés / inscrits. « Voir l’écran » ouvre l’écran central en spectateur, dans un nouvel onglet : la vue publique, sans les boutons de l’hôte ; cet onglet compte lui-même comme un écran connecté.</p>
     </div>
 
     <h2>Historique</h2>
