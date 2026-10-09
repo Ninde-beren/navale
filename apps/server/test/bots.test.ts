@@ -1,54 +1,22 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { io as connect, type Socket } from 'socket.io-client';
 import { coordKey } from '@navale/engine';
-import type { Ack, Command, EventEnvelope, PlayerView } from '@navale/protocol';
-import { createApp } from '../src/app.js';
+import type { CreateGameRequest, VisibleEnvelope } from '@navale/protocol';
+import {
+  command,
+  createGame as createGameAt,
+  open as openAt,
+  startServer,
+  until,
+  type TestServer,
+} from './support.js';
 
-type App = Awaited<ReturnType<typeof createApp>>;
-let server: App;
+let server: TestServer;
 let baseUrl: string;
-
-function open(
-  auth: Record<string, unknown>,
-): Promise<{ socket: Socket; events: EventEnvelope[]; snapshots: PlayerView[] }> {
-  return new Promise((resolve, reject) => {
-    const socket = connect(baseUrl, { auth, transports: ['websocket'], reconnection: false });
-    const out = { socket, events: [] as EventEnvelope[], snapshots: [] as PlayerView[] };
-    socket.on('event', (e: EventEnvelope) => out.events.push(e));
-    socket.on('snapshot', (v: PlayerView) => out.snapshots.push(v));
-    socket.on('rejected', (err: { code: string }) => reject(new Error(err.code)));
-    socket.once('snapshot', () => resolve(out));
-  });
-}
-const command = (socket: Socket, cmd: Command | Record<string, unknown>) =>
-  new Promise<Ack>((resolve) => socket.emit('command', cmd, (ack: Ack) => resolve(ack)));
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-async function until(pred: () => boolean, ms = 3000): Promise<void> {
-  const t0 = Date.now();
-  while (!pred()) {
-    if (Date.now() - t0 > ms) throw new Error('délai dépassé');
-    await sleep(10);
-  }
-}
-async function createGame(body: unknown) {
-  const res = await fetch(`${baseUrl}/api/games`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  return (await res.json()) as { gameId: string; code: string; hostToken: string };
-}
+const open = (auth: Record<string, unknown>) => openAt(baseUrl, auth);
+const createGame = (request: CreateGameRequest) => createGameAt(baseUrl, request);
 
 beforeAll(async () => {
-  server = await createApp(
-    { port: 0, dataDir: '/tmp', publicUrl: 'https://navale.test', logLevel: 'silent' },
-    ':memory:',
-    { botThinkMs: () => 0 },
-  );
-  await server.listen();
-  const address = server.app.server.address();
-  if (!address || typeof address === 'string') throw new Error('adresse inconnue');
-  baseUrl = `http://127.0.0.1:${address.port}`;
+  ({ server, baseUrl } = await startServer());
 });
 afterAll(async () => {
   await server.close();
@@ -160,7 +128,7 @@ describe('cadence (ADR-006)', () => {
     await command(me.socket, { type: 'SET_READY', ready: true });
     await command(host.socket, { type: 'START_GAME' });
     const stamps = new Map<string, number>();
-    host.socket.on('event', (e: EventEnvelope) =>
+    host.socket.on('event', (e: VisibleEnvelope) =>
       stamps.set(`${e.event.type}:${e.seq}`, Date.now()),
     );
     await command(me.socket, { type: 'FIRE', targetId: bot.playerId, coord: { x: 0, y: 0 } });

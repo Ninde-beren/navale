@@ -13,15 +13,6 @@ export function coordLabel(c: Coord): string {
   return `${String.fromCharCode(65 + c.x)}${c.y + 1}`;
 }
 
-/** `D7` → `{ x: 3, y: 6 }`, ou `null` si le libellé est malformé. */
-export function parseCoordLabel(label: string): Coord | null {
-  const m = /^([A-Z])(\d{1,2})$/.exec(label.trim().toUpperCase());
-  if (!m) return null;
-  const x = m[1]!.charCodeAt(0) - 65;
-  const y = Number(m[2]) - 1;
-  return y >= 0 ? { x, y } : null;
-}
-
 // ---- Énumérations -------------------------------------------------------------
 
 export const VariantSchema = z.enum(['sequential', 'simultaneous']);
@@ -77,14 +68,6 @@ export const ShipSpecSchema = z.object({
 });
 export type ShipSpec = z.infer<typeof ShipSpecSchema>;
 
-/** Libellés français des types de bateaux des presets. */
-export const SHIP_LABELS_FR: Readonly<Record<string, string>> = {
-  carrier: 'Porte-avions',
-  cruiser: 'Croiseur',
-  destroyer: 'Contre-torpilleur',
-  torpedo: 'Torpilleur',
-};
-
 export const GameSettingsSchema = z.object({
   variant: VariantSchema,
   endCondition: EndConditionSchema.default('last_standing'),
@@ -101,7 +84,6 @@ export const GameSettingsSchema = z.object({
   salvoOrder: SalvoOrderSchema.default('commit'),
 });
 export type GameSettings = z.infer<typeof GameSettingsSchema>;
-export type GameSettingsInput = z.input<typeof GameSettingsSchema>;
 
 // ---- Flotte et tirs ------------------------------------------------------------
 

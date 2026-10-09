@@ -17,3 +17,7 @@ export function useCountdown(deadline: number | null | undefined): number | null
 }
 
 export const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+/** «  · 1:05 » après un texte quand un chrono tourne, rien sinon. */
+export const timerSuffix = (secondsLeft: number | null) =>
+  secondsLeft === null ? '' : ` · ${mmss(secondsLeft)}`;

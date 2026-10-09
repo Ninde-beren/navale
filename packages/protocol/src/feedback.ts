@@ -11,9 +11,12 @@ export const FeedbackContextSchema = z.object({
 });
 export type FeedbackContext = z.infer<typeof FeedbackContextSchema>;
 
+/** Longueur d'un message : la même pour le formulaire et pour la validation. */
+export const FEEDBACK_MESSAGE_LENGTH = { min: 3, max: 2000 } as const;
+
 /** Un retour envoyé depuis le bouton « Un avis ? » : message libre, e-mail facultatif. */
 export const FeedbackSchema = z.object({
-  message: z.string().trim().min(3).max(2000),
+  message: z.string().trim().min(FEEDBACK_MESSAGE_LENGTH.min).max(FEEDBACK_MESSAGE_LENGTH.max),
   email: z.union([z.string().trim().email().max(200), z.literal('')]).optional(),
   context: FeedbackContextSchema,
 });

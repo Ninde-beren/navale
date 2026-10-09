@@ -1,19 +1,19 @@
-import { useMemo, useRef, useState, type RefObject } from 'react';
-import type { Socket } from 'socket.io-client';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { cellsOf, randomFleet, validateFleet } from '@navale/engine';
-import {
-  SHIP_LABELS_FR,
-  type Coord,
-  type FleetError,
-  type PlayerView,
-  type ShipPlacement,
+import clsx from 'clsx';
+import { cellsOf, randomFleet, sameCoord, shipSize, validateFleet } from '@navale/engine';
+import type {
+  Coord,
+  GameSettings,
+  PlayerView,
+  PublicPlayer,
+  ShipPlacement,
 } from '@navale/protocol';
 import { placementClasses } from '../../shared/cells.js';
-import { sendCommand } from '../../shared/socket.js';
+import { shipLabel } from '../../shared/labels.js';
+import { sendCommand, type SocketRef } from '../../shared/socket.js';
 import { Grid } from '../../shared/ui/Grid.js';
-import { FeedbackButton } from '../../shared/ui/Feedback.js';
-import { Wordmark } from '../../shared/ui/Wordmark.js';
+import { PhoneScreen } from '../../shared/ui/PhoneScreen.js';
 import { LeaveButton } from './LeaveButton.js';
 
 /** Flotte de départ : les bateaux en lignes, en haut à gauche. Sert aussi à « Réinitialiser ». */
@@ -27,16 +27,30 @@ function stacked(settings: PlayerView['settings']): ShipPlacement[] {
 
 const clamp = (v: number, max: number) => Math.max(0, Math.min(max, v));
 
+/** Le même bateau, la proue ramenée pour qu'il tienne entier dans la grille. */
+function keepInGrid(ship: ShipPlacement, settings: GameSettings): ShipPlacement {
+  const size = shipSize(settings, ship.type);
+  const { width, height } = settings.grid;
+  return {
+    ...ship,
+    bow: {
+      x: clamp(ship.bow.x, ship.orientation === 'H' ? width - size : width - 1),
+      y: clamp(ship.bow.y, ship.orientation === 'V' ? height - size : height - 1),
+    },
+  };
+}
+
 export function Placement({
   view,
+  me,
   socket,
 }: {
   view: PlayerView;
-  socket: RefObject<Socket | null>;
+  me: PublicPlayer;
+  socket: SocketRef;
 }) {
   const navigate = useNavigate();
   const { settings } = view;
-  const me = view.players.find((p) => p.playerId === view.me.playerId)!;
   const [ships, setShips] = useState<ShipPlacement[]>(() =>
     view.me.fleet.length > 0
       ? view.me.fleet.map((s) => ({ type: s.type, bow: s.bow, orientation: s.orientation }))
@@ -46,59 +60,36 @@ export function Placement({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const drag = useRef<{ ship: number; offset: number; from: Coord; moved: boolean } | null>(null);
-  const sizeOf = (type: string) => settings.fleet.find((s) => s.type === type)?.size ?? 1;
 
   const validation = useMemo(() => validateFleet(settings, ships), [settings, ships]);
   const conflicts = useMemo(() => {
     const set = new Set<number>();
-    if (!validation.ok)
-      for (const e of validation.errors as FleetError[]) for (const i of e.ships) set.add(i);
+    if (!validation.ok) for (const e of validation.errors) for (const i of e.ships) set.add(i);
     return set;
   }, [validation]);
 
   const shipAt = (c: Coord): { index: number; offset: number } | null => {
     for (let i = ships.length - 1; i >= 0; i--) {
-      const p = ships[i]!;
-      const cells = cellsOf(p, sizeOf(p.type));
-      const k = cells.findIndex((cell) => cell.x === c.x && cell.y === c.y);
-      if (k >= 0) return { index: i, offset: k };
+      const ship = ships[i]!;
+      const offset = cellsOf(ship, shipSize(settings, ship.type)).findIndex((cell) =>
+        sameCoord(cell, c),
+      );
+      if (offset >= 0) return { index: i, offset };
     }
     return null;
   };
 
-  const moveShip = (index: number, bow: Coord) => {
+  const replaceShip = (index: number, change: (ship: ShipPlacement) => ShipPlacement) => {
     setShips((prev) => {
-      const p = prev[index]!;
-      const size = sizeOf(p.type);
-      const x = clamp(
-        bow.x,
-        p.orientation === 'H' ? settings.grid.width - size : settings.grid.width - 1,
-      );
-      const y = clamp(
-        bow.y,
-        p.orientation === 'V' ? settings.grid.height - size : settings.grid.height - 1,
-      );
-      if (x === p.bow.x && y === p.bow.y) return prev;
-      return prev.map((s, i) => (i === index ? { ...s, bow: { x, y } } : s));
+      const ship = keepInGrid(change(prev[index]!), settings);
+      if (sameCoord(ship.bow, prev[index]!.bow) && ship.orientation === prev[index]!.orientation)
+        return prev;
+      return prev.map((s, i) => (i === index ? ship : s));
     });
   };
-
-  const rotate = (index: number) => {
-    setShips((prev) => {
-      const p = prev[index]!;
-      const size = sizeOf(p.type);
-      const orientation = p.orientation === 'H' ? 'V' : 'H';
-      const x = clamp(
-        p.bow.x,
-        orientation === 'H' ? settings.grid.width - size : settings.grid.width - 1,
-      );
-      const y = clamp(
-        p.bow.y,
-        orientation === 'V' ? settings.grid.height - size : settings.grid.height - 1,
-      );
-      return prev.map((s, i) => (i === index ? { ...s, orientation, bow: { x, y } } : s));
-    });
-  };
+  const moveShip = (index: number, bow: Coord) => replaceShip(index, (ship) => ({ ...ship, bow }));
+  const rotate = (index: number) =>
+    replaceShip(index, (ship) => ({ ...ship, orientation: ship.orientation === 'H' ? 'V' : 'H' }));
 
   const ready = async () => {
     if (!validation.ok) return;
@@ -110,20 +101,13 @@ export function Placement({
       setBusy(false);
       return;
     }
-    const r = await sendCommand(socket.current, { type: 'SET_READY', ready: true });
-    if (!r.ok) setError(r.error.message);
+    const readied = await sendCommand(socket.current, { type: 'SET_READY', ready: true });
+    if (!readied.ok) setError(readied.error.message);
     setBusy(false);
   };
 
   return (
-    <div className={`app-phone me-${me.color}`} style={{ padding: '16px 16px 24px', gap: 14 }}>
-      <div className="flex items-center justify-between">
-        <Wordmark />
-        <span className="flex items-center gap-2">
-          <FeedbackButton />
-          <span className="chip plain">{view.code}</span>
-        </span>
-      </div>
+    <PhoneScreen code={view.code} color={me.color}>
       <div>
         <h1 className="h1">Place ta flotte</h1>
         <p className="hint">Glisse un bateau pour le déplacer, tape dessus pour le pivoter.</p>
@@ -161,15 +145,15 @@ export function Placement({
           <button
             key={i}
             type="button"
-            className={`${selected === i ? 'on' : ''} ${conflicts.has(i) ? 'bad' : ''}`}
+            className={clsx(selected === i && 'on', conflicts.has(i) && 'bad')}
             onClick={() => setSelected(i)}
           >
             <span className="ship-pill me">
-              {Array.from({ length: sizeOf(s.type) }, (_, k) => (
+              {Array.from({ length: shipSize(settings, s.type) }, (_, k) => (
                 <i key={k} />
               ))}
             </span>
-            {SHIP_LABELS_FR[s.type] ?? s.type}
+            {shipLabel(s.type)}
           </button>
         ))}
       </div>
@@ -210,6 +194,6 @@ export function Placement({
         {busy ? 'Envoi…' : 'Prêt'}
       </button>
       <LeaveButton code={view.code} socket={socket} onLeft={() => void navigate('/')} />
-    </div>
+    </PhoneScreen>
   );
 }

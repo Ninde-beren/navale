@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { COLOR_IDS, type ColorId } from '@navale/protocol';
 
 /**
@@ -10,36 +11,27 @@ import { COLOR_IDS, type ColorId } from '@navale/protocol';
  */
 export type SfxName = 'launch' | 'miss' | 'hit' | 'sunk' | 'eliminated' | 'victory' | 'turn';
 
-const KEY = 'navale.muted';
-
-function readMuted(): boolean {
-  try {
-    return localStorage.getItem(KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
 interface SfxState {
   muted: boolean;
   unlocked: boolean;
   toggle: () => void;
 }
 
-export const useSfx = create<SfxState>((set, get) => ({
-  muted: readMuted(),
-  unlocked: false,
-  toggle: () => {
-    const muted = !get().muted;
-    set({ muted });
-    try {
-      localStorage.setItem(KEY, muted ? '1' : '0');
-    } catch {
-      // stockage indisponible : le réglage ne survivra pas au rechargement
-    }
-    if (!muted) void unlock();
-  },
-}));
+export const useSfx = create<SfxState>()(
+  persist(
+    (set, get) => ({
+      muted: false,
+      unlocked: false,
+      toggle: () => {
+        const muted = !get().muted;
+        set({ muted });
+        if (!muted) void unlock();
+      },
+    }),
+    // Seul le choix « muet » survit au rechargement : le déverrouillage dépend du navigateur.
+    { name: 'navale.muted', partialize: ({ muted }) => ({ muted }) },
+  ),
+);
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -83,13 +75,28 @@ export function installUnlock(): () => void {
   };
 }
 
-export function play(name: SfxName): void {
+/** Le contexte et sa sortie, si un son peut partir maintenant : déverrouillé, pas en sourdine. */
+function audible(): { c: AudioContext; out: GainNode } | null {
   const c = context();
-  if (!c || !master || useSfx.getState().muted || c.state !== 'running') return;
-  SYNTH[name](c, master, c.currentTime);
+  if (!c || !master || useSfx.getState().muted || c.state !== 'running') return null;
+  return { c, out: master };
+}
+
+export function play(name: SfxName): void {
+  const audio = audible();
+  if (audio) SYNTH[name](audio.c, audio.out, audio.c.currentTime);
 }
 
 // ---- Synthèse ------------------------------------------------------------------
+
+/** Un passe-bas branché sur `out` : il adoucit les timbres carrés et en dents de scie. */
+function lowpass(c: AudioContext, out: AudioNode, frequency: number): BiquadFilterNode {
+  const filter = c.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = frequency;
+  filter.connect(out);
+  return filter;
+}
 
 type Out = AudioNode;
 
@@ -203,10 +210,7 @@ const SYNTH: Record<SfxName, (c: AudioContext, out: Out, t: number) => void> = {
   // Élimination : accord mineur sombre qui enfle, sur un coup grave.
   eliminated: (c, out, t) => {
     tone(c, out, t, { type: 'sine', from: 90, to: 30, dur: 0.9, peak: 0.6 });
-    const low = c.createBiquadFilter();
-    low.type = 'lowpass';
-    low.frequency.value = 700;
-    low.connect(out);
+    const low = lowpass(c, out, 700);
     for (const f of [110, 130.81, 164.81])
       tone(c, low, t + 0.05, { type: 'sawtooth', from: f, dur: 1.5, peak: 0.16, attack: 0.25 });
   },
@@ -216,10 +220,7 @@ const SYNTH: Record<SfxName, (c: AudioContext, out: Out, t: number) => void> = {
     notes.forEach((f, i) =>
       tone(c, out, t + i * 0.13, { type: 'triangle', from: f, dur: 0.55, peak: 0.2 }),
     );
-    const low = c.createBiquadFilter();
-    low.type = 'lowpass';
-    low.frequency.value = 2200;
-    low.connect(out);
+    const low = lowpass(c, out, 2200);
     for (const f of [523.25, 659.25, 783.99])
       tone(c, low, t + 0.55, { type: 'square', from: f, dur: 1.6, peak: 0.08, attack: 0.08 });
     burst(c, out, t + 0.5, {
@@ -255,15 +256,13 @@ const JINGLE_WAVES: OscillatorType[] = [
 
 /** Petit air de victoire quand ce joueur coule un navire : fondamentale, tierce, quinte, octave. */
 export function playSunkJingle(color: ColorId): void {
-  const c = context();
-  if (!c || !master || useSfx.getState().muted || c.state !== 'running') return;
+  const audio = audible();
+  if (!audio) return;
+  const { c, out } = audio;
   const i = Math.max(0, COLOR_IDS.indexOf(color)) % JINGLE_ROOTS.length;
   const root = JINGLE_ROOTS[i]!;
   const wave = JINGLE_WAVES[i]!;
-  const low = c.createBiquadFilter();
-  low.type = 'lowpass';
-  low.frequency.value = 2600;
-  low.connect(master);
+  const low = lowpass(c, out, 2600);
   const t = c.currentTime;
   [1, 1.25, 1.5, 2].forEach((ratio, n) =>
     tone(c, low, t + n * 0.11, {
@@ -273,7 +272,7 @@ export function playSunkJingle(color: ColorId): void {
       peak: wave === 'square' ? 0.08 : 0.16,
     }),
   );
-  burst(c, master, t + 0.3, {
+  burst(c, out, t + 0.3, {
     filter: 'bandpass',
     from: 5000,
     to: 7500,
@@ -303,9 +302,7 @@ export function startMusic(): void {
   const bus = c.createGain();
   bus.gain.setValueAtTime(0.0001, c.currentTime);
   bus.gain.linearRampToValueAtTime(0.1, c.currentTime + 4);
-  const low = c.createBiquadFilter();
-  low.type = 'lowpass';
-  low.frequency.value = 520;
+  const low = lowpass(c, bus, 520);
   low.Q.value = 0.7;
   const lfo = c.createOscillator();
   lfo.frequency.value = 0.07;
@@ -313,7 +310,7 @@ export function startMusic(): void {
   lfoGain.gain.value = 180;
   lfo.connect(lfoGain).connect(low.frequency);
   lfo.start();
-  low.connect(bus).connect(out);
+  bus.connect(out);
 
   let k = 0;
   let next = c.currentTime + 0.1;

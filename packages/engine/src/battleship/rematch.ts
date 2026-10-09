@@ -1,6 +1,6 @@
 import type { GameEvent } from '@navale/protocol';
 import type { DecideContext } from '../core/definition.js';
-import { randomFleet, validateFleet } from './placement.js';
+import { botReadyEvents } from './bot/arrival.js';
 import type { GameState } from './state.js';
 
 /**
@@ -32,11 +32,7 @@ export function rematchEvents(
       seat: p.seat,
       kind: p.kind,
     });
-    if (p.kind !== 'bot') continue;
-    const v = validateFleet(state.settings, randomFleet(state.settings, ctx.random));
-    if (!v.ok) continue;
-    events.push({ type: 'FLEET_PLACED', playerId: p.playerId, ships: v.ships });
-    events.push({ type: 'PLAYER_READY_CHANGED', playerId: p.playerId, ready: true });
+    if (p.kind === 'bot') events.push(...botReadyEvents(state.settings, p.playerId, ctx.random));
   }
   return events;
 }

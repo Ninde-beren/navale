@@ -44,6 +44,10 @@ export const PublicRoundSchema = z.object({
 });
 export type PublicRound = z.infer<typeof PublicRoundSchema>;
 
+/** Ce qui empêche encore l'hôte de lancer la partie. */
+export const StartBlockerSchema = z.enum(['NOT_ENOUGH_PLAYERS', 'NO_HUMAN', 'PLAYERS_NOT_READY']);
+export type StartBlocker = z.infer<typeof StartBlockerSchema>;
+
 export const BoardViewSchema = z.object({
   kind: z.literal('board'),
   gameId: z.string(),
@@ -52,6 +56,8 @@ export const BoardViewSchema = z.object({
   settings: GameSettingsSchema,
   players: z.array(PublicPlayerSchema),
   round: PublicRoundSchema.nullable(),
+  /** Au lobby : `null` quand l'hôte peut lancer. Toujours `null` hors du lobby. */
+  startBlocker: StartBlockerSchema.nullable(),
   lastShots: z.array(ResolvedShotSchema),
   ranking: z.array(RankEntrySchema).nullable(),
   isHost: z.boolean(),
@@ -75,3 +81,6 @@ export const PlayerViewSchema = BoardViewSchema.omit({ kind: true }).extend({
   me: PrivateMeSchema,
 });
 export type PlayerView = z.infer<typeof PlayerViewSchema>;
+
+/** Ce qu'un client reçoit : la vue publique (écran central) ou la vue d'un joueur. */
+export type GameView = BoardView | PlayerView;

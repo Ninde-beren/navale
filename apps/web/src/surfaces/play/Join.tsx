@@ -1,19 +1,23 @@
-import { useState, type FormEvent, type RefObject } from 'react';
-import type { Socket } from 'socket.io-client';
-import { COLOR_IDS, type ColorId } from '@navale/protocol';
-import { sendCommand } from '../../shared/socket.js';
-import type { View } from '../../shared/store.js';
-import { FeedbackButton } from '../../shared/ui/Feedback.js';
-import { Wordmark } from '../../shared/ui/Wordmark.js';
+import { useState, type FormEvent } from 'react';
+import clsx from 'clsx';
+import {
+  COLOR_IDS,
+  JoinedSchema,
+  PLAYER_NAME_LENGTH,
+  type ColorId,
+  type GameView,
+} from '@navale/protocol';
+import { sendCommand, type SocketRef } from '../../shared/socket.js';
 import { initialOf } from '../../shared/ui/Avatar.js';
+import { PhoneHeader } from '../../shared/ui/PhoneScreen.js';
 
 export function Join({
   view,
   socket,
   onJoined,
 }: {
-  view: View;
-  socket: RefObject<Socket | null>;
+  view: GameView;
+  socket: SocketRef;
   onJoined: (playerId: string, token: string) => void;
 }) {
   const taken = new Map(view.players.map((p) => [p.color, p.name]));
@@ -22,7 +26,7 @@ export function Join({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const full = view.players.length >= view.settings.maxPlayers;
-  const valid = name.trim().length >= 2 && color !== null && !taken.has(color);
+  const valid = name.trim().length >= PLAYER_NAME_LENGTH.min && color !== null && !taken.has(color);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -30,24 +34,18 @@ export function Join({
     setBusy(true);
     setError(null);
     const ack = await sendCommand(socket.current, { type: 'JOIN_GAME', name: name.trim(), color });
-    if (ack.ok) {
-      const data = ack.data as { playerId: string; playerToken: string };
-      onJoined(data.playerId, data.playerToken);
-    } else {
+    if (!ack.ok) {
       setError(ack.error.message);
       setBusy(false);
+      return;
     }
+    const { playerId, playerToken } = JoinedSchema.parse(ack.data);
+    onJoined(playerId, playerToken);
   };
 
   return (
     <form className="app-phone" style={{ padding: 24, gap: 24 }} onSubmit={(e) => void submit(e)}>
-      <div className="flex items-center justify-between">
-        <Wordmark />
-        <span className="flex items-center gap-2">
-          <FeedbackButton />
-          <span className="chip plain">{view.code}</span>
-        </span>
-      </div>
+      <PhoneHeader code={view.code} />
       <h1 className="h1">Rejoindre la partie</h1>
       {full ? (
         <p className="hint err">La partie est pleine ({view.settings.maxPlayers} joueurs).</p>
@@ -61,9 +59,9 @@ export function Join({
         <span className="label">Ton pseudo</span>
         <input
           className="input"
-          maxLength={16}
+          maxLength={PLAYER_NAME_LENGTH.max}
           autoComplete="nickname"
-          placeholder="2 à 16 caractères"
+          placeholder={`${PLAYER_NAME_LENGTH.min} à ${PLAYER_NAME_LENGTH.max} caractères`}
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
@@ -77,7 +75,7 @@ export function Join({
               <button
                 key={c}
                 type="button"
-                className={`swatch c-${c} ${color === c ? 'on' : ''} ${owner ? 'taken' : ''}`}
+                className={clsx('swatch', `c-${c}`, color === c && 'on', owner && 'taken')}
                 data-ini={owner ? initialOf(owner) : ''}
                 disabled={!!owner}
                 aria-label={c}

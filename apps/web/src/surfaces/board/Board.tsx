@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 import { Link, useParams } from 'react-router';
 import { useMusic } from '../../shared/audio.js';
 import { getSession } from '../../shared/session.js';
@@ -7,6 +7,7 @@ import { useGame } from '../../shared/store.js';
 import { FeedbackButton } from '../../shared/ui/Feedback.js';
 import { Notice } from '../../shared/ui/Notice.js';
 import { Splash } from '../../shared/ui/Splash.js';
+import { useLaunchSplash } from '../../shared/useLaunchSplash.js';
 import { useWakeLock } from '../../shared/useWakeLock.js';
 import { BoardFinished } from './BoardFinished.js';
 import { BoardLobby } from './BoardLobby.js';
@@ -28,20 +29,7 @@ export function Board() {
   // Musique de fond tant que la table est ouverte ; la victoire la coupe.
   useMusic(view?.status === 'LOBBY' || view?.status === 'PLAYING');
   // Faux chargement au lancement : seulement quand on vient du lobby, jamais après un rechargement.
-  const prevStatus = useRef(view?.status);
-  const [splash, setSplash] = useState(false);
-  useEffect(() => {
-    if (prevStatus.current === 'LOBBY' && view?.status === 'PLAYING') {
-      setSplash(true);
-      const t = setTimeout(() => setSplash(false), SPLASH_MS);
-      return () => clearTimeout(t);
-    }
-    prevStatus.current = view?.status;
-    return undefined;
-  }, [view?.status]);
-  useEffect(() => {
-    if (!splash) prevStatus.current = view?.status;
-  }, [splash, view?.status]);
+  const splash = useLaunchSplash(view?.status, SPLASH_MS);
 
   if (conn === 'rejected') {
     return (

@@ -1,5 +1,5 @@
 import type { GameEvent } from '@navale/protocol';
-import { sameCoord, type GameState, type Player } from './state.js';
+import { playerById, sameCoord, type GameState, type Player } from './state.js';
 
 /** Applique un événement à l'état. Pure, sans validation : l'événement est un fait accompli. */
 export function evolve(state: GameState, event: GameEvent): GameState {
@@ -120,7 +120,7 @@ function apply(state: GameState, event: GameEvent): GameState {
       const expected = state.round?.expectedShooters[0];
       const seat =
         state.settings.variant === 'sequential' && expected !== undefined
-          ? (state.players.find((p) => p.playerId === expected)?.seat ?? state.lastShooterSeat)
+          ? (playerById(state, expected)?.seat ?? state.lastShooterSeat)
           : state.lastShooterSeat;
       return { ...state, round: null, lastShooterSeat: seat };
     }

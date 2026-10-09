@@ -1,41 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { io as connect, type Socket } from 'socket.io-client';
 import { coordKey, isSunk, mulberry32, randomFleet, type GameState } from '@navale/engine';
-import type { Ack, Command, PlayerView } from '@navale/protocol';
-import { createApp } from '../src/app.js';
+import type { PlayerView } from '@navale/protocol';
+import { command, open, sleep, startServer, type Client, type TestServer } from './support.js';
 
-type App = Awaited<ReturnType<typeof createApp>>;
-let server: App;
+let server: TestServer;
 let baseUrl: string;
+const spyOn = (auth: Record<string, unknown>) => open(baseUrl, auth);
 
-/** Tout ce qu'un socket reçoit, sérialisé, pour y chercher des fuites. */
-interface Spy {
-  socket: Socket;
-  received: string[];
-  messages: Array<{ name: string; payload: unknown }>;
-  snapshots: PlayerView[];
-}
-
-function spyOn(auth: Record<string, unknown>): Promise<Spy> {
-  return new Promise((resolve, reject) => {
-    const socket = connect(baseUrl, { auth, transports: ['websocket'], reconnection: false });
-    const spy: Spy = { socket, received: [], messages: [], snapshots: [] };
-    socket.onAny((name: string, payload: unknown) => {
-      spy.received.push(JSON.stringify({ name, payload }));
-      spy.messages.push({ name, payload });
-      if (name === 'snapshot') spy.snapshots.push(payload as PlayerView);
-    });
-    socket.on('rejected', (err: { code: string }) => reject(new Error(`rejected:${err.code}`)));
-    socket.on('connect_error', (err) => reject(err));
-    socket.once('snapshot', () => resolve(spy));
-  });
-}
-
-function command(socket: Socket, cmd: Command | Record<string, unknown>): Promise<Ack> {
-  return new Promise((resolve) => socket.emit('command', cmd, (ack: Ack) => resolve(ack)));
-}
-
-const tick = (ms = 30) => new Promise((r) => setTimeout(r, ms));
+/** Laisse passer les messages en vol. */
+const tick = () => sleep(30);
 
 function hiddenCells(state: GameState, playerId: string): Array<{ x: number; y: number }> {
   const p = state.players.find((x) => x.playerId === playerId)!;
@@ -46,14 +19,7 @@ function hiddenCells(state: GameState, playerId: string): Array<{ x: number; y: 
 }
 
 beforeAll(async () => {
-  server = await createApp(
-    { port: 0, dataDir: '/tmp/navale-test', publicUrl: 'https://navale.test', logLevel: 'silent' },
-    ':memory:',
-  );
-  await server.listen();
-  const address = server.app.server.address();
-  if (!address || typeof address === 'string') throw new Error('adresse inconnue');
-  baseUrl = `http://127.0.0.1:${address.port}`;
+  ({ server, baseUrl } = await startServer());
 });
 
 afterAll(async () => {
@@ -142,7 +108,7 @@ describe('serveur', () => {
 
     // Trois joueurs rejoignent, placent, se déclarent prêts.
     const rnd = mulberry32(7);
-    const players: Array<{ spy: Spy; id: string; token: string }> = [];
+    const players: Array<{ spy: Client; id: string; token: string }> = [];
     for (const [name, color] of [
       ['Antoine', 'red'],
       ['Julie', 'yellow'],
@@ -261,14 +227,15 @@ describe('serveur', () => {
       for (const other of players) {
         if (other.id === p.playerId) continue;
         for (const msg of other.spy.received) {
+          // La version publique d'une flotte placée n'a pas de champ `ships` du tout.
           if (msg.includes('"FLEET_PLACED"') && msg.includes(`"playerId":"${p.playerId}"`))
-            expect(msg).toContain('"ships":[]');
+            expect(msg).not.toContain('"ships"');
         }
       }
     }
     for (const msg of [...board.received, ...spectator.received]) {
       expect(msg).not.toContain('"fleet":[{"shipId"'); // settings.fleet (composition) est public, pas une flotte placée
-      if (msg.includes('"FLEET_PLACED"')) expect(msg).toContain('"ships":[]');
+      if (msg.includes('"FLEET_PLACED"')) expect(msg).not.toContain('"ships"');
     }
     expect(board.received.some((m) => m.includes('"SHOT_RESOLVED"'))).toBe(true);
 

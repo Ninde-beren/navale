@@ -1,19 +1,21 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import type { Server } from 'socket.io';
 import { historyStats, liveStats } from '../admin/stats.js';
 import { renderAdminPage } from '../admin/page.js';
 import type { ServerConfig } from '../config.js';
 import type { Mailer } from '../mail/mailer.js';
 import type { PresenceTracker } from '../realtime/presence.js';
-import type { EventStore } from '../store/event-store.js';
+import type { GameServer } from '../realtime/types.js';
+import type { FeedbackStore } from '../store/feedback-store.js';
+import type { GameHistory } from '../store/history.js';
 import type { GameRegistry } from '../store/registry.js';
 
 export interface AdminDeps {
   registry: GameRegistry;
   presence: PresenceTracker;
-  io: Server;
-  store: EventStore;
+  io: GameServer;
+  history: GameHistory;
+  feedback: FeedbackStore;
   /** Pour dire où partent les retours ; `null` tant que SMTP n'est pas configuré. */
   mailer: Mailer | null;
 }
@@ -63,9 +65,9 @@ export function registerAdmin(app: FastifyInstance, deps: AdminDeps, config: Ser
     const now = Date.now();
     const html = renderAdminPage({
       live: liveStats(deps.registry, deps.presence, deps.io),
-      history: historyStats(deps.store, now),
-      feedback: deps.store.recentFeedback(FEEDBACK_SHOWN),
-      feedbackTotal: deps.store.countFeedback(),
+      history: historyStats(deps.history, now),
+      feedback: deps.feedback.recent(FEEDBACK_SHOWN),
+      feedbackTotal: deps.feedback.count(),
       mailTo: deps.mailer?.to ?? null,
       now,
       version: process.env.NAVALE_VERSION ?? 'dev',

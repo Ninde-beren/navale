@@ -9,6 +9,7 @@ import type {
   RankEntry,
   ResolvedShot,
   Ship,
+  SunkInfo,
 } from '@navale/protocol';
 
 export interface Player {
@@ -81,6 +82,13 @@ export function alivePlayers(state: GameState): Player[] {
 
 export function isSunk(ship: Ship): boolean {
   return ship.hits.length >= ship.size;
+}
+
+/** Ce que les autres joueurs apprennent d'un bateau coulé : ses cases seulement en révélation classique. */
+export function sunkInfo(settings: GameSettings, ship: Ship): SunkInfo {
+  return settings.sunkReveal === 'classic'
+    ? { shipId: ship.shipId, size: ship.size, cells: ship.cells }
+    : { shipId: ship.shipId, size: ship.size };
 }
 
 export function cellsRemaining(player: Player): number {

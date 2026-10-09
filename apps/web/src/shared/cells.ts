@@ -1,4 +1,5 @@
-import { cellsOf, coordKey } from '@navale/engine';
+import clsx from 'clsx';
+import { cellsOf, coordKey, sameCoord, shipSize } from '@navale/engine';
 import type { Coord, GameSettings, Ship, ShipPlacement } from '@navale/protocol';
 
 /** Classes de coque d'un bateau, case par case : début / milieu / fin selon l'orientation. */
@@ -22,10 +23,10 @@ export function ownGridClasses(
     const sunk = ship.hits.length >= ship.size;
     const hull = hullClasses(ship.cells, ship.orientation);
     for (const c of ship.cells) {
-      const hit = ship.hits.some((h) => h.x === c.x && h.y === c.y);
+      const hit = ship.hits.some((h) => sameCoord(h, c));
       map.set(
         coordKey(c),
-        `${sunk ? 'sunk' : 'ship'} ${hull.get(coordKey(c)) ?? ''} ${hit && !sunk ? 'hit' : ''}`,
+        clsx(sunk ? 'sunk' : 'ship', hull.get(coordKey(c)), hit && !sunk && 'hit'),
       );
     }
   }
@@ -45,9 +46,9 @@ export function publicGridClasses(
     if (!s.cells || s.cells.length === 0) continue;
     const orientation = s.cells.length > 1 && s.cells[0]!.y === s.cells[1]!.y ? 'H' : 'V';
     const hull = hullClasses(s.cells, orientation);
-    for (const c of s.cells) map.set(coordKey(c), `sunk ${hull.get(coordKey(c)) ?? ''}`);
+    for (const c of s.cells) map.set(coordKey(c), clsx('sunk', hull.get(coordKey(c))));
   }
-  if (highlight) map.set(coordKey(highlight), `${map.get(coordKey(highlight)) ?? ''} fresh`);
+  if (highlight) map.set(coordKey(highlight), clsx(map.get(coordKey(highlight)), 'fresh'));
   return (x, y) => map.get(coordKey({ x, y })) ?? '';
 }
 
@@ -59,14 +60,20 @@ export function placementClasses(
   conflicts: Set<number>,
 ): (x: number, y: number) => string {
   const map = new Map<string, string>();
-  const sizeOf = (type: string) => settings.fleet.find((s) => s.type === type)?.size ?? 1;
   placements.forEach((p, i) => {
-    const cells = cellsOf(p, sizeOf(p.type));
+    const cells = cellsOf(p, shipSize(settings, p.type));
     const hull = hullClasses(cells, p.orientation);
     for (const c of cells) {
       const prev = map.get(coordKey(c));
-      const cls = `ship ${hull.get(coordKey(c)) ?? ''} ${i === selected ? 'picked' : ''} ${conflicts.has(i) || prev ? 'conflict' : ''}`;
-      map.set(coordKey(c), cls);
+      map.set(
+        coordKey(c),
+        clsx(
+          'ship',
+          hull.get(coordKey(c)),
+          i === selected && 'picked',
+          (conflicts.has(i) || prev) && 'conflict',
+        ),
+      );
     }
   });
   return (x, y) => map.get(coordKey({ x, y })) ?? '';

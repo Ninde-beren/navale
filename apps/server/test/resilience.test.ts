@@ -2,57 +2,13 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { io as connect, type Socket } from 'socket.io-client';
-import type { Ack, Command, PlayerView } from '@navale/protocol';
-import { createApp } from '../src/app.js';
+import type { ExpiryPolicy } from '../src/runtime/sweeper.js';
+import { command, createGame, open, sleep, startServer, until } from './support.js';
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-async function until(pred: () => boolean, ms = 3000): Promise<void> {
-  const t0 = Date.now();
-  while (!pred()) {
-    if (Date.now() - t0 > ms) throw new Error('délai dépassé');
-    await sleep(10);
-  }
-}
-const command = (socket: Socket, cmd: Command) =>
-  new Promise<Ack>((resolve) => socket.emit('command', cmd, (ack: Ack) => resolve(ack)));
-
-interface Spy {
-  socket: Socket;
-  snapshots: PlayerView[];
-  presence: Array<{ playerId: string; connected: boolean }>;
-}
-function open(baseUrl: string, auth: Record<string, unknown>): Promise<Spy> {
-  return new Promise((resolve, reject) => {
-    const socket = connect(baseUrl, { auth, transports: ['websocket'], reconnection: false });
-    const spy: Spy = { socket, snapshots: [], presence: [] };
-    socket.on('snapshot', (v: PlayerView) => spy.snapshots.push(v));
-    socket.on('presence', (p: { playerId: string; connected: boolean }) => spy.presence.push(p));
-    socket.on('rejected', (err: { code: string }) => reject(new Error(err.code)));
-    socket.once('snapshot', () => resolve(spy));
-  });
-}
-async function boot(
-  storePath: string,
-  expiry?: { lobbyMs: number; playingMs: number; finishedMs: number; intervalMs: number },
-) {
-  const app = await createApp(
-    { port: 0, dataDir: '/tmp', publicUrl: 'https://navale.test', logLevel: 'silent' },
-    storePath,
-    { botThinkMs: () => 0, ...(expiry ? { expiry } : {}) },
-  );
-  await app.listen();
-  const address = app.app.server.address();
-  if (!address || typeof address === 'string') throw new Error('adresse inconnue');
-  return { app, baseUrl: `http://127.0.0.1:${address.port}` };
-}
-async function createGame(baseUrl: string, body: unknown) {
-  const res = await fetch(`${baseUrl}/api/games`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  return (await res.json()) as { gameId: string; code: string; hostToken: string };
+/** Un serveur sur `storePath`, éventuellement avec une politique d'expiration accélérée. */
+async function boot(storePath: string, expiry?: ExpiryPolicy) {
+  const { server, baseUrl } = await startServer({ storePath, app: expiry ? { expiry } : {} });
+  return { app: server, baseUrl };
 }
 
 let dir: string;

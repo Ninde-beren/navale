@@ -1,48 +1,19 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { io as connect, type Socket } from 'socket.io-client';
-import type { Ack, Command, PlayerView } from '@navale/protocol';
-import { createApp } from '../src/app.js';
+import {
+  command,
+  lastView as last,
+  open as openAt,
+  startServer,
+  until,
+  type TestServer,
+} from './support.js';
 
-let server: Awaited<ReturnType<typeof createApp>>;
+let server: TestServer;
 let baseUrl: string;
-
-interface Spy {
-  socket: Socket;
-  snapshots: PlayerView[];
-  rematches: Array<{ gameId: string; code: string }>;
-}
-function open(auth: Record<string, unknown>): Promise<Spy> {
-  return new Promise((resolve, reject) => {
-    const socket = connect(baseUrl, { auth, transports: ['websocket'], reconnection: false });
-    const spy: Spy = { socket, snapshots: [], rematches: [] };
-    socket.on('snapshot', (v: PlayerView) => spy.snapshots.push(v));
-    socket.on('rematch', (r: { gameId: string; code: string }) => spy.rematches.push(r));
-    socket.on('rejected', (err: { code: string }) => reject(new Error(err.code)));
-    socket.once('snapshot', () => resolve(spy));
-  });
-}
-const command = (socket: Socket, cmd: Command) =>
-  new Promise<Ack>((resolve) => socket.emit('command', cmd, (ack: Ack) => resolve(ack)));
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-async function until(pred: () => boolean, ms = 3000): Promise<void> {
-  const t0 = Date.now();
-  while (!pred()) {
-    if (Date.now() - t0 > ms) throw new Error('délai dépassé');
-    await sleep(10);
-  }
-}
-const last = (spy: Spy) => spy.snapshots[spy.snapshots.length - 1]!;
+const open = (auth: Record<string, unknown>) => openAt(baseUrl, auth);
 
 beforeAll(async () => {
-  server = await createApp(
-    { port: 0, dataDir: '/tmp', publicUrl: 'https://navale.test', logLevel: 'silent' },
-    ':memory:',
-    { botThinkMs: () => 0 },
-  );
-  await server.listen();
-  const address = server.app.server.address();
-  if (!address || typeof address === 'string') throw new Error('adresse inconnue');
-  baseUrl = `http://127.0.0.1:${address.port}`;
+  ({ server, baseUrl } = await startServer());
 });
 afterAll(async () => {
   await server.close();
@@ -112,7 +83,7 @@ describe('revanche', () => {
     expect(host.rematches[0]!.code).toBe(g.code);
     expect(runtime.state.status).toBe('FINISHED');
     expect(runtime.state.rematchGameId).toBe(newId);
-    expect(server.registry.byActiveCode(g.code)?.gameId).toBe(newId);
+    expect(server.registry.findByCode(g.code)?.gameId).toBe(newId);
 
     const board = last(host);
     expect(board.gameId).toBe(newId);

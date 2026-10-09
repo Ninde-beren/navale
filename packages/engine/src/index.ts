@@ -1,3 +1,7 @@
+// API publique du moteur : ce que le serveur et le web en utilisent. Le reste
+// (règles de résolution, de classement, d'ordre de tir) ne sert qu'au moteur.
+
+// ---- Contrat commun aux jeux de la plateforme -----------------------------------
 export type {
   Actor,
   DecideContext,
@@ -7,19 +11,17 @@ export type {
   Rejection,
 } from './core/definition.js';
 export { ok, reject } from './core/definition.js';
-export { mulberry32, pick, randomInt } from './core/random.js';
+export { mulberry32, pick } from './core/random.js';
 
+// ---- Bataille navale : la partie ------------------------------------------------
 export type { GameState, InitialStateInput, Player, Round } from './battleship/state.js';
-export {
-  alivePlayers,
-  cellsRemaining,
-  coordKey,
-  inBounds,
-  isSunk,
-  playerById,
-  sameCoord,
-  shipsRemaining,
-} from './battleship/state.js';
+export { battleship, initialState } from './battleship/index.js';
+export { HOST_COMMANDS } from './battleship/decide.js';
+export { evolve } from './battleship/evolve.js';
+export { rematchEvents } from './battleship/rematch.js';
+export { privateRecipient, publicEvent } from './battleship/project.js';
+
+// ---- Bataille navale : réglages et flotte, partagés avec le web -----------------
 export {
   PRESETS,
   defaultPresetFor,
@@ -29,21 +31,11 @@ export {
 export {
   cellsOf,
   randomFleet,
+  shipSize,
   validateFleet,
   type FleetValidation,
 } from './battleship/placement.js';
-export { legalTargets } from './battleship/rules/targets.js';
-export { nextShooters, resolutionOrder } from './battleship/rules/turn-order.js';
-export {
-  resolveRound,
-  type RoundResolution,
-  type ShotToResolve,
-} from './battleship/rules/resolve.js';
-export { computeRanking, isFinishedAfterRound, statsOf } from './battleship/rules/end.js';
-export { decide } from './battleship/decide.js';
-export { rematchEvents } from './battleship/rematch.js';
-export { evolve } from './battleship/evolve.js';
-export { projectPrivate, projectPublic } from './battleship/project.js';
-export { battleship, initialState } from './battleship/index.js';
-export { BOT_NAMES } from './battleship/bot/names.js';
-export { chooseShot, woundedCells, type BotShot } from './battleship/bot/strategy.js';
+export { coordKey, isSunk, sameCoord } from './battleship/state.js';
+
+// ---- Bataille navale : bot ------------------------------------------------------
+export { chooseShot, type BotShot } from './battleship/bot/strategy.js';

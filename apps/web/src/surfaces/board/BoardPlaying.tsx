@@ -1,336 +1,80 @@
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
-import type { Socket } from 'socket.io-client';
-import { coordLabel, type Coord, type PublicPlayer, type PublicRound } from '@navale/protocol';
-import { play, playSunkJingle } from '../../shared/audio.js';
-import { publicGridClasses } from '../../shared/cells.js';
-import { sendCommand } from '../../shared/socket.js';
-import { useGame, type View } from '../../shared/store.js';
-import { Avatar, initialOf } from '../../shared/ui/Avatar.js';
-import { Grid } from '../../shared/ui/Grid.js';
+import clsx from 'clsx';
+import type { GameView, PublicPlayer } from '@navale/protocol';
+import { END_LABELS, VARIANT_LABELS } from '../../shared/labels.js';
+import { playerLookup } from '../../shared/players.js';
+import { sendCommand, type SocketRef } from '../../shared/socket.js';
+import { useCommittedShooters, useGame } from '../../shared/store.js';
+import { PlayerAvatar } from '../../shared/ui/Avatar.js';
 import { FeedbackButton } from '../../shared/ui/Feedback.js';
 import { SoundButton } from '../../shared/ui/SoundButton.js';
 import { Wordmark } from '../../shared/ui/Wordmark.js';
-import { mmss, useCountdown } from '../../shared/useCountdown.js';
+import { timerSuffix, useCountdown } from '../../shared/useCountdown.js';
 import { FxLayer } from './FxLayer.js';
-import { ShotFx, type ShotFxShot } from './shotFx.js';
+import { PlayerZone } from './PlayerZone.js';
+import { SalvoCollect, SalvoResolving } from './SalvoPanels.js';
+import { ShotLog } from './ShotLog.js';
+import { useShotSequence } from './useShotSequence.js';
 
-const VARIANT = { sequential: 'Tour par tour', simultaneous: 'Salve' } as const;
-const END = {
-  last_standing: 'Dernier survivant',
-  first_fleet_sunk: 'Première flotte coulée',
-} as const;
-const RESULT = { MISS: 'RATÉ', HIT: 'TOUCHÉ', SUNK: 'COULÉ' } as const;
-const SOUND = { MISS: 'miss', HIT: 'hit', SUNK: 'sunk' } as const;
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-type Reveal = { coord: Coord; result: 'MISS' | 'HIT' };
-type Callout = { word: string; where: string; cls: string } | null;
-/** Rafale en cours : manche, tir en cours de résolution, tireur. */
-type Salvo = { round: number; step: number; shooterId: string };
-
-function Zone({
-  p,
-  active,
-  seat,
-  grid,
-  extra,
-  fresh,
-}: {
-  p: PublicPlayer;
-  active: boolean;
-  seat: number;
-  grid: { width: number; height: number };
-  extra: Reveal[];
-  fresh: Coord | null;
-}) {
-  const classes = publicGridClasses([...p.revealed, ...extra], p.sunkShips, fresh);
-  return (
-    <section
-      className={`zone c-${p.color} ${active ? 'active' : ''} ${p.status === 'ELIMINATED' ? 'out' : ''}`}
-      data-seat={seat}
-      data-player={p.playerId}
-    >
-      <div className="nameplate">
-        <Avatar color={p.color} initial={initialOf(p.name)} bot={p.kind === 'bot'} />
-        <h2>{p.name}</h2>
-        {!p.connected && p.kind === 'human' && <span className="role">hors ligne</span>}
-      </div>
-      <Grid
-        width={grid.width}
-        height={grid.height}
-        cellClass={classes}
-        className={p.status === 'ELIMINATED' ? 'dim' : ''}
-        label={`Grille de ${p.name}`}
-      />
-      {p.status === 'ELIMINATED' && (
-        <div className="stamp">{p.rank ? `${p.rank}e` : 'Éliminé'}</div>
-      )}
-    </section>
-  );
-}
-
-const Check = () => (
-  <svg
-    className="ico"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2.5"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M5 12.5l4.5 4.5L19 7" />
-  </svg>
-);
-
-/** Scène centrale en salve : la collecte des tirs (qui a tiré, chrono), avant la rafale de résolutions. */
-function SalvoCollect({
-  shooters,
-  committed,
-  left,
-  compact,
-}: {
-  shooters: PublicPlayer[];
-  /** Dans l'ordre d'engagement : le premier de la liste a tiré le premier. */
-  committed: string[];
-  left: number | null;
-  compact: boolean;
-}) {
-  const n = shooters.filter((p) => committed.includes(p.playerId)).length;
-  const waiting = shooters.filter((p) => !committed.includes(p.playerId));
-  if (compact) {
-    return (
-      <div className="turn salvo dimmable">
-        <div className="txt">
-          <span className="label">Ont tiré</span>
-          <h3>
-            {n}/{shooters.length}
-          </h3>
-          <p className="sub">
-            {waiting.map((p) => p.name).join(', ') || 'résolution'}
-            {left !== null ? ` · ${mmss(left)}` : ''}
-          </p>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="turn salvo dimmable">
-      <div className="counter">
-        <div className="big">
-          <b>{n}</b>
-          <small>/{shooters.length}</small>
-        </div>
-        <div className="sub">ont tiré</div>
-      </div>
-      <div className="commits">
-        {shooters.map((p) => {
-          const rank = committed.indexOf(p.playerId);
-          const fired = rank >= 0;
-          return (
-            <div key={p.playerId} className={`row c-${p.color} ${fired ? '' : 'wait'}`}>
-              <Avatar
-                color={p.color}
-                initial={initialOf(p.name)}
-                size="sm"
-                bot={p.kind === 'bot'}
-              />
-              <span>{p.name}</span>
-              <span className="st">
-                {fired ? (
-                  <>
-                    <Check /> {ordinal(rank + 1)}
-                  </>
-                ) : (
-                  'Choisit…'
-                )}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-      {left !== null && (
-        <div className="timer">
-          <div className="t">{mmss(left)}</div>
-          <div className="l">avant résolution automatique</div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Resolving({ salvo, total, name }: { salvo: Salvo; total: number; name: string }) {
-  return (
-    <div className="resolving show">
-      <span className="label">Résolution</span>
-      <div className="step">
-        <b>{salvo.step}</b>
-        <small>/{total}</small>
-      </div>
-      <div className="who">Tir de {name}</div>
-    </div>
-  );
-}
-
-/** Qui a déjà tiré dans la manche : l'instantané, complété par les SHOT_COMMITTED reçus depuis. */
-function committedIn(
-  round: PublicRound | null,
-  events: ReturnType<typeof useGame.getState>['events'],
-): string[] {
-  const list = [...(round?.committed ?? [])];
-  if (round)
-    for (const env of events)
-      if (
-        env.event.type === 'SHOT_COMMITTED' &&
-        env.event.round === round.index &&
-        !list.includes(env.event.shooterId)
-      )
-        list.push(env.event.shooterId);
-  return list;
-}
-
-const ordinal = (n: number) => (n === 1 ? '1er' : `${n}e`);
-
-/** Plateau en partie : état public, « Au tour de » ou collecte de la salve, journal, et la séquence animée de chaque tir. */
+/**
+ * Écran central en partie : les grilles de chacun, au centre « Au tour de » ou la
+ * collecte de la salve, l'annonce de chaque tir, le journal et les boutons de l'hôte.
+ */
 export function BoardPlaying({
   view,
   socket,
   layout,
 }: {
-  view: View;
-  socket: RefObject<Socket | null>;
+  view: GameView;
+  socket: SocketRef;
   layout: 'p2' | 'p3' | '';
 }) {
   const { settings, players, round, code } = view;
-  const byId = useMemo(() => new Map(players.map((p) => [p.playerId, p])), [players]);
-  const active = round?.activePlayerId ? byId.get(round.activePlayerId) : undefined;
-  const name = (id: string) => byId.get(id)?.name ?? '?';
+  const { byId, nameOf } = playerLookup(players);
   const compact = layout === 'p2' || layout === 'p3';
-
-  const rootRef = useRef<HTMLDivElement>(null);
-  const fxRef = useRef<ShotFx | null>(null);
-  const playersRef = useRef(players);
-  playersRef.current = players;
-  const lastSeq = useRef(0);
-  const [reveals, setReveals] = useState<Record<string, Reveal[]>>({});
-  const [fresh, setFresh] = useState<{ targetId: string; coord: Coord } | null>(null);
-  const [callout, setCallout] = useState<Callout>(null);
-  const [salvo, setSalvo] = useState<Salvo | null>(null);
-  const events = useGame((s) => s.events);
-  const left = useCountdown(round?.deadline ?? null);
-  const timer = left !== null ? ` · ${mmss(left)}` : '';
-
-  const roundIndex = round?.index ?? -1;
   const isSalvo = settings.variant === 'simultaneous';
-  const committed = useMemo(() => committedIn(round, events), [round, events]);
+  const active = round?.activePlayerId ? byId.get(round.activePlayerId) : undefined;
+  const committed = useCommittedShooters(round);
+  const secondsLeft = useCountdown(round?.deadline ?? null);
+  const { rootRef, reveals, fresh, callout, salvoStep } = useShotSequence({
+    events: useGame((s) => s.events),
+    players,
+    revealDelayMs: settings.revealDelayMs,
+    seq: view.seq,
+  });
+
   const shooters = (round?.expectedShooters ?? [])
     .map((id) => byId.get(id))
     .filter((p) => p !== undefined);
-  const resolving = isSalvo && salvo !== null && salvo.round === roundIndex ? salvo : null;
-
-  // Les révélations transitoires tombent dès qu'un instantané à jour arrive.
-  useEffect(() => {
-    setReveals({});
-    setFresh(null);
-  }, [view.seq]);
-
-  useEffect(() => {
-    const fx = new ShotFx(
-      () => rootRef.current?.closest<HTMLElement>('.screen') ?? rootRef.current,
-      {
-        onLaunch: (shot) => {
-          play('launch');
-          setSalvo((s) => ({
-            round: shot.round,
-            step: s && s.round === shot.round ? s.step + 1 : 1,
-            shooterId: shot.shooterId,
-          }));
-        },
-        onImpact: (shot) => {
-          play(SOUND[shot.result]);
-          if (shot.result === 'SUNK') {
-            const shooter = playersRef.current.find((p) => p.playerId === shot.shooterId);
-            if (shooter) setTimeout(() => playSunkJingle(shooter.color), 550);
-          }
-          setReveals((r) => ({
-            ...r,
-            [shot.targetId]: [
-              ...(r[shot.targetId] ?? []),
-              { coord: shot.coord, result: shot.result === 'MISS' ? 'MISS' : 'HIT' },
-            ],
-          }));
-          setFresh({ targetId: shot.targetId, coord: shot.coord });
-        },
-        onCallout: (shot) =>
-          setCallout(
-            shot
-              ? {
-                  word: RESULT[shot.result],
-                  where: `${coordLabel(shot.coord)} · ${name(shot.shooterId)} → ${name(shot.targetId)}`,
-                  cls: shot.result.toLowerCase(),
-                }
-              : null,
-          ),
-      },
-    );
-    fxRef.current = fx;
-    return () => {
-      fx.dispose();
-      fxRef.current = null;
-    };
-  }, []);
-
-  // Chaque SHOT_RESOLVED reçu rejoint la file d'animation, dans l'ordre ; les éliminations s'annoncent après.
-  useEffect(() => {
-    const fx = fxRef.current;
-    if (!fx) return;
-    for (const env of events) {
-      if (env.seq <= lastSeq.current) continue;
-      lastSeq.current = env.seq;
-      const e = env.event;
-      if (e.type === 'SHOT_RESOLVED') {
-        const shot: ShotFxShot = {
-          round: e.round,
-          shooterId: e.shooterId,
-          targetId: e.targetId,
-          coord: e.coord,
-          result: e.result,
-        };
-        void fx.play(shot, settings.revealDelayMs);
-      } else if (e.type === 'PLAYER_ELIMINATED') {
-        const who = name(e.playerId);
-        void fx.enqueue(async () => {
-          play('eliminated');
-          setCallout({ word: 'ÉLIMINÉ', where: `${who} · ${e.rank}e`, cls: 'sunk' });
-          await sleep(1600);
-          setCallout(null);
-        });
-      }
-    }
-  }, [events]);
+  const resolving = isSalvo && salvoStep?.round === round?.index ? salvoStep : null;
+  const isActive = (p: PublicPlayer) =>
+    isSalvo
+      ? round?.expectedShooters.includes(p.playerId) === true && !committed.includes(p.playerId)
+      : active?.playerId === p.playerId;
 
   // À trois joueurs, la bande est basse : l'adresse remonte sous le code, loin du bord rogné des télés.
-  const foot = (
+  const followUrl = (
     <span className="foot">
       Suivre la partie : {location.host}/board/{code}
     </span>
   );
+  const resolvingPanel = resolving && (
+    <SalvoResolving
+      step={resolving}
+      total={committed.length}
+      shooterName={nameOf(resolving.shooterId)}
+    />
+  );
 
   return (
     <div className="board" ref={rootRef}>
-      {players.map((p, i) => (
-        <Zone
+      {players.map((p, seat) => (
+        <PlayerZone
           key={p.playerId}
-          p={p}
-          seat={i}
+          player={p}
+          seat={seat}
           grid={settings.grid}
-          active={
-            isSalvo
-              ? round?.expectedShooters.includes(p.playerId) === true &&
-                !committed.includes(p.playerId)
-              : !!active && active.playerId === p.playerId
-          }
-          extra={reveals[p.playerId] ?? []}
+          active={isActive(p)}
+          reveals={reveals[p.playerId] ?? []}
           fresh={fresh?.targetId === p.playerId ? fresh.coord : null}
         />
       ))}
@@ -339,84 +83,33 @@ export function BoardPlaying({
           <Wordmark />
           <span className="code">{code}</span>
           <span className="meta">
-            <strong>Manche {(round?.index ?? 0) + 1}</strong> · {VARIANT[settings.variant]} ·{' '}
-            {END[settings.endCondition]}
+            <strong>Manche {(round?.index ?? 0) + 1}</strong> · {VARIANT_LABELS[settings.variant]} ·{' '}
+            {END_LABELS[settings.endCondition]}
           </span>
-          {layout === 'p3' && foot}
+          {layout === 'p3' && followUrl}
         </div>
         {isSalvo ? (
           <>
             {resolving && compact ? (
-              <Resolving
-                salvo={resolving}
-                total={committed.length}
-                name={name(resolving.shooterId)}
-              />
+              resolvingPanel
             ) : (
               <SalvoCollect
                 shooters={shooters}
                 committed={committed}
-                left={left}
+                secondsLeft={secondsLeft}
                 compact={compact}
               />
             )}
-            {resolving && !compact && (
-              <Resolving
-                salvo={resolving}
-                total={committed.length}
-                name={name(resolving.shooterId)}
-              />
-            )}
+            {!compact && resolvingPanel}
           </>
-        ) : active ? (
-          <div className="turn dimmable">
-            {compact ? (
-              <>
-                <Avatar color={active.color} initial={initialOf(active.name)} size="xl" />
-                <div className="txt">
-                  <span className="label">Au tour de</span>
-                  <h3>{active.name}</h3>
-                  <p className="sub">choisit sa cible{timer}</p>
-                </div>
-              </>
-            ) : (
-              <>
-                <span className="label">Au tour de</span>
-                <Avatar color={active.color} initial={initialOf(active.name)} size="xl" />
-                <h3>{active.name}</h3>
-                <p className="sub">choisit sa cible{timer}</p>
-              </>
-            )}
-          </div>
         ) : (
-          <div className="turn dimmable" />
+          <ActiveTurn player={active} compact={compact} timer={timerSuffix(secondsLeft)} />
         )}
-        <div className={`callout big ${callout?.cls ?? ''} ${callout ? 'show' : ''}`}>
+        <div className={clsx('callout big', callout?.cls, callout && 'show')}>
           <span className="word">{callout?.word ?? ''}</span>
           <span className="where">{callout?.where ?? ''}</span>
         </div>
-        <div className="log">
-          <span className="label">Derniers tirs</span>
-          {[...view.lastShots].reverse().map((s, i) => (
-            <div key={`${s.round}-${i}`} className="row">
-              <Avatar
-                color={byId.get(s.shooterId)?.color ?? 'red'}
-                initial={initialOf(name(s.shooterId))}
-                size="sm"
-              />
-              <span className="who">{name(s.shooterId)}</span>
-              <span className="arrow">→</span>
-              <Avatar
-                color={byId.get(s.targetId)?.color ?? 'red'}
-                initial={initialOf(name(s.targetId))}
-                size="sm"
-              />
-              <span className="who">{name(s.targetId)}</span>
-              <span className="coord">{coordLabel(s.coord)}</span>
-              <span className={`res ${s.result.toLowerCase()}`}>{RESULT[s.result]}</span>
-            </div>
-          ))}
-        </div>
+        <ShotLog shots={view.lastShots} playerOf={(id) => byId.get(id)} />
         <div className="controls">
           {view.isHost && (
             <>
@@ -424,7 +117,7 @@ export function BoardPlaying({
                 className="btn ghost"
                 onClick={() => void sendCommand(socket.current, { type: 'FORCE_ROUND' })}
               >
-                {settings.variant === 'sequential' ? 'Passer le tour' : 'Résoudre la salve'}
+                {isSalvo ? 'Résoudre la salve' : 'Passer le tour'}
               </button>
               <button
                 className="btn danger"
@@ -441,10 +134,46 @@ export function BoardPlaying({
             <SoundButton />
             <FeedbackButton />
           </span>
-          {layout !== 'p3' && foot}
+          {layout !== 'p3' && followUrl}
         </div>
       </aside>
       <FxLayer />
+    </div>
+  );
+}
+
+/** Tour par tour : le joueur qui choisit sa cible. */
+function ActiveTurn({
+  player,
+  compact,
+  timer,
+}: {
+  player: PublicPlayer | undefined;
+  compact: boolean;
+  timer: string;
+}) {
+  if (!player) return <div className="turn dimmable" />;
+  const avatar = <PlayerAvatar player={player} size="xl" />;
+  const sub = <p className="sub">choisit sa cible{timer}</p>;
+  return (
+    <div className="turn dimmable">
+      {compact ? (
+        <>
+          {avatar}
+          <div className="txt">
+            <span className="label">Au tour de</span>
+            <h3>{player.name}</h3>
+            {sub}
+          </div>
+        </>
+      ) : (
+        <>
+          <span className="label">Au tour de</span>
+          {avatar}
+          <h3>{player.name}</h3>
+          {sub}
+        </>
+      )}
     </div>
   );
 }

@@ -1,27 +1,18 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { io as connect, type Socket } from 'socket.io-client';
-import type { Ack, Command } from '@navale/protocol';
-import { createApp } from '../src/app.js';
 import { basicCredentials } from '../src/http/admin.js';
 import { parisDay } from '../src/admin/stats.js';
+import {
+  command,
+  createGame,
+  open as openClient,
+  startServer,
+  until,
+  type TestServer,
+} from './support.js';
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-async function until(pred: () => boolean | Promise<boolean>, ms = 3000): Promise<void> {
-  const t0 = Date.now();
-  while (!(await pred())) {
-    if (Date.now() - t0 > ms) throw new Error('délai dépassé');
-    await sleep(10);
-  }
-}
-const command = (socket: Socket, cmd: Command) =>
-  new Promise<Ack>((resolve) => socket.emit('command', cmd, (ack: Ack) => resolve(ack)));
-function open(baseUrl: string, auth: Record<string, unknown>): Promise<Socket> {
-  return new Promise((resolve, reject) => {
-    const socket = connect(baseUrl, { auth, transports: ['websocket'], reconnection: false });
-    socket.on('rejected', (err: { code: string }) => reject(new Error(err.code)));
-    socket.once('snapshot', () => resolve(socket));
-  });
-}
+/** Ici, seule la connexion compte, pas ce qu'elle reçoit. */
+const open = async (baseUrl: string, auth: Record<string, unknown>) =>
+  (await openClient(baseUrl, auth)).socket;
 const basic = (user: string, password: string) =>
   `Basic ${Buffer.from(`${user}:${password}`).toString('base64')}`;
 /** Valeur d'une tuile repérée par `data-stat`. */
@@ -31,32 +22,11 @@ function stat(html: string, name: string): number {
   return Number(m[1].replace(/\s/g, ''));
 }
 
-type App = Awaited<ReturnType<typeof createApp>>;
 async function boot(adminPassword: string | null) {
-  const app = await createApp(
-    {
-      port: 0,
-      dataDir: '/tmp',
-      publicUrl: 'https://navale.test',
-      logLevel: 'silent',
-      adminUser: 'antoine',
-      adminPassword,
-    },
-    ':memory:',
-    { botThinkMs: () => 0 },
-  );
-  await app.listen();
-  const address = app.app.server.address();
-  if (!address || typeof address === 'string') throw new Error('adresse inconnue');
-  return { app, baseUrl: `http://127.0.0.1:${address.port}` };
-}
-async function createGame(baseUrl: string) {
-  const res = await fetch(`${baseUrl}/api/games`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ settings: { variant: 'sequential', maxPlayers: 2, revealDelayMs: 0 } }),
+  const { server, baseUrl } = await startServer({
+    config: { adminUser: 'antoine', adminPassword },
   });
-  return (await res.json()) as { gameId: string; code: string; hostToken: string };
+  return { app: server, baseUrl };
 }
 
 describe('accès à /admin', () => {
@@ -128,7 +98,7 @@ describe('accès à /admin', () => {
 });
 
 describe('chiffres de /admin', () => {
-  let app: App;
+  let app: TestServer;
   let baseUrl: string;
   const page = async () => {
     const res = await app.app.inject({
@@ -197,7 +167,7 @@ describe('chiffres de /admin', () => {
 
   it('liste les retours, échappés, avec leur contexte', async () => {
     expect(stat(await page(), 'feedback-total')).toBe(0);
-    app.store.saveFeedback({
+    app.feedback.save({
       at: Date.now(),
       message: 'Le tir <script>alert(1)</script> part deux fois',
       email: 'julie@exemple.fr',

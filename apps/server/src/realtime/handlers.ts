@@ -1,67 +1,80 @@
-import type { Server, Socket } from 'socket.io';
-import type { Actor } from '@navale/engine';
-import { CommandSchema, type Ack, type Command } from '@navale/protocol';
-import type { Publisher, SocketData } from '../runtime/publisher.js';
+import { HOST_COMMANDS, type Actor } from '@navale/engine';
+import {
+  CommandSchema,
+  type Ack,
+  type Command,
+  type GameEvent,
+  type GameEventOf,
+  type Joined,
+} from '@navale/protocol';
+import type { Publisher } from '../runtime/publisher.js';
 import type { GameRegistry } from '../store/registry.js';
 import { AuthError, resolveAuth } from './auth.js';
 import type { PresenceTracker } from './presence.js';
-
-const HOST_ONLY = new Set<Command['type']>([
-  'START_GAME',
-  'KICK_PLAYER',
-  'ADD_BOT',
-  'REMOVE_BOT',
-  'FORCE_ROUND',
-  'CANCEL_GAME',
-  'REMATCH',
-]);
+import { gameRoom, playerRoom } from './rooms.js';
+import type { GameServer, GameSocket, SocketData } from './types.js';
 
 type AckFn = (ack: Ack) => void;
 
+/**
+ * Qui envoie la commande, d'après la connexion seulement : un client ne peut pas se
+ * faire passer pour un autre joueur ou pour l'hôte en l'écrivant dans le message.
+ * Le moteur refuse ensuite, avec son propre motif, ce que cet acteur n'a pas le droit de faire.
+ */
+function actorFor(command: Command, connection: SocketData): Actor {
+  if (connection.isHost && HOST_COMMANDS.has(command.type)) return { kind: 'host' };
+  if (connection.playerId) return { kind: 'player', playerId: connection.playerId };
+  return { kind: 'join' };
+}
+
+function findEvent<T extends GameEvent['type']>(
+  events: GameEvent[],
+  type: T,
+): GameEventOf<T> | undefined {
+  return events.find((e): e is GameEventOf<T> => e.type === type);
+}
+
 export function registerSockets(
-  io: Server,
+  io: GameServer,
   registry: GameRegistry,
   publisher: Publisher,
   presence: PresenceTracker,
 ): void {
-  io.on('connection', (socket: Socket) => {
+  io.on('connection', (socket) => {
     let resolved: ReturnType<typeof resolveAuth>;
     try {
       resolved = resolveAuth(socket.handshake.auth, registry);
     } catch (err) {
-      const code = err instanceof AuthError ? err.code : 'BAD_REQUEST';
       socket.emit('rejected', {
-        code,
+        code: err instanceof AuthError ? err.code : 'BAD_REQUEST',
         message: err instanceof Error ? err.message : 'Connexion refusée.',
       });
       socket.disconnect(true);
       return;
     }
-    const { runtime } = resolved;
-    const data: SocketData = resolved.data;
+    const { runtime, data } = resolved;
     socket.data = data;
-    void socket.join(`game:${data.gameId}`);
-    if (data.playerId) {
-      void socket.join(`player:${data.playerId}`);
-      presence.add(data.gameId, data.playerId);
-    }
+    void socket.join(gameRoom(data.gameId));
+    if (data.playerId) bindPlayer(socket, data.playerId);
     publisher.sendSnapshot(socket, runtime);
 
+    // Le type annonce une `Command`, mais rien ne garantit ce que le client envoie
+    // réellement : la commande est validée par Zod, et l'accusé peut manquer.
     socket.on('command', (raw: unknown, ack?: AckFn) => {
       void handleCommand(socket, raw, typeof ack === 'function' ? ack : () => undefined);
     });
 
     socket.on('disconnect', () => {
-      const d = socket.data as SocketData;
-      if (d.playerId) presence.remove(d.gameId, d.playerId);
+      if (socket.data.playerId) presence.remove(socket.data.gameId, socket.data.playerId);
     });
   });
 
-  async function handleCommand(socket: Socket, raw: unknown, ack: AckFn): Promise<void> {
-    const data = socket.data as SocketData;
+  async function handleCommand(socket: GameSocket, raw: unknown, ack: AckFn): Promise<void> {
+    const data = socket.data;
     const runtime = registry.get(data.gameId);
     if (!runtime)
       return ack({ ok: false, error: { code: 'CODE_UNKNOWN', message: 'Partie introuvable.' } });
+
     const parsed = CommandSchema.safeParse(raw);
     if (!parsed.success) {
       return ack({
@@ -80,68 +93,55 @@ export function registerSockets(
       return ack({ ok: true });
     }
 
-    let actor: Actor;
-    if (command.type === 'JOIN_GAME') {
-      if (data.playerId)
-        return ack({
-          ok: false,
-          error: { code: 'WRONG_STATE', message: 'Tu es déjà dans la partie.' },
-        });
-      actor = { kind: 'join' };
-    } else if (HOST_ONLY.has(command.type)) {
-      if (!data.isHost)
-        return ack({
-          ok: false,
-          error: { code: 'NOT_HOST', message: 'Réservé à l’hôte de la partie.' },
-        });
-      actor = { kind: 'host' };
-    } else {
-      if (!data.playerId)
-        return ack({
-          ok: false,
-          error: { code: 'WRONG_STATE', message: 'Cette commande vient d’un joueur.' },
-        });
-      actor = { kind: 'player', playerId: data.playerId };
-    }
-
-    const decision = await runtime.handle(actor, command);
+    const decision = await runtime.handle(actorFor(command, data), command);
     if (!decision.ok) return ack({ ok: false, error: decision.rejection });
 
-    if (command.type === 'JOIN_GAME') {
-      const joined = decision.events.find((e) => e.type === 'PLAYER_JOINED');
-      if (joined?.type === 'PLAYER_JOINED') {
+    // Effets sur les connexions, que le moteur ne connaît pas : rooms, présence, jetons.
+    switch (command.type) {
+      case 'JOIN_GAME': {
+        const joined = findEvent(decision.events, 'PLAYER_JOINED');
+        if (!joined) break;
         const playerToken = registry.issueToken(data.gameId, 'player', joined.playerId);
-        data.playerId = joined.playerId;
-        void socket.join(`player:${joined.playerId}`);
-        presence.add(data.gameId, joined.playerId);
-        ack({ ok: true, data: { playerId: joined.playerId, playerToken } });
+        bindPlayer(socket, joined.playerId);
+        ack({ ok: true, data: { playerId: joined.playerId, playerToken } satisfies Joined });
         publisher.sendSnapshot(socket, runtime);
         return;
       }
-    }
-    if (command.type === 'LEAVE_GAME' && data.playerId) {
-      unbindPlayer(socket, data.playerId);
-    }
-    if ((command.type === 'KICK_PLAYER' || command.type === 'REMOVE_BOT') && decision.ok) {
-      const removed = decision.events.find(
-        (e) => e.type === 'PLAYER_KICKED' || e.type === 'PLAYER_LEFT',
-      );
-      if (removed && 'playerId' in removed) {
-        registry.revokePlayer(data.gameId, removed.playerId);
-        for (const s of await io.in(`player:${removed.playerId}`).fetchSockets()) {
-          s.emit('removed', { reason: 'kicked' });
-          s.disconnect(true);
-        }
+      case 'LEAVE_GAME':
+        if (data.playerId) unbindPlayer(socket, data.playerId);
+        break;
+      case 'KICK_PLAYER':
+      case 'REMOVE_BOT': {
+        const removed =
+          findEvent(decision.events, 'PLAYER_KICKED') ?? findEvent(decision.events, 'PLAYER_LEFT');
+        if (removed) await disconnectPlayer(data.gameId, removed.playerId);
+        break;
       }
     }
     ack({ ok: true });
   }
 
-  function unbindPlayer(socket: Socket, playerId: string): void {
-    const data = socket.data as SocketData;
-    registry.revokePlayer(data.gameId, playerId);
-    presence.remove(data.gameId, playerId);
-    void socket.leave(`player:${playerId}`);
-    data.playerId = null;
+  /** La connexion devient celle d'un joueur : room privée et présence. */
+  function bindPlayer(socket: GameSocket, playerId: string): void {
+    socket.data.playerId = playerId;
+    void socket.join(playerRoom(playerId));
+    presence.add(socket.data.gameId, playerId);
+  }
+
+  /** Le joueur quitte la partie de lui-même : son jeton ne sert plus, la connexion reste ouverte. */
+  function unbindPlayer(socket: GameSocket, playerId: string): void {
+    registry.revokePlayer(socket.data.gameId, playerId);
+    presence.remove(socket.data.gameId, playerId);
+    void socket.leave(playerRoom(playerId));
+    socket.data.playerId = null;
+  }
+
+  /** L'hôte a retiré le joueur : jeton révoqué, téléphones prévenus puis déconnectés. */
+  async function disconnectPlayer(gameId: string, playerId: string): Promise<void> {
+    registry.revokePlayer(gameId, playerId);
+    for (const socket of await io.in(playerRoom(playerId)).fetchSockets()) {
+      socket.emit('removed', { reason: 'kicked' });
+      socket.disconnect(true);
+    }
   }
 }

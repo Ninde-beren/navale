@@ -1,14 +1,32 @@
-import type { BoardView, PlayerView, PublicPlayer, PublicRound } from '@navale/protocol';
+import type {
+  BoardView,
+  GameEvent,
+  PlayerView,
+  PublicPlayer,
+  PublicRound,
+  VisibleEvent,
+} from '@navale/protocol';
 import type { Presence } from '../core/definition.js';
+import { startBlocker } from './rules/start.js';
 import { legalTargets } from './rules/targets.js';
-import { cellsRemaining, isSunk, shipsRemaining, type GameState, type Player } from './state.js';
+import {
+  cellsRemaining,
+  isSunk,
+  playerById,
+  shipsRemaining,
+  sunkInfo,
+  type GameState,
+  type Player,
+} from './state.js';
 
-/**
- * La frontière public / privé est ici et nulle part ailleurs. `projectPublic`
- * ne lit `player.fleet` que pour compter les bateaux et décrire les coulés.
+/*
+ * La frontière public / privé est ici et nulle part ailleurs : les vues de l'état
+ * (`projectPublic`, `projectPrivate`) et celles des événements (`publicEvent`,
+ * `privateRecipient`). `projectPublic` ne lit `player.fleet` que pour compter les
+ * bateaux et décrire les coulés.
  */
+
 function publicPlayer(state: GameState, p: Player, presence: Presence): PublicPlayer {
-  const classic = state.settings.sunkReveal === 'classic';
   return {
     playerId: p.playerId,
     name: p.name,
@@ -19,13 +37,7 @@ function publicPlayer(state: GameState, p: Player, presence: Presence): PublicPl
     connected: p.kind === 'bot' ? true : (presence[p.playerId] ?? false),
     shipsRemaining: shipsRemaining(p),
     revealed: p.shotsReceived.map((s) => ({ coord: s.coord, result: s.result })),
-    sunkShips: p.fleet
-      .filter(isSunk)
-      .map((s) =>
-        classic
-          ? { shipId: s.shipId, size: s.size, cells: s.cells }
-          : { shipId: s.shipId, size: s.size },
-      ),
+    sunkShips: p.fleet.filter(isSunk).map((ship) => sunkInfo(state.settings, ship)),
     rank: p.rank,
   };
 }
@@ -57,6 +69,7 @@ export function projectPublic(state: GameState, presence: Presence = {}): BoardV
     settings: state.settings,
     players: state.players.map((p) => publicPlayer(state, p, presence)),
     round: publicRound(state),
+    startBlocker: startBlocker(state),
     lastShots: lastShots(state),
     ranking: state.ranking,
     isHost: false,
@@ -69,7 +82,7 @@ export function projectPrivate(
   playerId: string,
   presence: Presence = {},
 ): PlayerView {
-  const me = state.players.find((p) => p.playerId === playerId);
+  const me = playerById(state, playerId);
   if (!me) throw new Error(`projectPrivate : joueur inconnu ${playerId}`);
   const { kind: _kind, ...board } = projectPublic(state, presence);
   const round = state.round;
@@ -88,4 +101,32 @@ export function projectPrivate(
       canFire: state.status === 'PLAYING' && me.status === 'ALIVE' && expected && pending === null,
     },
   };
+}
+
+/** Ce que l'écran central et les autres joueurs voient d'un événement : sans ses champs privés. */
+export function publicEvent(event: GameEvent): VisibleEvent {
+  switch (event.type) {
+    case 'FLEET_PLACED': {
+      const { ships: _ships, ...placed } = event;
+      return placed;
+    }
+    case 'SHOT_COMMITTED': {
+      const { targetId: _targetId, coord: _coord, ...committed } = event;
+      return committed;
+    }
+    default:
+      return event;
+  }
+}
+
+/** Le seul joueur qui reçoit l'événement complet, quand il a une part privée. */
+export function privateRecipient(event: GameEvent): string | null {
+  switch (event.type) {
+    case 'FLEET_PLACED':
+      return event.playerId;
+    case 'SHOT_COMMITTED':
+      return event.shooterId;
+    default:
+      return null;
+  }
 }

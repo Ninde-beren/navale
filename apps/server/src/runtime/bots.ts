@@ -7,64 +7,63 @@ export function defaultThinkMs(variant: Variant): number {
   return 1000 + Math.random() * (variant === 'simultaneous' ? 2000 : 1000);
 }
 
+export interface BotDriverOptions {
+  /** Quand l'écran central aura fini d'annoncer les tirs déjà publiés (`Publisher.settledAt`). */
+  settledAt: (gameId: string) => number;
+  thinkMs?: (variant: Variant) => number;
+  log?: (message: string) => void;
+}
+
 /**
- * Pilote des bots : à chaque manche où un bot est attendu, attend la fin de la
- * cadence de publication puis un délai de réflexion, et envoie FIRE par la même
- * voie qu'un humain, à partir de la seule vue privée du bot (ADR-012).
+ * Pilote des bots : à chaque manche où un bot est attendu, attend que l'écran
+ * central ait fini d'annoncer, puis un délai de réflexion, et envoie FIRE par la
+ * même voie qu'un humain, à partir de la seule vue privée du bot (ADR-012).
  */
 export class BotDriver {
+  /** Un tir programmé par bot, sous la clé `gameId:botId`. */
   private readonly timers = new Map<string, NodeJS.Timeout>();
+  private readonly settledAt: (gameId: string) => number;
+  private readonly thinkMs: (variant: Variant) => number;
+  private readonly log: (message: string) => void;
 
-  constructor(
-    private readonly thinkMs: (variant: Variant) => number = defaultThinkMs,
-    private readonly log: (msg: string) => void = () => undefined,
-  ) {}
+  constructor(options: BotDriverOptions) {
+    this.settledAt = options.settledAt;
+    this.thinkMs = options.thinkMs ?? defaultThinkMs;
+    this.log = options.log ?? (() => undefined);
+  }
 
   onEvents(runtime: GameRuntime, envelopes: EventEnvelope[]): void {
-    if (
-      envelopes.some((e) => e.event.type === 'GAME_FINISHED' || e.event.type === 'GAME_CANCELLED')
-    ) {
+    const events = envelopes.map((e) => e.event);
+    if (events.some((e) => e.type === 'GAME_FINISHED' || e.type === 'GAME_CANCELLED')) {
       this.cancel(runtime.gameId);
       return;
     }
-    const shots = envelopes.filter((e) => e.event.type === 'SHOT_RESOLVED').length;
-    const started = envelopes
-      .map((e) => e.event)
-      .find((e): e is GameEventOf<'ROUND_STARTED'> => e.type === 'ROUND_STARTED');
-    if (started)
-      this.schedule(
-        runtime,
-        started.round,
-        started.expectedShooters,
-        shots * runtime.state.settings.revealDelayMs,
-      );
+    const started = events.find(
+      (e): e is GameEventOf<'ROUND_STARTED'> => e.type === 'ROUND_STARTED',
+    );
+    if (started) this.schedule(runtime, started.round, started.expectedShooters);
   }
 
   /** Reprise après redémarrage : les bots attendus dans la manche courante rejouent. */
   resume(runtime: GameRuntime): void {
-    const round = runtime.state.round;
-    if (runtime.state.status === 'PLAYING' && round)
-      this.schedule(runtime, round.index, round.expectedShooters, 0);
+    const { status, round } = runtime.state;
+    if (status === 'PLAYING' && round) this.schedule(runtime, round.index, round.expectedShooters);
   }
 
-  private schedule(
-    runtime: GameRuntime,
-    roundIndex: number,
-    expected: string[],
-    baseDelay: number,
-  ): void {
-    for (const id of expected) {
-      const p = runtime.state.players.find((x) => x.playerId === id);
-      if (!p || p.kind !== 'bot' || runtime.state.round?.committed[id]) continue;
-      const key = `${runtime.gameId}:${id}`;
-      const existing = this.timers.get(key);
-      if (existing) clearTimeout(existing);
+  private schedule(runtime: GameRuntime, roundIndex: number, expectedShooters: string[]): void {
+    const { state, gameId } = runtime;
+    const announced = Math.max(0, this.settledAt(gameId) - Date.now());
+    for (const botId of expectedShooters) {
+      const bot = state.players.find((p) => p.playerId === botId);
+      if (bot?.kind !== 'bot' || state.round?.committed[botId]) continue;
+      const key = `${gameId}:${botId}`;
+      clearTimeout(this.timers.get(key));
       const timer = setTimeout(
         () => {
           this.timers.delete(key);
-          void this.fire(runtime, id, roundIndex);
+          void this.fire(runtime, botId, roundIndex);
         },
-        baseDelay + this.thinkMs(runtime.state.settings.variant),
+        announced + this.thinkMs(state.settings.variant),
       );
       this.timers.set(key, timer);
     }
@@ -76,18 +75,19 @@ export class BotDriver {
     roundIndex: number,
     attempt = 0,
   ): Promise<void> {
-    const s = runtime.state;
-    if (s.status !== 'PLAYING' || !s.round || s.round.index !== roundIndex) return;
-    if (!s.round.expectedShooters.includes(botId) || s.round.committed[botId]) return;
-    const shot = chooseShot(battleship.projectPrivate(s, botId), Math.random);
+    const { state } = runtime;
+    const round = state.round;
+    if (state.status !== 'PLAYING' || round?.index !== roundIndex) return;
+    if (!round.expectedShooters.includes(botId) || round.committed[botId]) return;
+    const shot = chooseShot(battleship.projectPrivate(state, botId), Math.random);
     if (!shot) return;
-    const d = await runtime.handle(
+    const decision = await runtime.handle(
       { kind: 'player', playerId: botId },
       { type: 'FIRE', targetId: shot.targetId, coord: shot.coord },
     );
-    if (!d.ok) {
+    if (!decision.ok) {
       // Un refus ici est une erreur de programmation de la stratégie : on le journalise et on retire une fois.
-      this.log(`bot ${botId} refusé (${d.rejection.code}) : ${d.rejection.message}`);
+      this.log(`bot ${botId} refusé (${decision.rejection.code}) : ${decision.rejection.message}`);
       if (attempt < 1) await this.fire(runtime, botId, roundIndex, attempt + 1);
     }
   }
@@ -102,7 +102,7 @@ export class BotDriver {
   }
 
   close(): void {
-    for (const t of this.timers.values()) clearTimeout(t);
+    for (const timer of this.timers.values()) clearTimeout(timer);
     this.timers.clear();
   }
 }

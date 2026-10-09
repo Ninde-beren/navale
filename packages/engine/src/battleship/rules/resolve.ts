@@ -1,11 +1,12 @@
-import type { ResolvedShot, Ship } from '@navale/protocol';
+import type { Coord, ResolvedShot, Ship } from '@navale/protocol';
 import type { GameState, Player } from '../state.js';
-import { cellsRemaining, sameCoord } from '../state.js';
+import { cellsRemaining, isSunk, playerById, sameCoord, sunkInfo } from '../state.js';
+import { tiedRanks } from './ranks.js';
 
 export interface ShotToResolve {
   shooterId: string;
   targetId: string;
-  coord: { x: number; y: number };
+  coord: Coord;
 }
 
 export interface RoundResolution {
@@ -34,7 +35,7 @@ export function resolveRound(state: GameState, shots: ShotToResolve[]): RoundRes
 
   const resolved: ResolvedShot[] = [];
   for (const shot of shots) {
-    const target = state.players.find((p) => p.playerId === shot.targetId);
+    const target = playerById(state, shot.targetId);
     if (!target) continue;
     const fleet = fleetOf(target);
     const ship = fleet.find((s) => s.cells.some((c) => sameCoord(c, shot.coord)));
@@ -58,30 +59,21 @@ export function resolveRound(state: GameState, shots: ShotToResolve[]): RoundRes
       coord: shot.coord,
       result: completes ? 'SUNK' : 'HIT',
     };
-    if (completes) {
-      entry.sunk =
-        state.settings.sunkReveal === 'classic'
-          ? { shipId: ship.shipId, size: ship.size, cells: ship.cells }
-          : { shipId: ship.shipId, size: ship.size };
-    }
+    if (completes) entry.sunk = sunkInfo(state.settings, ship);
     resolved.push(entry);
   }
 
   const dead = state.players.filter(
-    (p) =>
-      p.status === 'ALIVE' &&
-      working.has(p.playerId) &&
-      fleetOf(p).every((s) => s.hits.length >= s.size),
+    (p) => p.status === 'ALIVE' && working.has(p.playerId) && fleetOf(p).every(isSunk),
   );
   const aliveAfter = state.players.filter((p) => p.status === 'ALIVE').length - dead.length;
   // Même manche : classement aux cases restantes avant la manche, égalité possible.
   const sorted = [...dead].sort((a, b) => cellsRemaining(b) - cellsRemaining(a));
-  const eliminated: Array<{ playerId: string; rank: number }> = [];
-  let rank = aliveAfter + 1;
-  sorted.forEach((p, i) => {
-    const prev = sorted[i - 1];
-    if (prev && cellsRemaining(prev) !== cellsRemaining(p)) rank = aliveAfter + 1 + i;
-    eliminated.push({ playerId: p.playerId, rank });
-  });
+  const ranks = tiedRanks(
+    sorted,
+    (a, b) => cellsRemaining(a) === cellsRemaining(b),
+    aliveAfter + 1,
+  );
+  const eliminated = sorted.map((p, i) => ({ playerId: p.playerId, rank: ranks[i]! }));
   return { resolved, eliminated };
 }

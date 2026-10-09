@@ -1,12 +1,7 @@
-import type { Coord, ShotResult } from '@navale/protocol';
+import type { ResolvedShot } from '@navale/protocol';
 
-export interface ShotFxShot {
-  round: number;
-  shooterId: string;
-  targetId: string;
-  coord: Coord;
-  result: ShotResult;
-}
+/** Un tir résolu, tel que la séquence l'anime. */
+export type ShotFxShot = Omit<ResolvedShot, 'sunk'>;
 
 export interface ShotFxHooks {
   /** Au départ du missile : son, compteur de résolution en salve. */
@@ -17,7 +12,7 @@ export interface ShotFxHooks {
   onCallout: (shot: ShotFxShot | null) => void;
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Séquence d'un tir sur l'écran central, reprise de la maquette (`docs/maquettes/fx.js`) :

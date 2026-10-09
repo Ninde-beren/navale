@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import clsx from 'clsx';
 
 /**
  * Faux chargement au début de la partie : le fanion, la marque et une barre qui
@@ -15,7 +16,7 @@ export function Splash({
 }) {
   return (
     <div
-      className={`splash ${phone ? 'phone' : ''}`}
+      className={clsx('splash', phone && 'phone')}
       style={{ '--d': `${duration}ms` } as CSSProperties}
       role="status"
       aria-live="polite"

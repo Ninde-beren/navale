@@ -1,17 +1,45 @@
-import type { ColorId, Command, CommandOf, GameEvent, GameEventOf } from '@navale/protocol';
+import type { Actor, ColorId, Command, CommandOf, GameEvent, GameEventOf } from '@navale/protocol';
 import type { DecideContext, Decision } from '../core/definition.js';
 import { ok, reject } from '../core/definition.js';
+import { botReadyEvents } from './bot/arrival.js';
 import { BOT_NAMES } from './bot/names.js';
 import { evolve } from './evolve.js';
-import { randomFleet, validateFleet } from './placement.js';
+import { validateFleet } from './placement.js';
 import { computeRanking, isFinishedAfterRound } from './rules/end.js';
 import { resolveRound, type ShotToResolve } from './rules/resolve.js';
+import { startBlocker } from './rules/start.js';
 import { legalTargets } from './rules/targets.js';
 import { nextShooters, resolutionOrder } from './rules/turn-order.js';
-import { inBounds, playerById, sameCoord, type GameState, type Player } from './state.js';
+import {
+  inBounds,
+  playerById,
+  sameCoord,
+  type GameState,
+  type Player,
+  type Round,
+} from './state.js';
 
-type D = Decision<GameEvent>;
+type BattleshipDecision = Decision<GameEvent>;
 
+/** Commandes réservées à l'hôte. Le serveur s'en sert aussi pour donner son rôle à une connexion. */
+export const HOST_COMMANDS: ReadonlySet<Command['type']> = new Set([
+  'KICK_PLAYER',
+  'ADD_BOT',
+  'REMOVE_BOT',
+  'START_GAME',
+  'FORCE_ROUND',
+  'CANCEL_GAME',
+  'REMATCH',
+]);
+
+/** Commandes d'hôte que le serveur envoie lui-même : chrono de manche, expiration. */
+const SYSTEM_COMMANDS: ReadonlySet<Command['type']> = new Set(['FORCE_ROUND', 'CANCEL_GAME']);
+
+function actsAsHost(actor: Actor, command: Command['type']): boolean {
+  return actor.kind === 'host' || (actor.kind === 'system' && SYSTEM_COMMANDS.has(command));
+}
+
+/** Couleur donnée à un bot : la première libre, dans l'ordre de `COLOR_IDS` du protocole. */
 const COLORS = [
   'red',
   'blue',
@@ -24,7 +52,9 @@ const COLORS = [
 ] as const satisfies readonly ColorId[];
 
 /** Une fonction par commande. Toute règle de jeu passe par ici. */
-export function decide(state: GameState, command: Command, ctx: DecideContext): D {
+export function decide(state: GameState, command: Command, ctx: DecideContext): BattleshipDecision {
+  if (HOST_COMMANDS.has(command.type) && !actsAsHost(ctx.actor, command.type))
+    return reject('NOT_HOST', 'Réservé à l’hôte de la partie.');
   switch (command.type) {
     case 'JOIN_GAME':
       return joinGame(state, command, ctx);
@@ -37,11 +67,11 @@ export function decide(state: GameState, command: Command, ctx: DecideContext): 
     case 'SET_READY':
       return setReady(state, command, ctx);
     case 'KICK_PLAYER':
-      return kickPlayer(state, command, ctx);
+      return kickPlayer(state, command);
     case 'ADD_BOT':
       return addBot(state, ctx);
     case 'REMOVE_BOT':
-      return removeBot(state, command, ctx);
+      return removeBot(state, command);
     case 'START_GAME':
       return startGame(state, ctx);
     case 'FIRE':
@@ -89,36 +119,34 @@ function isLastHuman(state: GameState, player: Player): boolean {
   return humans === 1 && bots > 0;
 }
 
-function actorPlayer(state: GameState, ctx: DecideContext): Player | D {
+function actorPlayer(state: GameState, ctx: DecideContext): Player | BattleshipDecision {
   if (ctx.actor.kind !== 'player')
     return reject('WRONG_STATE', 'Cette commande vient d’un joueur.');
   const p = playerById(state, ctx.actor.playerId);
   return p ?? reject('PLAYER_UNKNOWN', 'Joueur inconnu dans cette partie.');
 }
 
-function isDecision(x: Player | D): x is D {
+function isDecision(x: Player | BattleshipDecision): x is BattleshipDecision {
   return 'ok' in x;
 }
 
-function requireHost(ctx: DecideContext, allowSystem = false): D | null {
-  if (ctx.actor.kind === 'host') return null;
-  if (allowSystem && ctx.actor.kind === 'system') return null;
-  return reject('NOT_HOST', 'Réservé à l’hôte de la partie.');
-}
-
 function roundStarted(state: GameState, index: number, now: number): GameEventOf<'ROUND_STARTED'> {
-  const expectedShooters = nextShooters(state);
-  const legal: Record<string, string[]> = {};
-  for (const id of expectedShooters) legal[id] = legalTargets(state, id);
   const timer = state.settings.roundTimerSeconds;
   return {
     type: 'ROUND_STARTED',
     round: index,
-    expectedShooters,
+    expectedShooters: nextShooters(state),
     startedAt: now,
     deadline: timer === null ? null : now + timer * 1000,
-    legalTargets: legal,
   };
+}
+
+/** Les tirs engagés de la manche, dans l'ordre où ils seront résolus. */
+function committedShots(state: GameState, round: Round): ShotToResolve[] {
+  return resolutionOrder(state, round.index, Object.keys(round.committed)).map((shooterId) => ({
+    shooterId,
+    ...round.committed[shooterId]!,
+  }));
 }
 
 /**
@@ -164,7 +192,12 @@ function resolveAndAdvance(
 
 // ---- Lobby ---------------------------------------------------------------------
 
-function joinGame(state: GameState, command: CommandOf<'JOIN_GAME'>, ctx: DecideContext): D {
+function joinGame(
+  state: GameState,
+  command: CommandOf<'JOIN_GAME'>,
+  ctx: DecideContext,
+): BattleshipDecision {
+  if (ctx.actor.kind === 'player') return reject('WRONG_STATE', 'Tu es déjà dans la partie.');
   if (ctx.actor.kind !== 'join')
     return reject('WRONG_STATE', 'Seule une nouvelle connexion peut rejoindre.');
   if (state.status !== 'LOBBY') return reject('GAME_NOT_JOINABLE', 'La partie a déjà commencé.');
@@ -186,7 +219,7 @@ function joinGame(state: GameState, command: CommandOf<'JOIN_GAME'>, ctx: Decide
   ]);
 }
 
-function leaveGame(state: GameState, ctx: DecideContext): D {
+function leaveGame(state: GameState, ctx: DecideContext): BattleshipDecision {
   const me = actorPlayer(state, ctx);
   if (isDecision(me)) return me;
   if (state.status !== 'LOBBY')
@@ -200,7 +233,7 @@ function updateProfile(
   state: GameState,
   command: CommandOf<'UPDATE_PROFILE'>,
   ctx: DecideContext,
-): D {
+): BattleshipDecision {
   const me = actorPlayer(state, ctx);
   if (isDecision(me)) return me;
   if (state.status !== 'LOBBY') return reject('WRONG_STATE', 'Le profil se change au lobby.');
@@ -214,18 +247,26 @@ function updateProfile(
   return ok([{ type: 'PLAYER_PROFILE_UPDATED', playerId: me.playerId, name, color }]);
 }
 
-function placeFleet(state: GameState, command: CommandOf<'PLACE_FLEET'>, ctx: DecideContext): D {
+function placeFleet(
+  state: GameState,
+  command: CommandOf<'PLACE_FLEET'>,
+  ctx: DecideContext,
+): BattleshipDecision {
   const me = actorPlayer(state, ctx);
   if (isDecision(me)) return me;
   if (state.status !== 'LOBBY') return reject('WRONG_STATE', 'La flotte se place au lobby.');
   if (me.status !== 'PLACING')
     return reject('WRONG_STATE', 'Repasse en placement avant de modifier ta flotte.');
-  const v = validateFleet(state.settings, command.ships);
-  if (!v.ok) return reject('FLEET_INVALID', 'Flotte invalide.', v.errors);
-  return ok([{ type: 'FLEET_PLACED', playerId: me.playerId, ships: v.ships }]);
+  const fleet = validateFleet(state.settings, command.ships);
+  if (!fleet.ok) return reject('FLEET_INVALID', 'Flotte invalide.', fleet.errors);
+  return ok([{ type: 'FLEET_PLACED', playerId: me.playerId, ships: fleet.ships }]);
 }
 
-function setReady(state: GameState, command: CommandOf<'SET_READY'>, ctx: DecideContext): D {
+function setReady(
+  state: GameState,
+  command: CommandOf<'SET_READY'>,
+  ctx: DecideContext,
+): BattleshipDecision {
   const me = actorPlayer(state, ctx);
   if (isDecision(me)) return me;
   if (state.status !== 'LOBBY') return reject('WRONG_STATE', 'La partie a déjà commencé.');
@@ -236,9 +277,7 @@ function setReady(state: GameState, command: CommandOf<'SET_READY'>, ctx: Decide
   return ok([{ type: 'PLAYER_READY_CHANGED', playerId: me.playerId, ready: command.ready }]);
 }
 
-function kickPlayer(state: GameState, command: CommandOf<'KICK_PLAYER'>, ctx: DecideContext): D {
-  const denied = requireHost(ctx);
-  if (denied) return denied;
+function kickPlayer(state: GameState, command: CommandOf<'KICK_PLAYER'>): BattleshipDecision {
   if (state.status !== 'LOBBY') return reject('WRONG_STATE', 'On n’exclut qu’au lobby.');
   const target = playerById(state, command.playerId);
   if (!target) return reject('PLAYER_UNKNOWN', 'Joueur inconnu dans cette partie.');
@@ -247,9 +286,7 @@ function kickPlayer(state: GameState, command: CommandOf<'KICK_PLAYER'>, ctx: De
   return ok([{ type: 'PLAYER_KICKED', playerId: target.playerId }]);
 }
 
-function addBot(state: GameState, ctx: DecideContext): D {
-  const denied = requireHost(ctx);
-  if (denied) return denied;
+function addBot(state: GameState, ctx: DecideContext): BattleshipDecision {
   if (state.status !== 'LOBBY') return reject('WRONG_STATE', 'Les bots s’ajoutent au lobby.');
   if (state.players.length >= state.settings.maxPlayers)
     return reject('GAME_FULL', 'La partie est pleine.');
@@ -258,8 +295,6 @@ function addBot(state: GameState, ctx: DecideContext): D {
     return reject('GAME_FULL', 'Il faut garder une place pour un humain.');
   const name = BOT_NAMES.find((n) => !nameTaken(state, n)) ?? `Bot ${bots + 1}`;
   const playerId = ctx.newId();
-  const v = validateFleet(state.settings, randomFleet(state.settings, ctx.random));
-  if (!v.ok) return reject('FLEET_INVALID', 'Le placement automatique a échoué.', v.errors);
   return ok([
     {
       type: 'PLAYER_JOINED',
@@ -269,14 +304,11 @@ function addBot(state: GameState, ctx: DecideContext): D {
       seat: freeSeat(state),
       kind: 'bot',
     },
-    { type: 'FLEET_PLACED', playerId, ships: v.ships },
-    { type: 'PLAYER_READY_CHANGED', playerId, ready: true },
+    ...botReadyEvents(state.settings, playerId, ctx.random),
   ]);
 }
 
-function removeBot(state: GameState, command: CommandOf<'REMOVE_BOT'>, ctx: DecideContext): D {
-  const denied = requireHost(ctx);
-  if (denied) return denied;
+function removeBot(state: GameState, command: CommandOf<'REMOVE_BOT'>): BattleshipDecision {
   if (state.status !== 'LOBBY') return reject('WRONG_STATE', 'Les bots se retirent au lobby.');
   const target = playerById(state, command.playerId);
   if (!target) return reject('PLAYER_UNKNOWN', 'Joueur inconnu dans cette partie.');
@@ -284,17 +316,18 @@ function removeBot(state: GameState, command: CommandOf<'REMOVE_BOT'>, ctx: Deci
   return ok([{ type: 'PLAYER_LEFT', playerId: target.playerId }]);
 }
 
-function startGame(state: GameState, ctx: DecideContext): D {
-  const denied = requireHost(ctx);
-  if (denied) return denied;
+function startGame(state: GameState, ctx: DecideContext): BattleshipDecision {
   if (state.status !== 'LOBBY') return reject('WRONG_STATE', 'La partie a déjà commencé.');
-  if (state.players.length < 2)
-    return reject('NOT_ENOUGH_PLAYERS', 'Il faut au moins deux joueurs.');
-  if (!state.players.some((p) => p.kind === 'human'))
-    return reject('NOT_ENOUGH_PLAYERS', 'Il faut au moins un humain.');
-  const notReady = state.players.filter((p) => p.status !== 'READY').map((p) => p.playerId);
-  if (notReady.length > 0)
-    return reject('PLAYERS_NOT_READY', 'Tout le monde n’est pas prêt.', { players: notReady });
+  switch (startBlocker(state)) {
+    case 'NOT_ENOUGH_PLAYERS':
+      return reject('NOT_ENOUGH_PLAYERS', 'Il faut au moins deux joueurs.');
+    case 'NO_HUMAN':
+      return reject('NOT_ENOUGH_PLAYERS', 'Il faut au moins un humain.');
+    case 'PLAYERS_NOT_READY': {
+      const notReady = state.players.filter((p) => p.status !== 'READY').map((p) => p.playerId);
+      return reject('PLAYERS_NOT_READY', 'Tout le monde n’est pas prêt.', { players: notReady });
+    }
+  }
   const started: GameEvent = {
     type: 'GAME_STARTED',
     settings: state.settings,
@@ -307,7 +340,11 @@ function startGame(state: GameState, ctx: DecideContext): D {
 
 // ---- Partie ---------------------------------------------------------------------
 
-function fire(state: GameState, command: CommandOf<'FIRE'>, ctx: DecideContext): D {
+function fire(
+  state: GameState,
+  command: CommandOf<'FIRE'>,
+  ctx: DecideContext,
+): BattleshipDecision {
   const me = actorPlayer(state, ctx);
   if (isDecision(me)) return me;
   if (state.status !== 'PLAYING' || !state.round)
@@ -344,51 +381,34 @@ function fire(state: GameState, command: CommandOf<'FIRE'>, ctx: DecideContext):
     targetId: target.playerId,
     coord: command.coord,
   };
+  // Salve : le tir attend les autres ; le dernier engagé déclenche la résolution.
   const next = evolve(state, committed);
-  const all = next.round?.committed ?? {};
-  if (Object.keys(all).length < round.expectedShooters.length) return ok([committed]);
-  const order = resolutionOrder(next, round.index, Object.keys(all));
-  const shots = order.map((id) => ({
-    shooterId: id,
-    targetId: all[id]!.targetId,
-    coord: all[id]!.coord,
-  }));
-  return ok([committed, ...resolveAndAdvance(next, shots, [], ctx)]);
+  const nextRound = next.round ?? round;
+  if (Object.keys(nextRound.committed).length < round.expectedShooters.length)
+    return ok([committed]);
+  return ok([committed, ...resolveAndAdvance(next, committedShots(next, nextRound), [], ctx)]);
 }
 
-function forceRound(state: GameState, ctx: DecideContext): D {
-  const denied = requireHost(ctx, true);
-  if (denied) return denied;
+function forceRound(state: GameState, ctx: DecideContext): BattleshipDecision {
   if (state.status !== 'PLAYING' || !state.round)
     return reject('GAME_NOT_PLAYING', 'La partie n’est pas en cours.');
   const round = state.round;
-  const committedIds = Object.keys(round.committed);
-  const order = resolutionOrder(state, round.index, committedIds);
-  const shots = order.map((id) => ({
-    shooterId: id,
-    targetId: round.committed[id]!.targetId,
-    coord: round.committed[id]!.coord,
-  }));
   const skipped = round.expectedShooters.filter((id) => !round.committed[id]);
-  return ok(resolveAndAdvance(state, shots, skipped, ctx));
+  return ok(resolveAndAdvance(state, committedShots(state, round), skipped, ctx));
 }
 
 /**
  * La revanche : le moteur décide (hôte, partie terminée, une seule fois) et
  * nomme la nouvelle partie ; le serveur l'ouvre avec `rematchEvents`.
  */
-function rematch(state: GameState, ctx: DecideContext): D {
-  const denied = requireHost(ctx);
-  if (denied) return denied;
+function rematch(state: GameState, ctx: DecideContext): BattleshipDecision {
   if (state.status !== 'FINISHED')
     return reject('WRONG_STATE', 'La revanche se lance sur une partie terminée.');
   if (state.rematchGameId !== null) return reject('WRONG_STATE', 'La revanche est déjà lancée.');
   return ok([{ type: 'REMATCH_CREATED', newGameId: ctx.newId(), code: state.code }]);
 }
 
-function cancelGame(state: GameState, ctx: DecideContext): D {
-  const denied = requireHost(ctx, true);
-  if (denied) return denied;
+function cancelGame(state: GameState, ctx: DecideContext): BattleshipDecision {
   if (state.status !== 'LOBBY' && state.status !== 'PLAYING')
     return reject('WRONG_STATE', 'La partie est déjà terminée.');
   return ok([{ type: 'GAME_CANCELLED', reason: ctx.actor.kind === 'system' ? 'expired' : 'host' }]);

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import type { Command } from '@navale/protocol';
+import { HOST_COMMANDS } from '../src/battleship/decide.js';
+import { evolve } from '../src/battleship/evolve.js';
+import { projectPublic } from '../src/battleship/project.js';
 import { makeSettings } from '../src/battleship/settings.js';
-import { FIXED_QUICK, HOST, Harness, JOIN, player } from './helpers.js';
+import { FIXED_QUICK, HOST, Harness, JOIN, SYSTEM, player } from './helpers.js';
 
 const quick = () => makeSettings({ variant: 'sequential', maxPlayers: 3 }, 'quick');
 
@@ -127,6 +131,75 @@ describe('lobby', () => {
     const h = new Harness(makeSettings({ variant: 'sequential', maxPlayers: 2 }, 'quick'));
     h.expectOk(HOST, { type: 'ADD_BOT' });
     h.expectReject(HOST, { type: 'ADD_BOT' }, 'GAME_FULL');
+    h.expectReject(HOST, { type: 'START_GAME' }, 'NOT_ENOUGH_PLAYERS');
+  });
+});
+
+describe('rôles', () => {
+  it('réserve à l’hôte exactement les commandes de HOST_COMMANDS', () => {
+    const h = new Harness(quick());
+    const a = h.join('Antoine', 'red');
+    const hostOnly: Command[] = [
+      { type: 'KICK_PLAYER', playerId: a },
+      { type: 'ADD_BOT' },
+      { type: 'REMOVE_BOT', playerId: a },
+      { type: 'START_GAME' },
+      { type: 'FORCE_ROUND' },
+      { type: 'CANCEL_GAME' },
+      { type: 'REMATCH' },
+    ];
+    expect(hostOnly.map((c) => c.type).sort()).toEqual([...HOST_COMMANDS].sort());
+    for (const command of hostOnly) h.expectReject(player(a), command, 'NOT_HOST');
+  });
+
+  it('laisse le système forcer la manche et annuler, et rien d’autre', () => {
+    const h = new Harness(quick());
+    h.expectReject(SYSTEM, { type: 'START_GAME' }, 'NOT_HOST');
+    h.expectReject(SYSTEM, { type: 'FORCE_ROUND' }, 'GAME_NOT_PLAYING');
+    expect(h.expectOk(SYSTEM, { type: 'CANCEL_GAME' })).toEqual([
+      { type: 'GAME_CANCELLED', reason: 'expired' },
+    ]);
+  });
+
+  it('refuse à un joueur de rejoindre une seconde fois', () => {
+    const h = new Harness(quick());
+    const a = h.join('Antoine', 'red');
+    const d = h.run(player(a), { type: 'JOIN_GAME', name: 'Marc', color: 'blue' });
+    expect(d).toMatchObject({ ok: false, rejection: { message: 'Tu es déjà dans la partie.' } });
+  });
+});
+
+describe('lancement', () => {
+  it('dit dans la vue ce qui empêche encore de lancer', () => {
+    const h = new Harness(quick());
+    const blocker = () => projectPublic(h.state).startBlocker;
+    expect(blocker()).toBe('NOT_ENOUGH_PLAYERS');
+    const ids = [h.join('Antoine', 'red'), h.join('Julie', 'yellow')];
+    expect(blocker()).toBe('PLAYERS_NOT_READY');
+    for (const id of ids) {
+      h.place(id, FIXED_QUICK);
+      h.ready(id);
+    }
+    expect(blocker()).toBeNull();
+    h.start();
+    expect(blocker()).toBeNull();
+  });
+
+  it('refuse de lancer une table sans humain', () => {
+    // Inatteignable par les commandes (un bot laisse toujours une place à un humain) : on écrit le journal.
+    const h = new Harness(quick());
+    for (const [seat, playerId] of ['b1', 'b2'].entries()) {
+      h.state = evolve(h.state, {
+        type: 'PLAYER_JOINED',
+        playerId,
+        name: playerId,
+        color: seat === 0 ? 'red' : 'blue',
+        seat,
+        kind: 'bot',
+      });
+      h.state = evolve(h.state, { type: 'PLAYER_READY_CHANGED', playerId, ready: true });
+    }
+    expect(projectPublic(h.state).startBlocker).toBe('NO_HUMAN');
     h.expectReject(HOST, { type: 'START_GAME' }, 'NOT_ENOUGH_PLAYERS');
   });
 });

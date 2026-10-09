@@ -1,38 +1,27 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import QRCode from 'qrcode';
-import { z } from 'zod';
 import { makeSettings, validateSettings } from '@navale/engine';
 import {
-  EndConditionSchema,
+  CreateGameRequestSchema,
   GameSettingsSchema,
-  PresetIdSchema,
-  SalvoOrderSchema,
-  ShipSpecSchema,
-  SunkRevealSchema,
-  VariantSchema,
+  type CreateGameResponse,
+  type GameInfo,
 } from '@navale/protocol';
 import type { ServerConfig } from '../config.js';
-import { isValidCode, normalizeCode } from '../runtime/codes.js';
 import type { GameRegistry } from '../store/registry.js';
 
-export const CreateGameRequestSchema = z.object({
-  settings: z.object({
-    variant: VariantSchema,
-    maxPlayers: z.number().int().min(2).max(4),
-    endCondition: EndConditionSchema.optional(),
-    sunkReveal: SunkRevealSchema.optional(),
-    grid: z.object({ width: z.number().int(), height: z.number().int() }).optional(),
-    fleet: z.array(ShipSpecSchema).optional(),
-    shipsMayTouch: z.boolean().optional(),
-    roundTimerSeconds: z.number().int().nullable().optional(),
-    revealDelayMs: z.number().int().optional(),
-    salvoOrder: SalvoOrderSchema.optional(),
-  }),
-  preset: PresetIdSchema.optional(),
-});
+/**
+ * Parties créées par adresse IP : assez pour enchaîner les parties d'une soirée, même
+ * avec plusieurs tables sur le même Wi-Fi, mais pas pour remplir le journal par script.
+ */
+export const GAME_CREATION_LIMIT = { max: 30, timeWindow: '1 hour' };
 
-function compact<T extends object>(obj: T): Partial<T> {
-  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as Partial<T>;
+function badRequest(reply: FastifyReply, message: string, details: unknown) {
+  return reply.code(400).send({ code: 'BAD_REQUEST', message, details });
+}
+
+function unknownCode(reply: FastifyReply) {
+  return reply.code(404).send({ code: 'CODE_UNKNOWN', message: 'Aucune partie avec ce code.' });
 }
 
 export function registerGameRoutes(
@@ -47,69 +36,50 @@ export function registerGameRoutes(
     version: process.env.NAVALE_VERSION ?? 'dev',
   }));
 
-  app.post('/api/games', async (request, reply) => {
+  app.post('/api/games', { config: { rateLimit: GAME_CREATION_LIMIT } }, async (request, reply) => {
     const parsed = CreateGameRequestSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.code(400).send({
-        code: 'BAD_REQUEST',
-        message: 'Paramètres invalides.',
-        details: parsed.error.issues,
-      });
-    }
-    const { settings: input, preset } = parsed.data;
-    const built = GameSettingsSchema.safeParse(
-      makeSettings(
-        { ...compact(input), variant: input.variant, maxPlayers: input.maxPlayers },
-        preset,
-      ),
+    if (!parsed.success) return badRequest(reply, 'Paramètres invalides.', parsed.error.issues);
+    // Le preset complète les réglages choisis ; le résultat doit encore respecter le schéma…
+    const settings = GameSettingsSchema.safeParse(
+      makeSettings(parsed.data.settings, parsed.data.preset),
     );
-    if (!built.success) {
-      return reply.code(400).send({
-        code: 'BAD_REQUEST',
-        message: 'Paramètres invalides.',
-        details: built.error.issues,
-      });
-    }
-    const errors = validateSettings(built.data);
-    if (errors.length > 0) {
-      return reply
-        .code(400)
-        .send({ code: 'BAD_REQUEST', message: 'Paramètres incohérents.', details: errors });
-    }
-    const { runtime, hostToken } = registry.create(built.data);
-    return reply.code(201).send({
+    if (!settings.success) return badRequest(reply, 'Paramètres invalides.', settings.error.issues);
+    // …et les règles qui lient les champs entre eux (flotte qui tient dans la grille…).
+    const incoherent = validateSettings(settings.data);
+    if (incoherent.length > 0) return badRequest(reply, 'Paramètres incohérents.', incoherent);
+
+    const { runtime, hostToken } = registry.create(settings.data);
+    const created: CreateGameResponse = {
       gameId: runtime.gameId,
       code: runtime.code,
       hostToken,
       boardUrl: `${config.publicUrl}/board/${runtime.code}`,
       joinUrl: `${config.publicUrl}/play/${runtime.code}`,
-    });
+    };
+    return reply.code(201).send(created);
   });
 
   app.get<{ Params: { code: string } }>('/api/games/:code', async (request, reply) => {
-    const code = normalizeCode(request.params.code);
-    const runtime = isValidCode(code) ? registry.byActiveCode(code) : undefined;
-    if (!runtime)
-      return reply.code(404).send({ code: 'CODE_UNKNOWN', message: 'Aucune partie avec ce code.' });
-    const s = runtime.state;
-    return {
-      gameId: s.gameId,
-      code: s.code,
-      status: s.status,
-      players: s.players.length,
-      maxPlayers: s.settings.maxPlayers,
-      joinable: s.status === 'LOBBY' && s.players.length < s.settings.maxPlayers,
-      takenColors: s.players.map((p) => p.color),
-      takenNames: s.players.map((p) => p.name),
+    const runtime = registry.findByCode(request.params.code);
+    if (!runtime) return unknownCode(reply);
+    const { state } = runtime;
+    const info: GameInfo = {
+      gameId: state.gameId,
+      code: state.code,
+      status: state.status,
+      players: state.players.length,
+      maxPlayers: state.settings.maxPlayers,
+      joinable: state.status === 'LOBBY' && state.players.length < state.settings.maxPlayers,
+      takenColors: state.players.map((p) => p.color),
+      takenNames: state.players.map((p) => p.name),
     };
+    return info;
   });
 
   app.get<{ Params: { code: string } }>('/api/games/:code/qr.svg', async (request, reply) => {
-    const code = normalizeCode(request.params.code);
-    const runtime = isValidCode(code) ? registry.byActiveCode(code) : undefined;
-    if (!runtime)
-      return reply.code(404).send({ code: 'CODE_UNKNOWN', message: 'Aucune partie avec ce code.' });
-    const svg = await QRCode.toString(`${config.publicUrl}/play/${code}`, {
+    const runtime = registry.findByCode(request.params.code);
+    if (!runtime) return unknownCode(reply);
+    const svg = await QRCode.toString(`${config.publicUrl}/play/${runtime.code}`, {
       type: 'svg',
       margin: 1,
       errorCorrectionLevel: 'M',

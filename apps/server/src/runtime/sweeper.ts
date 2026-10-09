@@ -1,3 +1,4 @@
+import { battleship } from '@navale/engine';
 import type { GameRegistry } from '../store/registry.js';
 
 export interface ExpiryPolicy {
@@ -39,24 +40,21 @@ export class Sweeper {
     const forgotten: string[] = [];
     for (const runtime of this.registry.all()) {
       const idle = now - runtime.lastActivityAt;
-      const status = runtime.state.status;
-      if (
-        (status === 'LOBBY' && idle > this.policy.lobbyMs) ||
-        (status === 'PLAYING' && idle > this.policy.playingMs)
-      ) {
-        const d = await runtime.handle({ kind: 'system' }, { type: 'CANCEL_GAME' });
-        if (d.ok) {
-          cancelled.push(runtime.code);
-          this.log(
-            `partie ${runtime.code} expirée (${status}, ${Math.round(idle / 60000)} min d'inactivité)`,
-          );
+      const { status } = runtime.state;
+      if (battleship.isFinished(runtime.state)) {
+        if (idle > this.policy.finishedMs) {
+          this.registry.forget(runtime.gameId);
+          forgotten.push(runtime.code);
         }
-      } else if (
-        (status === 'FINISHED' || status === 'CANCELLED') &&
-        idle > this.policy.finishedMs
-      ) {
-        this.registry.forget(runtime.gameId);
-        forgotten.push(runtime.code);
+        continue;
+      }
+      if (idle <= (status === 'LOBBY' ? this.policy.lobbyMs : this.policy.playingMs)) continue;
+      const decision = await runtime.handle({ kind: 'system' }, { type: 'CANCEL_GAME' });
+      if (decision.ok) {
+        cancelled.push(runtime.code);
+        this.log(
+          `partie ${runtime.code} expirée (${status}, ${Math.round(idle / 60000)} min d'inactivité)`,
+        );
       }
     }
     return { cancelled, forgotten };

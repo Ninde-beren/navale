@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import clsx from 'clsx';
 import { FeedbackButton } from './Feedback.js';
 import { Wordmark } from './Wordmark.js';
 
@@ -34,7 +35,7 @@ export function Notice({
             {actions.map((a) => (
               <Link
                 key={a.to + a.label}
-                className={`btn ${a.primary ? 'primary' : 'ghost'}`}
+                className={clsx('btn', a.primary ? 'primary' : 'ghost')}
                 to={a.to}
               >
                 {a.label}

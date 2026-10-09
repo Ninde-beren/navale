@@ -1,7 +1,18 @@
 import { randomUUID } from 'node:crypto';
-import { battleship, type Actor, type Decision, type GameState } from '@navale/engine';
+import {
+  battleship,
+  type Actor,
+  type DecideContext,
+  type Decision,
+  type GameState,
+} from '@navale/engine';
 import type { Command, EventEnvelope, GameEvent } from '@navale/protocol';
 import type { EventStore } from '../store/event-store.js';
+
+/** Ce que le serveur fournit au moteur pour décider : l'heure, le hasard, les identifiants. */
+export function decideContext(actor: Actor, now: number): DecideContext {
+  return { actor, now, random: Math.random, newId: () => randomUUID() };
+}
 
 export interface RuntimeHooks {
   /** Appelé après chaque lot d'événements journalisés et appliqués. */
@@ -40,12 +51,7 @@ export class GameRuntime {
 
   private process(actor: Actor, command: Command): Decision<GameEvent> {
     const now = Date.now();
-    const decision = battleship.decide(this.state, command, {
-      actor,
-      now,
-      random: Math.random,
-      newId: () => randomUUID(),
-    });
+    const decision = battleship.decide(this.state, command, decideContext(actor, now));
     if (!decision.ok || decision.events.length === 0) return decision;
     const envelopes: EventEnvelope[] = decision.events.map((event, i) => ({
       seq: this.state.seq + i + 1,

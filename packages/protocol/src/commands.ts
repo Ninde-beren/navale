@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { BotLevelSchema, ColorIdSchema, CoordSchema, ShipPlacementSchema } from './common.js';
 
-const Name = z.string().trim().min(2).max(16);
+/** Longueur d'un pseudo : la même pour le formulaire et pour la validation. */
+export const PLAYER_NAME_LENGTH = { min: 2, max: 16 } as const;
+const Name = z.string().trim().min(PLAYER_NAME_LENGTH.min).max(PLAYER_NAME_LENGTH.max);
 
 /** Commandes : intentions envoyées par un client. Le serveur peut les refuser. */
 export const CommandSchema = z.discriminatedUnion('type', [
@@ -29,9 +31,13 @@ export type CommandOf<T extends Command['type']> = Extract<Command, { type: T }>
 
 /** Qui émet la commande. Déduit par le serveur du jeton de la connexion, jamais du payload. */
 export const ActorSchema = z.discriminatedUnion('kind', [
+  /** Un joueur inscrit, par son jeton. */
   z.object({ kind: z.literal('player'), playerId: z.string() }),
+  /** Le navigateur qui a créé la partie, pour les commandes réservées à l'hôte. */
   z.object({ kind: z.literal('host') }),
+  /** Le serveur lui-même : chrono de manche, expiration. */
   z.object({ kind: z.literal('system') }),
+  /** Une connexion qui n'est pas (encore) un joueur : téléphone qui va rejoindre, écran central. */
   z.object({ kind: z.literal('join') }),
 ]);
 export type Actor = z.infer<typeof ActorSchema>;

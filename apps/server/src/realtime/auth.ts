@@ -1,21 +1,7 @@
-import { z } from 'zod';
-import type { GameRegistry } from '../store/registry.js';
+import { SocketAuthSchema } from '@navale/protocol';
 import type { GameRuntime } from '../runtime/game-runtime.js';
-import { isValidCode, normalizeCode } from '../runtime/codes.js';
-import type { SocketData } from '../runtime/publisher.js';
-
-export const AuthSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('board'), code: z.string(), hostToken: z.string().optional() }),
-  z.object({
-    kind: z.literal('player'),
-    code: z.string().optional(),
-    token: z.string(),
-    hostToken: z.string().optional(),
-  }),
-  z.object({ kind: z.literal('host'), token: z.string() }),
-  z.object({ kind: z.literal('join'), code: z.string() }),
-]);
-export type SocketAuth = z.infer<typeof AuthSchema>;
+import type { GameRegistry } from '../store/registry.js';
+import type { SocketData } from './types.js';
 
 export class AuthError extends Error {
   constructor(
@@ -31,13 +17,12 @@ export function resolveAuth(
   raw: unknown,
   registry: GameRegistry,
 ): { runtime: GameRuntime; data: SocketData } {
-  const parsed = AuthSchema.safeParse(raw);
+  const parsed = SocketAuthSchema.safeParse(raw);
   if (!parsed.success) throw new AuthError('BAD_REQUEST', 'Paramètres de connexion invalides.');
   const auth = parsed.data;
 
   const byCode = (code: string): GameRuntime => {
-    const c = normalizeCode(code);
-    const runtime = isValidCode(c) ? registry.byActiveCode(c) : undefined;
+    const runtime = registry.findByCode(code);
     if (!runtime) throw new AuthError('CODE_UNKNOWN', 'Aucune partie avec ce code.');
     return runtime;
   };

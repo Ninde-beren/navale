@@ -3,17 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
-import { RateLimiter, feedbackMail } from '../src/http/feedback.js';
+import { FEEDBACK_LIMIT, FEEDBACK_TOTAL_LIMIT, feedbackMail } from '../src/http/feedback.js';
 import type { Mail, Mailer } from '../src/mail/mailer.js';
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-async function until(pred: () => boolean, ms = 2000): Promise<void> {
-  const t0 = Date.now();
-  while (!pred()) {
-    if (Date.now() - t0 > ms) throw new Error('délai dépassé');
-    await sleep(10);
-  }
-}
+import { sleep, until } from './support.js';
 
 /** Un transport qui garde les mails en mémoire, ou qui tombe en panne. */
 function fakeMailer(failing = false): Mailer & { sent: Mail[] } {
@@ -85,8 +77,8 @@ describe('POST /api/feedback', () => {
     expect(mail.text).toContain('Écran : 1366×657');
     expect(mail.text).toContain('Navigateur : Vitest/1.0');
 
-    await until(() => app.store.recentFeedback()[0]?.sentAt !== null);
-    const [record] = app.store.recentFeedback();
+    await until(() => app.feedback.recent()[0]?.sentAt !== null);
+    const [record] = app.feedback.recent();
     expect(record).toMatchObject({
       id: 1,
       message: 'Le callout cache la grille à trois joueurs.',
@@ -102,8 +94,8 @@ describe('POST /api/feedback', () => {
     const res = await post(app, body('Rien ne se perd.'));
     expect(res.statusCode).toBe(202);
     await sleep(50);
-    expect(app.store.recentFeedback()).toHaveLength(1);
-    expect(app.store.recentFeedback()[0]?.sentAt).toBeNull();
+    expect(app.feedback.recent()).toHaveLength(1);
+    expect(app.feedback.recent()[0]?.sentAt).toBeNull();
   });
 
   it('fonctionne sans SMTP : le retour reste en base, anonyme si aucune adresse', async () => {
@@ -111,11 +103,11 @@ describe('POST /api/feedback', () => {
     const res = await post(app, body('Un mot <b>gras</b> & une idée.', { email: '' }));
     expect(res.statusCode).toBe(202);
     expect(res.json()).toMatchObject({ mail: 'off' });
-    const [record] = app.store.recentFeedback();
+    const [record] = app.feedback.recent();
     expect(record?.email).toBeNull();
     expect(record?.message).toBe('Un mot <b>gras</b> & une idée.');
     expect(record?.sentAt).toBeNull();
-    expect(app.store.countFeedback()).toBe(1);
+    expect(app.feedback.count()).toBe(1);
   });
 
   it('refuse un message vide, trop long ou une adresse invalide', async () => {
@@ -124,12 +116,12 @@ describe('POST /api/feedback', () => {
     expect((await post(app, body('x'.repeat(2001)))).statusCode).toBe(400);
     expect((await post(app, body('Bonjour', { email: 'pas-une-adresse' }))).statusCode).toBe(400);
     expect((await post(app, { message: 'Bonjour' })).statusCode).toBe(400);
-    expect(app.store.recentFeedback()).toHaveLength(0);
+    expect(app.feedback.recent()).toHaveLength(0);
   });
 
-  it('limite à cinq retours par adresse, d’après le reverse proxy', async () => {
+  it('limite les retours par adresse, d’après le reverse proxy', async () => {
     const app = await boot(fakeMailer());
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < FEEDBACK_LIMIT.max; i++) {
       const res = await post(app, body(`Retour ${i}`), { 'x-forwarded-for': '203.0.113.7' });
       expect(res.statusCode).toBe(202);
     }
@@ -142,18 +134,23 @@ describe('POST /api/feedback', () => {
       'x-forwarded-for': '198.51.100.1, 203.0.113.7',
     });
     expect(spoofed.statusCode).toBe(429);
-    expect(app.store.recentFeedback()).toHaveLength(6);
+    expect(spoofed.json()).toMatchObject({ code: 'RATE_LIMITED' });
+    expect(app.feedback.recent()).toHaveLength(FEEDBACK_LIMIT.max + 1);
   });
-});
 
-describe('RateLimiter', () => {
-  it('oublie les passages hors fenêtre', () => {
-    const limiter = new RateLimiter(2, 1000);
-    expect(limiter.allow('a', 0)).toBe(true);
-    expect(limiter.allow('a', 100)).toBe(true);
-    expect(limiter.allow('a', 200)).toBe(false);
-    expect(limiter.allow('a', 1100)).toBe(true);
-    expect(limiter.allow('b', 200)).toBe(true);
+  it('plafonne les retours toutes adresses confondues', async () => {
+    const app = await boot(fakeMailer());
+    // Un robot qui change d'adresse avant d'atteindre la limite de chacune.
+    const address = (i: number) => `203.0.113.${Math.floor(i / FEEDBACK_LIMIT.max)}`;
+    for (let i = 0; i < FEEDBACK_TOTAL_LIMIT.max; i++) {
+      const res = await post(app, body(`Retour ${i}`), { 'x-forwarded-for': address(i) });
+      expect(res.statusCode).toBe(202);
+    }
+    const blocked = await post(app, body('Un de trop'), { 'x-forwarded-for': '198.51.100.9' });
+    expect(blocked.statusCode).toBe(429);
+    expect(blocked.headers['retry-after']).toBeDefined();
+    expect(blocked.json()).toMatchObject({ code: 'RATE_LIMITED' });
+    expect(app.feedback.recent(100)).toHaveLength(FEEDBACK_TOTAL_LIMIT.max);
   });
 });
 

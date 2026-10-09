@@ -1,11 +1,11 @@
-import { randomUUID } from 'node:crypto';
-import type { Server } from 'socket.io';
 import { rematchEvents } from '@navale/engine';
 import type { EventEnvelope } from '@navale/protocol';
 import type { PresenceTracker } from '../realtime/presence.js';
+import { gameRoom, socketsInGame } from '../realtime/rooms.js';
+import type { GameServer } from '../realtime/types.js';
 import type { GameRegistry } from '../store/registry.js';
-import type { GameRuntime } from './game-runtime.js';
-import type { Publisher, SocketData } from './publisher.js';
+import { decideContext, type GameRuntime } from './game-runtime.js';
+import type { Publisher } from './publisher.js';
 
 /**
  * Revanche (E1-S15, E6-S9) : sur REMATCH_CREATED, ouvre la nouvelle partie avec
@@ -15,7 +15,7 @@ import type { Publisher, SocketData } from './publisher.js';
  */
 export class RematchService {
   constructor(
-    private readonly io: Server,
+    private readonly io: GameServer,
     private readonly registry: GameRegistry,
     private readonly publisher: Publisher,
     private readonly presence: PresenceTracker,
@@ -28,25 +28,17 @@ export class RematchService {
 
   private open(old: GameRuntime, newGameId: string): void {
     const now = Date.now();
-    const events = rematchEvents(old.state, newGameId, {
-      actor: { kind: 'system' },
-      now,
-      random: Math.random,
-      newId: () => randomUUID(),
-    });
+    const events = rematchEvents(old.state, newGameId, decideContext({ kind: 'system' }, now));
     const next = this.registry.createFromEvents(newGameId, events, now);
     this.registry.moveTokens(old.gameId, newGameId);
 
-    const room = this.io.sockets.adapter.rooms.get(`game:${old.gameId}`);
-    const sockets = [...(room ?? [])]
-      .map((id) => this.io.sockets.sockets.get(id))
-      .filter((s) => s !== undefined);
+    const sockets = socketsInGame(this.io, old.gameId);
     // 1. Tout le monde change de partie (rooms, présence)…
     for (const socket of sockets) {
-      const data = socket.data as SocketData;
+      const data = socket.data;
       data.gameId = newGameId;
-      void socket.leave(`game:${old.gameId}`);
-      void socket.join(`game:${newGameId}`);
+      void socket.leave(gameRoom(old.gameId));
+      void socket.join(gameRoom(newGameId));
       if (data.playerId) {
         this.presence.remove(old.gameId, data.playerId);
         this.presence.add(newGameId, data.playerId);

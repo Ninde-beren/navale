@@ -1,4 +1,5 @@
-import type { FeedbackRecord, PlayedOutcome } from '../store/event-store.js';
+import type { FeedbackRecord } from '../store/feedback-store.js';
+import type { PlayedOutcome } from '../store/history.js';
 import type { HistoryStats, LiveStats, OpenGame } from './stats.js';
 
 /** Période de rafraîchissement de la page, en secondes. */

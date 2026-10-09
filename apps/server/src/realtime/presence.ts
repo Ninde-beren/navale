@@ -1,11 +1,12 @@
-import type { Server } from 'socket.io';
 import type { Presence } from '@navale/engine';
+import { gameRoom } from './rooms.js';
+import type { GameServer } from './types.js';
 
 /** Qui est connecté : compte des sockets par joueur, par partie. Niveau transport, jamais journalisé. */
 export class PresenceTracker {
   private readonly counts = new Map<string, Map<string, number>>();
 
-  constructor(private readonly io: Server) {}
+  constructor(private readonly io: GameServer) {}
 
   private bucket(gameId: string): Map<string, number> {
     let m = this.counts.get(gameId);
@@ -20,7 +21,7 @@ export class PresenceTracker {
     const m = this.bucket(gameId);
     const n = (m.get(playerId) ?? 0) + 1;
     m.set(playerId, n);
-    if (n === 1) this.io.to(`game:${gameId}`).emit('presence', { playerId, connected: true });
+    if (n === 1) this.io.to(gameRoom(gameId)).emit('presence', { playerId, connected: true });
   }
 
   remove(gameId: string, playerId: string): void {
@@ -28,7 +29,7 @@ export class PresenceTracker {
     const n = (m.get(playerId) ?? 1) - 1;
     if (n <= 0) {
       m.delete(playerId);
-      this.io.to(`game:${gameId}`).emit('presence', { playerId, connected: false });
+      this.io.to(gameRoom(gameId)).emit('presence', { playerId, connected: false });
     } else m.set(playerId, n);
   }
 

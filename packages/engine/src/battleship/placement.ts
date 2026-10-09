@@ -23,6 +23,27 @@ function touches(a: Coord[], b: Coord[]): boolean {
 
 export type FleetValidation = { ok: true; ships: Ship[] } | { ok: false; errors: FleetError[] };
 
+/** Taille d'un type de bateau d'après les réglages ; 1 pour un type inconnu. */
+export function shipSize(settings: GameSettings, type: string): number {
+  return settings.fleet.find((s) => s.type === type)?.size ?? 1;
+}
+
+/** Bateaux complets (cases, touches vides) à partir de placements, sans les valider. */
+function buildShips(settings: GameSettings, placements: ShipPlacement[]): Ship[] {
+  return placements.map((p, i) => {
+    const size = shipSize(settings, p.type);
+    return {
+      shipId: `ship-${i}`,
+      type: p.type,
+      size,
+      bow: p.bow,
+      orientation: p.orientation,
+      cells: cellsOf(p, size),
+      hits: [],
+    };
+  });
+}
+
 /**
  * Valide une flotte complète : composition exacte, bateaux dans la grille,
  * sans chevauchement, et sans contact si `shipsMayTouch` est faux.
@@ -50,16 +71,7 @@ export function validateFleet(
     return { ok: false, errors };
   }
 
-  const sizeOf = (type: string) => settings.fleet.find((s) => s.type === type)!.size;
-  const ships: Ship[] = placements.map((p, i) => ({
-    shipId: `ship-${i}`,
-    type: p.type,
-    size: sizeOf(p.type),
-    bow: p.bow,
-    orientation: p.orientation,
-    cells: cellsOf(p, sizeOf(p.type)),
-    hits: [],
-  }));
+  const ships = buildShips(settings, placements);
 
   ships.forEach((ship, i) => {
     if (!ship.cells.every((c) => inBounds(settings, c)))
@@ -115,4 +127,9 @@ export function randomFleet(settings: GameSettings, random: () => number): ShipP
     if (!failed) return placed.sort((a, b) => a.index - b.index).map((p) => p.placement);
   }
   throw new Error('randomFleet : impossible de placer la flotte dans cette grille');
+}
+
+/** Flotte complète tirée au hasard. Valide par construction : c'est celle des bots. */
+export function randomShips(settings: GameSettings, random: () => number): Ship[] {
+  return buildShips(settings, randomFleet(settings, random));
 }

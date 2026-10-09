@@ -1,27 +1,35 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { PRESETS, defaultPresetFor } from '@navale/engine';
-import {
-  SHIP_LABELS_FR,
-  type EndCondition,
-  type PresetId,
-  type SalvoOrder,
-  type SunkReveal,
-  type Variant,
-} from '@navale/protocol';
+import type { EndCondition, PresetId, SalvoOrder, SunkReveal, Variant } from '@navale/protocol';
 import { api, ApiError } from '../../shared/api.js';
 import { publicGridClasses } from '../../shared/cells.js';
+import {
+  END_LABELS,
+  SALVO_ORDER_LABELS,
+  SUNK_REVEAL_LABELS,
+  VARIANT_LABELS,
+  choices,
+  count,
+  fleetSummary,
+} from '../../shared/labels.js';
 import { saveSession } from '../../shared/session.js';
 import { Grid } from '../../shared/ui/Grid.js';
 import { Notice } from '../../shared/ui/Notice.js';
 import { Wordmark } from '../../shared/ui/Wordmark.js';
 import { PHONE_QUERY, useMedia } from '../../shared/useMedia.js';
 
-const VARIANT = { sequential: 'Tour par tour', simultaneous: 'Salve' } as const;
-const END = {
-  last_standing: 'Dernier survivant',
-  first_fleet_sunk: 'Première flotte coulée',
-} as const;
+const PRESET_LABELS: Record<PresetId, string> = {
+  classic: 'Classique 10×10',
+  quick: 'Rapide 8×8',
+};
+/** En liste, pas en objet : les clés numériques passeraient avant « Aucun ». */
+const TIMER_CHOICES = [
+  ['none', 'Aucun'],
+  ['45', '45 s'],
+  ['90', '90 s'],
+] as const;
+type TimerChoice = (typeof TIMER_CHOICES)[number][0];
 
 function Seg<T extends string>({
   value,
@@ -29,7 +37,7 @@ function Seg<T extends string>({
   onChange,
 }: {
   value: T;
-  options: Array<[T, string]>;
+  options: ReadonlyArray<readonly [T, string]>;
   onChange: (v: T) => void;
 }) {
   return (
@@ -64,7 +72,7 @@ export function CreateGame() {
   // Null tant que l'hôte n'a pas choisi : la grille suit alors le nombre de joueurs.
   const [preset, setPreset] = useState<PresetId | null>(null);
   const [sunkReveal, setSunkReveal] = useState<SunkReveal>('classic');
-  const [timer, setTimer] = useState<'none' | '45' | '90'>('none');
+  const [timer, setTimer] = useState<TimerChoice>('none');
   const [timerTouched, setTimerTouched] = useState(false);
   const [salvoOrder, setSalvoOrder] = useState<SalvoOrder>('commit');
   const [busy, setBusy] = useState(false);
@@ -142,10 +150,7 @@ export function CreateGame() {
               <span className="label">Variante</span>
               <Seg
                 value={variant}
-                options={[
-                  ['sequential', 'Tour par tour'],
-                  ['simultaneous', 'Salve'],
-                ]}
+                options={choices(VARIANT_LABELS)}
                 onChange={(v) => {
                   setVariant(v);
                   // Proposé par défaut : 45 s en salve, aucun chrono en tour par tour.
@@ -163,10 +168,7 @@ export function CreateGame() {
                 <span className="label">Résolution de la salve</span>
                 <Seg
                   value={salvoOrder}
-                  options={[
-                    ['commit', 'Le plus rapide d’abord'],
-                    ['seats', 'Ordre des sièges'],
-                  ]}
+                  options={choices(SALVO_ORDER_LABELS)}
                   onChange={setSalvoOrder}
                 />
                 <p className="hint">
@@ -178,28 +180,16 @@ export function CreateGame() {
             )}
             <div className="field">
               <span className="label">Grille et flotte</span>
-              <Seg
-                value={effectivePreset}
-                options={[
-                  ['classic', 'Classique 10×10'],
-                  ['quick', 'Rapide 8×8'],
-                ]}
-                onChange={setPreset}
-              />
+              <Seg value={effectivePreset} options={choices(PRESET_LABELS)} onChange={setPreset} />
               <p className="hint">
-                {fleet.map((s) => `${SHIP_LABELS_FR[s.type] ?? s.type} ${s.size}`).join(', ')} ·{' '}
-                {cells} cases.
+                {fleetSummary(fleet)} · {cells} cases.
               </p>
             </div>
             <div className="field">
               <span className="label">Chrono par manche</span>
               <Seg
                 value={timer}
-                options={[
-                  ['none', 'Aucun'],
-                  ['45', '45 s'],
-                  ['90', '90 s'],
-                ]}
+                options={TIMER_CHOICES}
                 onChange={(v) => {
                   setTimer(v);
                   setTimerTouched(true);
@@ -225,23 +215,13 @@ export function CreateGame() {
             </div>
             <div className="field">
               <span className="label">Fin de partie</span>
-              <Seg
-                value={endCondition}
-                options={[
-                  ['last_standing', 'Dernier survivant'],
-                  ['first_fleet_sunk', 'Première flotte coulée'],
-                ]}
-                onChange={setEndCondition}
-              />
+              <Seg value={endCondition} options={choices(END_LABELS)} onChange={setEndCondition} />
             </div>
             <div className="field">
               <span className="label">Bateau coulé</span>
               <Seg
                 value={sunkReveal}
-                options={[
-                  ['classic', 'Cases révélées'],
-                  ['secret', 'Seulement « coulé »'],
-                ]}
+                options={choices(SUNK_REVEAL_LABELS)}
                 onChange={setSunkReveal}
               />
             </div>
@@ -250,14 +230,14 @@ export function CreateGame() {
             <h2>Ta table</h2>
             <p className="recap muted">
               {[
-                VARIANT[variant],
-                END[endCondition],
+                VARIANT_LABELS[variant],
+                END_LABELS[endCondition],
                 `jusqu’à ${maxPlayers} joueurs`,
                 `grille ${grid.width} × ${grid.height}`,
-                `${fleet.length} bateaux, ${cells} cases`,
+                `${count(fleet.length, 'bateau', 'bateaux')}, ${count(cells, 'case')}`,
                 timer === 'none' ? 'sans chrono' : `chrono ${timer} s`,
                 ...(variant === 'simultaneous'
-                  ? [salvoOrder === 'seats' ? 'ordre des sièges' : 'le plus rapide d’abord']
+                  ? [SALVO_ORDER_LABELS[salvoOrder].toLowerCase()]
                   : []),
               ].join(' · ')}
             </p>

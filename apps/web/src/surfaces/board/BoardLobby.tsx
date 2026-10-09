@@ -1,30 +1,38 @@
-import type { RefObject } from 'react';
-import type { Socket } from 'socket.io-client';
-import { SHIP_LABELS_FR } from '@navale/protocol';
-import { sendCommand } from '../../shared/socket.js';
+import type { GameView } from '@navale/protocol';
+import {
+  END_LABELS,
+  SALVO_ORDER_LABELS,
+  VARIANT_LABELS,
+  count,
+  fleetSummary,
+} from '../../shared/labels.js';
+import { sendCommand, type SocketRef } from '../../shared/socket.js';
 import { useFitText } from '../../shared/useFitText.js';
-import type { View } from '../../shared/store.js';
-import { Avatar, initialOf } from '../../shared/ui/Avatar.js';
+import { PlayerAvatar } from '../../shared/ui/Avatar.js';
 import { FeedbackButton } from '../../shared/ui/Feedback.js';
 import { Wordmark } from '../../shared/ui/Wordmark.js';
 
-const VARIANT = { sequential: 'Tour par tour', simultaneous: 'Salve' } as const;
-const END = {
-  last_standing: 'Dernier survivant',
-  first_fleet_sunk: 'Première flotte coulée',
-} as const;
+/** Ce qui manque encore pour lancer, dit à la table. */
+function startHint(view: GameView): string {
+  switch (view.startBlocker) {
+    case null:
+      return 'Tout le monde est prêt.';
+    case 'NOT_ENOUGH_PLAYERS':
+      return 'Il faut au moins deux joueurs.';
+    case 'NO_HUMAN':
+      return 'Il faut au moins un joueur humain.';
+    case 'PLAYERS_NOT_READY': {
+      const placing = view.players.filter((p) => p.status !== 'READY');
+      const names = placing.map((p) => p.name).join(' et ');
+      return `En attente de ${names} · ${placing.length > 1 ? `${placing.length} joueurs placent` : '1 joueur place'} encore sa flotte`;
+    }
+  }
+}
 
-export function BoardLobby({ view, socket }: { view: View; socket: RefObject<Socket | null> }) {
+/** Écran central avant le lancement : le code et le QR, les joueurs, les réglages, le lancement. */
+export function BoardLobby({ view, socket }: { view: GameView; socket: SocketRef }) {
   const { settings, players, code } = view;
   const free = settings.maxPlayers - players.length;
-  const notReady = players.filter((p) => p.status !== 'READY');
-  const canStart = players.length >= 2 && notReady.length === 0;
-  const why =
-    players.length < 2
-      ? 'Il faut au moins deux joueurs.'
-      : notReady.length > 0
-        ? `En attente de ${notReady.map((p) => p.name).join(' et ')} · ${notReady.length} joueur${notReady.length > 1 ? 's placent' : ' place'} encore sa flotte`
-        : 'Tout le monde est prêt.';
   const cells = settings.fleet.reduce((n, s) => n + s.size, 0);
   const joinUrl = `${location.origin}/play/${code}`;
   const codeRef = useFitText<HTMLDivElement>(code, 320);
@@ -35,8 +43,8 @@ export function BoardLobby({ view, socket }: { view: View; socket: RefObject<Soc
         <Wordmark />
         <span className="code">{code}</span>
         <div className="center">
-          <strong>Partie en attente</strong> · {VARIANT[settings.variant]} ·{' '}
-          {END[settings.endCondition]}
+          <strong>Partie en attente</strong> · {VARIANT_LABELS[settings.variant]} ·{' '}
+          {END_LABELS[settings.endCondition]}
         </div>
         <div className="right">
           <FeedbackButton />
@@ -75,7 +83,7 @@ export function BoardLobby({ view, socket }: { view: View; socket: RefObject<Soc
           <div className="plist">
             {players.map((p) => (
               <div key={p.playerId} className="prow">
-                <Avatar color={p.color} initial={initialOf(p.name)} bot={p.kind === 'bot'} />
+                <PlayerAvatar player={p} />
                 <div className="nm">
                   {p.name}
                   {p.kind === 'bot' && <span className="chip plain">Bot</span>}
@@ -130,18 +138,13 @@ export function BoardLobby({ view, socket }: { view: View; socket: RefObject<Soc
             ))}
           </div>
           <div className="settings">
-            <span className="chip plain">{VARIANT[settings.variant]}</span>
-            <span className="chip plain">{END[settings.endCondition]}</span>
+            <span className="chip plain">{VARIANT_LABELS[settings.variant]}</span>
+            <span className="chip plain">{END_LABELS[settings.endCondition]}</span>
             <span className="chip plain">
               {settings.grid.width} × {settings.grid.height}
             </span>
-            <span
-              className="chip plain"
-              title={settings.fleet
-                .map((s) => `${SHIP_LABELS_FR[s.type] ?? s.type} ${s.size}`)
-                .join(', ')}
-            >
-              {settings.fleet.length} bateaux · {cells} cases
+            <span className="chip plain" title={fleetSummary(settings.fleet)}>
+              {count(settings.fleet.length, 'bateau', 'bateaux')} · {count(cells, 'case')}
             </span>
             <span className="chip plain">
               {settings.roundTimerSeconds
@@ -149,16 +152,14 @@ export function BoardLobby({ view, socket }: { view: View; socket: RefObject<Soc
                 : 'Sans chrono'}
             </span>
             {settings.variant === 'simultaneous' && (
-              <span className="chip plain">
-                {settings.salvoOrder === 'seats' ? 'Ordre des sièges' : 'Le plus rapide d’abord'}
-              </span>
+              <span className="chip plain">{SALVO_ORDER_LABELS[settings.salvoOrder]}</span>
             )}
           </div>
           <div className="launch">
             {view.isHost ? (
               <button
                 className="btn primary xl"
-                disabled={!canStart}
+                disabled={view.startBlocker !== null}
                 onClick={() => void sendCommand(socket.current, { type: 'START_GAME' })}
               >
                 Lancer la partie
@@ -166,7 +167,7 @@ export function BoardLobby({ view, socket }: { view: View; socket: RefObject<Soc
             ) : (
               <p className="why">L'hôte lance la partie quand tout le monde est prêt.</p>
             )}
-            <p className="why">{why}</p>
+            <p className="why">{startHint(view)}</p>
             {view.isHost && (
               <div className="hostrow">
                 {players.some((p) => p.kind === 'bot') && (

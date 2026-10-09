@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import clsx from 'clsx';
+import { sameCoord } from '@navale/engine';
 import type { Coord, Ship } from '@navale/protocol';
 import { ownGridClasses, publicGridClasses } from '../../shared/cells.js';
 import { Grid } from '../../shared/ui/Grid.js';
@@ -81,8 +83,6 @@ const CALLOUTS = {
   SUNK: { word: 'Coulé', cls: 'sunk' },
 } as const;
 
-const same = (a: Coord, b: Coord) => a.x === b.x && a.y === b.y;
-
 /** Grilles après `step` tirs de la boucle : publiques pour l'écran, privée pour le téléphone. */
 function sceneAt(step: number) {
   const shots = [...OPENING, ...LOOP.slice(0, step)];
@@ -95,11 +95,11 @@ function sceneAt(step: number) {
     }));
     const ships = fleet.map((s) => ({
       ...s,
-      hits: s.cells.filter((c) => touched.some((t) => same(t, c))),
+      hits: s.cells.filter((c) => touched.some((t) => sameCoord(t, c))),
     }));
     const sunk = received
       .filter((s) => s.result === 'SUNK')
-      .flatMap((s) => fleet.filter((f) => f.cells.some((c) => same(c, s.at))));
+      .flatMap((s) => fleet.filter((f) => f.cells.some((c) => sameCoord(c, s.at))));
     return { ships, revealed, sunk };
   });
   const last = step > 0 ? LOOP[step - 1]! : null;
@@ -135,7 +135,7 @@ export function TableScene({ still }: { still?: number }) {
           height={SIZE}
           cellClass={ownGridClasses(players[p]!.ships, players[p]!.revealed)}
         />
-        <span className={`home-phone-action ${mine ? 'mine' : ''}`}>
+        <span className={clsx('home-phone-action', mine && 'mine')}>
           {mine ? 'À toi de tirer' : `Au tour de ${PLAYERS[next]!.name}`}
         </span>
       </div>
@@ -162,7 +162,7 @@ export function TableScene({ still }: { still?: number }) {
               {PLAYERS.map((p, i) => (
                 <div
                   key={p.name}
-                  className={`home-zone c-${p.color} ${i === next ? 'active' : ''}`}
+                  className={clsx('home-zone', `c-${p.color}`, i === next && 'active')}
                 >
                   <span className="home-zone-name">{p.name}</span>
                   <Grid
@@ -177,7 +177,11 @@ export function TableScene({ still }: { still?: number }) {
                   {fx && last?.target === i && (
                     <span
                       key={shown}
-                      className={`home-scene-callout ${CALLOUTS[last.result].cls} ${still !== undefined ? 'still' : ''}`}
+                      className={clsx(
+                        'home-scene-callout',
+                        CALLOUTS[last.result].cls,
+                        still !== undefined && 'still',
+                      )}
                     >
                       {CALLOUTS[last.result].word}
                     </span>

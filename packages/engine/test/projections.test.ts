@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { projectPrivate, projectPublic } from '../src/battleship/project.js';
+import type { GameEvent } from '@navale/protocol';
+import {
+  privateRecipient,
+  projectPrivate,
+  projectPublic,
+  publicEvent,
+} from '../src/battleship/project.js';
 import { assertNoLeak } from './leak.js';
 import { startedGame, turn } from './helpers.js';
 
@@ -66,5 +72,46 @@ describe('projections', () => {
     expect(after.me.canFire).toBe(false);
     expect(projectPrivate(h.state, j).me.cellsRemaining).toBe(11);
     expect(() => projectPrivate(h.state, 'ghost')).toThrow();
+  });
+});
+
+describe('événements', () => {
+  it('retire de la version publique la flotte placée et la cible d’un tir engagé', () => {
+    const placed: GameEvent = {
+      type: 'FLEET_PLACED',
+      playerId: 'p1',
+      ships: [
+        {
+          shipId: 'ship-0',
+          type: 'torpedo',
+          size: 2,
+          bow: { x: 0, y: 0 },
+          orientation: 'H',
+          cells: [
+            { x: 0, y: 0 },
+            { x: 1, y: 0 },
+          ],
+          hits: [],
+        },
+      ],
+    };
+    expect(publicEvent(placed)).toEqual({ type: 'FLEET_PLACED', playerId: 'p1' });
+    expect(privateRecipient(placed)).toBe('p1');
+
+    const committed: GameEvent = {
+      type: 'SHOT_COMMITTED',
+      round: 2,
+      shooterId: 'p1',
+      targetId: 'p2',
+      coord: { x: 3, y: 4 },
+    };
+    expect(publicEvent(committed)).toEqual({ type: 'SHOT_COMMITTED', round: 2, shooterId: 'p1' });
+    expect(privateRecipient(committed)).toBe('p1');
+  });
+
+  it('publie tel quel un événement sans part privée', () => {
+    const left: GameEvent = { type: 'PLAYER_LEFT', playerId: 'p1' };
+    expect(publicEvent(left)).toBe(left);
+    expect(privateRecipient(left)).toBeNull();
   });
 });

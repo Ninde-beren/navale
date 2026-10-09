@@ -1,12 +1,12 @@
 import { useRef, useState, type FormEvent, type RefObject } from 'react';
 import { Link, useNavigate } from 'react-router';
+import clsx from 'clsx';
+import { GAME_CODE_LENGTH, isGameCode } from '@navale/protocol';
 import { Wordmark } from '../../shared/ui/Wordmark.js';
 import { PHONE_QUERY, useMedia } from '../../shared/useMedia.js';
-import { canScan } from './qrCode.js';
+import { canScan, typedCode } from './qrCode.js';
 import { QrScan } from './QrScan.js';
 import { TableScene } from './TableScene.js';
-
-const CODE_RE = /^[A-HJ-NP-Z]{4}$/;
 
 /**
  * Accueil et page vitrine. Le haut de page sert l'action : un smartphone rejoint une
@@ -156,7 +156,7 @@ function JoinForm({ formRef }: { formRef: RefObject<HTMLFormElement | null> }) {
   const [code, setCode] = useState('');
   const [scanning, setScanning] = useState(false);
   const navigate = useNavigate();
-  const valid = CODE_RE.test(code);
+  const valid = isGameCode(code);
   const scan = canScan();
 
   const onSubmit = (e: FormEvent) => {
@@ -183,19 +183,12 @@ function JoinForm({ formRef }: { formRef: RefObject<HTMLFormElement | null> }) {
         inputMode="text"
         autoCapitalize="characters"
         autoComplete="off"
-        maxLength={4}
+        maxLength={GAME_CODE_LENGTH}
         placeholder="ABCD"
         value={code}
-        onChange={(e) =>
-          setCode(
-            e.target.value
-              .toUpperCase()
-              .replace(/[^A-HJ-NP-Z]/g, '')
-              .slice(0, 4),
-          )
-        }
+        onChange={(e) => setCode(typedCode(e.target.value))}
       />
-      <button className={`btn ${scan ? '' : 'primary xl'}`} type="submit" disabled={!valid}>
+      <button className={clsx('btn', !scan && 'primary xl')} type="submit" disabled={!valid}>
         Rejoindre
       </button>
       <p className="hint">

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
+import clsx from 'clsx';
+import { FEEDBACK_MESSAGE_LENGTH, GAME_CODE_PATTERN } from '@navale/protocol';
 import { api, ApiError } from '../api.js';
 
 export type FeedbackVariant = 'icon' | 'fab' | 'link';
@@ -30,7 +32,7 @@ export function FeedbackButton({
       ) : (
         <button
           type="button"
-          className={`icon-btn fb ${variant === 'fab' ? 'fb-fab' : ''} ${className}`}
+          className={clsx('icon-btn fb', variant === 'fab' && 'fb-fab', className)}
           aria-label={LABEL}
           title={LABEL}
           onClick={() => setOpen(true)}
@@ -55,7 +57,7 @@ export function FeedbackButton({
 
 /** Code de la partie d'après l'adresse, s'il y en a un. */
 function codeFromPath(path: string): string | undefined {
-  return /^\/(?:board|play)\/([A-Za-z0-9]+)/.exec(path)?.[1]?.toUpperCase();
+  return new RegExp(`^/(?:board|play)/(${GAME_CODE_PATTERN})`, 'i').exec(path)?.[1]?.toUpperCase();
 }
 
 function FeedbackSheet({ onClose }: { onClose: () => void }) {
@@ -66,7 +68,7 @@ function FeedbackSheet({ onClose }: { onClose: () => void }) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [error, setError] = useState<string | null>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
-  const ready = message.trim().length >= 3;
+  const ready = message.trim().length >= FEEDBACK_MESSAGE_LENGTH.min;
 
   useEffect(() => {
     textRef.current?.focus();
@@ -133,7 +135,7 @@ function FeedbackSheet({ onClose }: { onClose: () => void }) {
               className="input fb-text"
               required
               minLength={3}
-              maxLength={2000}
+              maxLength={FEEDBACK_MESSAGE_LENGTH.max}
               rows={4}
               placeholder="Ton message…"
               value={message}

@@ -1,26 +1,4 @@
-import type { Feedback, GameSettings, PresetId } from '@navale/protocol';
-
-export interface CreateGameRequest {
-  settings: Partial<GameSettings> & { variant: GameSettings['variant']; maxPlayers: number };
-  preset?: PresetId;
-}
-export interface CreateGameResponse {
-  gameId: string;
-  code: string;
-  hostToken: string;
-  boardUrl: string;
-  joinUrl: string;
-}
-export interface GameInfo {
-  gameId: string;
-  code: string;
-  status: string;
-  players: number;
-  maxPlayers: number;
-  joinable: boolean;
-  takenColors: string[];
-  takenNames: string[];
-}
+import type { CreateGameRequest, CreateGameResponse, Feedback } from '@navale/protocol';
 
 export class ApiError extends Error {
   constructor(
@@ -48,7 +26,6 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   createGame: (body: CreateGameRequest) =>
     call<CreateGameResponse>('/api/games', { method: 'POST', body: JSON.stringify(body) }),
-  gameInfo: (code: string) => call<GameInfo>(`/api/games/${encodeURIComponent(code)}`),
   sendFeedback: (body: Feedback) =>
     call<{ ok: true; id: number }>('/api/feedback', { method: 'POST', body: JSON.stringify(body) }),
 };

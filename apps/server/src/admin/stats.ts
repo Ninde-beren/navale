@@ -1,8 +1,7 @@
-import type { Server } from 'socket.io';
 import type { GameStatus, Variant } from '@navale/protocol';
 import type { PresenceTracker } from '../realtime/presence.js';
-import type { SocketData } from '../runtime/publisher.js';
-import type { EventStore, PlayedGame } from '../store/event-store.js';
+import type { GameServer, SocketData } from '../realtime/types.js';
+import type { GameHistory, PlayedGame } from '../store/history.js';
 import type { GameRegistry } from '../store/registry.js';
 
 /** Fuseau des jours de l'historique : celui de l'exploitant, pas celui du conteneur. */
@@ -50,7 +49,7 @@ export interface LiveStats {
 export function liveStats(
   registry: GameRegistry,
   presence: PresenceTracker,
-  io: Server,
+  io: GameServer,
 ): LiveStats {
   const sockets = new Map<string, { players: number; others: number }>();
   for (const socket of io.of('/').sockets.values()) {
@@ -121,12 +120,12 @@ export interface HistoryStats {
  * la revanche garde ses identifiants, une nouvelle partie lui en donne un autre.
  */
 export function historyStats(
-  store: EventStore,
+  history: GameHistory,
   now: number,
   days = 30,
   recentLimit = 100,
 ): HistoryStats {
-  const played = store.playedGames();
+  const played = history.playedGames();
   const base = Date.parse(`${parisDay(now)}T00:00:00Z`);
   // Arithmétique de calendrier en UTC : pas de jour sauté ni doublé au changement d'heure.
   const keys = Array.from({ length: days }, (_, i) =>

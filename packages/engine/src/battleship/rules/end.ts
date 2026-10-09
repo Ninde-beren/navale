@@ -1,6 +1,7 @@
 import type { RankEntry } from '@navale/protocol';
 import type { GameState, Player } from '../state.js';
 import { alivePlayers, cellsRemaining, shipsRemaining } from '../state.js';
+import { tiedRanks } from './ranks.js';
 
 /** Condition de fin, évaluée après chaque manche résolue. */
 export function isFinishedAfterRound(state: GameState, eliminatedThisRound: number): boolean {
@@ -43,13 +44,11 @@ export function computeRanking(state: GameState): RankEntry[] {
     shipsRemaining(b) - shipsRemaining(a) ||
     stats.get(b.playerId)!.hits - stats.get(a.playerId)!.hits;
   const sortedAlive = [...alive].sort(cmp);
-  const entries: RankEntry[] = [];
-  let rank = 1;
-  sortedAlive.forEach((p, i) => {
-    const prev = sortedAlive[i - 1];
-    if (prev && cmp(prev, p) !== 0) rank = i + 1;
-    entries.push({ ...stats.get(p.playerId)!, rank });
-  });
+  const ranks = tiedRanks(sortedAlive, (a, b) => cmp(a, b) === 0);
+  const entries: RankEntry[] = sortedAlive.map((p, i) => ({
+    ...stats.get(p.playerId)!,
+    rank: ranks[i]!,
+  }));
   const eliminated = state.players
     .filter((p) => p.status === 'ELIMINATED')
     .sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99) || b.seat - a.seat);

@@ -1,6 +1,6 @@
 import type { Coord, PlayerView, PublicPlayer } from '@navale/protocol';
 import { pick, randomInt } from '../../core/random.js';
-import { coordKey } from '../state.js';
+import { coordKey, inBounds } from '../state.js';
 
 export interface BotShot {
   targetId: string;
@@ -65,8 +65,13 @@ export function woundedCells(p: PublicPlayer): Coord[] {
     .map((r) => r.coord);
 }
 
+/** Cases déjà révélées chez un joueur, en clés `x,y`. */
+function revealedKeys(p: PublicPlayer): Set<string> {
+  return new Set(p.revealed.map((r) => coordKey(r.coord)));
+}
+
 function unrevealed(view: PlayerView, p: PublicPlayer): Coord[] {
-  const taken = new Set(p.revealed.map((r) => coordKey(r.coord)));
+  const taken = revealedKeys(p);
   const out: Coord[] = [];
   for (let y = 0; y < view.settings.grid.height; y++)
     for (let x = 0; x < view.settings.grid.width; x++)
@@ -87,10 +92,8 @@ function smallestRemainingShip(view: PlayerView, p: PublicPlayer): number {
 
 /** Cases à tirer autour des touches : les bouts d'une ligne de touches d'abord, sinon les quatre voisines. */
 function aroundWounded(view: PlayerView, p: PublicPlayer, wounded: Coord[]): Coord[] {
-  const taken = new Set(p.revealed.map((r) => coordKey(r.coord)));
-  const inBounds = (c: Coord) =>
-    c.x >= 0 && c.y >= 0 && c.x < view.settings.grid.width && c.y < view.settings.grid.height;
-  const ok = (c: Coord) => inBounds(c) && !taken.has(coordKey(c));
+  const taken = revealedKeys(p);
+  const ok = (c: Coord) => inBounds(view.settings, c) && !taken.has(coordKey(c));
   const keys = new Set(wounded.map(coordKey));
 
   // Lignes de touches adjacentes (horizontales puis verticales) : on prolonge aux deux bouts.

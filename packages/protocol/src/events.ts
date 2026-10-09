@@ -9,10 +9,26 @@ import {
   ShipSchema,
 } from './common.js';
 
+/** Privé : seul le propriétaire de la flotte reçoit `ships`. */
+const FleetPlacedSchema = z.object({
+  type: z.literal('FLEET_PLACED'),
+  playerId: z.string(),
+  ships: z.array(ShipSchema),
+});
+
+/** Privé : seul le tireur reçoit `targetId` et `coord` avant la résolution de la salve. */
+const ShotCommittedSchema = z.object({
+  type: z.literal('SHOT_COMMITTED'),
+  round: z.number().int().min(0),
+  shooterId: z.string(),
+  targetId: z.string(),
+  coord: CoordSchema,
+});
+
 /**
  * Événements : faits accomplis publiés par le serveur et ajoutés au journal.
- * Le journal stocke la forme complète ci-dessous ; le serveur en dérive une vue
- * publique et, pour certains, une vue privée (voir docs/05-protocole.md).
+ * Le journal stocke la forme complète ci-dessous. Les clients reçoivent un
+ * `VisibleEvent` : la même chose, moins les champs privés auxquels ils n'ont pas droit.
  */
 export const GameEventSchema = z.discriminatedUnion('type', [
   z.object({
@@ -38,8 +54,7 @@ export const GameEventSchema = z.discriminatedUnion('type', [
     name: z.string(),
     color: ColorIdSchema,
   }),
-  /** Privé : `ships` n'est envoyé qu'au propriétaire. */
-  z.object({ type: z.literal('FLEET_PLACED'), playerId: z.string(), ships: z.array(ShipSchema) }),
+  FleetPlacedSchema,
   z.object({ type: z.literal('PLAYER_READY_CHANGED'), playerId: z.string(), ready: z.boolean() }),
   z.object({
     type: z.literal('GAME_STARTED'),
@@ -47,23 +62,14 @@ export const GameEventSchema = z.discriminatedUnion('type', [
     seats: z.array(z.string()),
     startedAt: z.number(),
   }),
-  /** Privé : chaque tireur attendu ne reçoit que ses propres `legalTargets`. */
   z.object({
     type: z.literal('ROUND_STARTED'),
     round: z.number().int().min(0),
     expectedShooters: z.array(z.string()),
     startedAt: z.number(),
     deadline: z.number().nullable(),
-    legalTargets: z.record(z.string(), z.array(z.string())),
   }),
-  /** Privé : `targetId` et `coord` ne sont envoyés qu'au tireur. */
-  z.object({
-    type: z.literal('SHOT_COMMITTED'),
-    round: z.number().int().min(0),
-    shooterId: z.string(),
-    targetId: z.string(),
-    coord: CoordSchema,
-  }),
+  ShotCommittedSchema,
   ResolvedShotSchema.extend({ type: z.literal('SHOT_RESOLVED') }),
   z.object({
     type: z.literal('PLAYER_ELIMINATED'),
@@ -94,3 +100,17 @@ export const EventEnvelopeSchema = z.object({
   event: GameEventSchema,
 });
 export type EventEnvelope = z.infer<typeof EventEnvelopeSchema>;
+
+/**
+ * Un événement tel qu'un client le reçoit : complet s'il y a droit, sinon sans ses
+ * champs privés. On sait qu'un joueur a placé sa flotte ou engagé son tir, pas où.
+ */
+export const VisibleEventSchema = z.union([
+  GameEventSchema,
+  FleetPlacedSchema.omit({ ships: true }),
+  ShotCommittedSchema.omit({ targetId: true, coord: true }),
+]);
+export type VisibleEvent = z.infer<typeof VisibleEventSchema>;
+
+export const VisibleEnvelopeSchema = EventEnvelopeSchema.extend({ event: VisibleEventSchema });
+export type VisibleEnvelope = z.infer<typeof VisibleEnvelopeSchema>;

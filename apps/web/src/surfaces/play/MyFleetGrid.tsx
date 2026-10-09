@@ -1,0 +1,26 @@
+import type { PlayerView, PublicPlayer } from '@navale/protocol';
+import { ownGridClasses } from '../../shared/cells.js';
+import { Grid } from '../../shared/ui/Grid.js';
+
+/** Ma grille, centrée : mes bateaux et les tirs que j'ai reçus. */
+export function MyFleetGrid({
+  view,
+  me,
+  dim = false,
+}: {
+  view: PlayerView;
+  me: PublicPlayer;
+  dim?: boolean;
+}) {
+  return (
+    <div className="flex justify-center">
+      <Grid
+        width={view.settings.grid.width}
+        height={view.settings.grid.height}
+        cellClass={ownGridClasses(view.me.fleet, me.revealed)}
+        className={dim ? 'dim' : ''}
+        label="Ma flotte"
+      />
+    </div>
+  );
+}

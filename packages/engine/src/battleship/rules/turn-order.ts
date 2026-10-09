@@ -1,5 +1,5 @@
 import type { GameState } from '../state.js';
-import { alivePlayers } from '../state.js';
+import { alivePlayers, playerById } from '../state.js';
 
 /** Tireurs attendus pour la prochaine manche, selon la variante. */
 export function nextShooters(state: GameState): string[] {
@@ -25,7 +25,7 @@ export function resolutionOrder(
   if (state.settings.salvoOrder !== 'seats') return [...shooterIds];
   const seats = Math.max(1, state.players.length);
   const start = roundIndex % seats;
-  const seatOf = (id: string) => state.players.find((p) => p.playerId === id)?.seat ?? 0;
+  const seatOf = (id: string) => playerById(state, id)?.seat ?? 0;
   return [...shooterIds].sort((a, b) => {
     const ra = (seatOf(a) - start + seats) % seats;
     const rb = (seatOf(b) - start + seats) % seats;

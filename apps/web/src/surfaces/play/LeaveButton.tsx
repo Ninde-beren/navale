@@ -1,7 +1,5 @@
-import type { RefObject } from 'react';
-import type { Socket } from 'socket.io-client';
 import { clearPlayer } from '../../shared/session.js';
-import { sendCommand } from '../../shared/socket.js';
+import { sendCommand, type SocketRef } from '../../shared/socket.js';
 
 /** Quitter le lobby : libère la place et oublie le jeton. Refusé par le serveur en partie. */
 export function LeaveButton({
@@ -10,7 +8,7 @@ export function LeaveButton({
   onLeft,
 }: {
   code: string;
-  socket: RefObject<Socket | null>;
+  socket: SocketRef;
   onLeft: () => void;
 }) {
   return (

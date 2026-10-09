@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import clsx from 'clsx';
 import { unlock, useSfx } from '../audio.js';
 
 /**
@@ -19,7 +20,7 @@ export function SoundButton({ className = '' }: { className?: string }) {
     <>
       <button
         type="button"
-        className={`icon-btn sound ${muted ? 'off' : ''} ${locked ? 'locked' : ''} ${className}`}
+        className={clsx('icon-btn sound', muted && 'off', locked && 'locked', className)}
         aria-label={label}
         aria-pressed={!muted}
         title={label}

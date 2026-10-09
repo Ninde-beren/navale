@@ -1,4 +1,7 @@
-/** Jetons et identifiants par code de partie, dans le navigateur. Jamais envoyés ailleurs qu'au serveur. */
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+/** Ce que le navigateur retient d'une partie pour s'y reconnecter. Jamais envoyé ailleurs qu'au serveur. */
 export interface Session {
   gameId?: string;
   hostToken?: string;
@@ -6,43 +9,29 @@ export interface Session {
   playerId?: string;
 }
 
-const KEY = 'navale.sessions';
-
-function readAll(): Record<string, Session> {
-  try {
-    const raw = localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as Record<string, Session>) : {};
-  } catch {
-    return {};
-  }
-}
-
-function writeAll(all: Record<string, Session>): void {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(all));
-  } catch {
-    // stockage indisponible (navigation privée…) : la session ne survivra pas au rechargement
-  }
-}
+/**
+ * Sessions par code de partie, gardées dans `localStorage` par `persist`. Si le
+ * stockage est indisponible (navigation privée…), elles vivent jusqu'au rechargement.
+ */
+const useSessions = create<{ byCode: Record<string, Session> }>()(
+  persist(() => ({ byCode: {} }), { name: 'navale.sessions' }),
+);
 
 export function getSession(code: string): Session {
-  return readAll()[code.toUpperCase()] ?? {};
+  return useSessions.getState().byCode[code.toUpperCase()] ?? {};
 }
 
-export function saveSession(code: string, patch: Session): Session {
-  const all = readAll();
+function updateSession(code: string, change: (session: Session) => Session): void {
   const key = code.toUpperCase();
-  all[key] = { ...all[key], ...patch };
-  writeAll(all);
-  return all[key]!;
+  const next = change(getSession(key));
+  useSessions.setState((state) => ({ byCode: { ...state.byCode, [key]: next } }));
 }
 
+export function saveSession(code: string, patch: Session): void {
+  updateSession(code, (session) => ({ ...session, ...patch }));
+}
+
+/** Oublie le joueur (départ, exclusion, jeton refusé) ; le jeton d'hôte reste. */
 export function clearPlayer(code: string): void {
-  const all = readAll();
-  const key = code.toUpperCase();
-  if (all[key]) {
-    delete all[key].playerToken;
-    delete all[key].playerId;
-    writeAll(all);
-  }
+  updateSession(code, ({ playerToken: _token, playerId: _id, ...rest }) => rest);
 }
