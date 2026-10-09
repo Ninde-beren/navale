@@ -135,7 +135,7 @@ export function BoardPlaying({
             <div className="mirror" aria-hidden="true">
               {centreMain}
             </div>
-            {centreMain}
+            <div className="upright">{centreMain}</div>
           </div>
         ) : (
           centreMain

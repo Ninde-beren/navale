@@ -1626,6 +1626,35 @@ body {
   max-width: 100%;
 }
 
+/* À deux, les joueurs sont aux petits côtés : « Au tour de » et le callout se lisent de côté,
+   la copie .mirror tournée vers la gauche, l'originale .upright vers la droite. */
+.tv.v2.flat.p2 .centre .duo {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  align-items: center;
+  justify-items: center;
+  gap: 0;
+}
+.tv.v2.flat.p2 .centre .mirror {
+  transform: rotate(90deg);
+}
+.tv.v2.flat.p2 .centre .upright {
+  transform: rotate(-90deg);
+}
+.tv.v2.flat.p2 .callout.big {
+  top: 50%;
+  left: calc(50% + 150px);
+  rotate: -90deg;
+}
+.tv.v2.flat.p2 .callout.big.flip {
+  top: 50%;
+  left: calc(50% - 150px);
+  rotate: 90deg;
+}
+.tv.v2.flat.p2 .callout.big .word {
+  font-size: 130px;
+}
+
 /* La bascule : une puce au lobby, une icône en partie. */
 .chip.toggle {
   cursor: pointer;
