@@ -92,15 +92,15 @@ export function BoardPlaying({
   ) : (
     <ActiveTurn player={active} compact={compact} timer={timerSuffix(secondsLeft)} />
   );
-  // L'annonce de chaque tir, une copie par sens de lecture : à plat, vers chaque côté occupé ;
-  // sinon une seule, à l'endroit.
+  // L'annonce de chaque tir, posée sur « Au tour de » : à plat, une copie par bloc (deux à deux
+  // vers les petits côtés, deux à quatre dans les coins opposés) ; sinon une seule, à l'endroit.
   const calloutDirections: Array<'up' | 'flip' | 'left' | 'right'> = !flat
     ? ['up']
     : players.length === 2
       ? ['left', 'right']
       : players.length === 3
         ? ['up']
-        : ['up', 'flip', 'left', 'right'];
+        : ['up', 'flip'];
   const callouts = calloutDirections.map((dir, i) => (
     <div
       key={dir}

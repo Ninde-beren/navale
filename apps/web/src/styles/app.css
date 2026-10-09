@@ -1537,7 +1537,7 @@ body {
 .tv.v2.flat:not(.p2):not(.p3) .centre .controls .foot {
   display: none;
 }
-/* Quatre annonces, une par sens de lecture, chacune au milieu de la grille qui fait face à son lecteur. */
+/* Deux annonces, posées sur les deux « Au tour de » : à l'endroit en bas à gauche, à l'envers en haut à droite. */
 .tv.v2.flat:not(.p2):not(.p3) .callout.big {
   position: absolute;
   inset: auto;
@@ -1550,19 +1550,13 @@ body {
   z-index: 5;
 }
 .tv.v2.flat:not(.p2):not(.p3) .callout.big.dir-up {
-  top: calc(50% + 262px);
+  left: calc(var(--s-8) + 342px);
+  top: calc(100% - var(--s-8) - 134px);
 }
 .tv.v2.flat:not(.p2):not(.p3) .callout.big.dir-flip {
-  top: calc(50% - 262px);
+  left: calc(100% - var(--s-8) - 342px);
+  top: calc(var(--s-8) + 134px);
   rotate: 180deg;
-}
-.tv.v2.flat:not(.p2):not(.p3) .callout.big.dir-left {
-  left: calc(50% - 682px);
-  rotate: 90deg;
-}
-.tv.v2.flat:not(.p2):not(.p3) .callout.big.dir-right {
-  left: calc(50% + 682px);
-  rotate: -90deg;
 }
 .tv.v2.flat:not(.p2):not(.p3) .callout.big .word {
   font-size: 96px;
