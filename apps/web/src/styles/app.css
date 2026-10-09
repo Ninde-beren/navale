@@ -1332,10 +1332,12 @@ body {
 
 /* ---------- Écran central à trois : la bande en haut, les grilles en dessous (demande d'Antoine, 2026-10-09) ----------
    Vaut pour l'écran normal et la tablette à plat. Dans la bande : la marque à gauche sur toute la
-   hauteur, « Au tour de » au milieu, à droite le journal au-dessus des commandes et des icônes (à
-   gauche, marque + commandes débordaient sur les grilles). */
+   hauteur, « Au tour de » au milieu, à droite le journal des trois derniers coups au-dessus des
+   commandes de l'hôte (à gauche, marque + commandes débordaient sur les grilles). Les icônes de
+   réglage sont en bas à droite de l'écran, sous les grilles : le plateau s'arrête 76 px au-dessus
+   du bord pour leur laisser la place. La bande fait 300 px, la hauteur de son contenu. */
 .tv.v2.p3 .board {
-  grid-template-rows: 376px 616px;
+  grid-template-rows: 300px 616px;
 }
 .tv.v2.p3 .centre {
   grid-row: 1;
@@ -1356,6 +1358,13 @@ body {
   grid-column: 3;
   grid-row: 2;
   justify-content: flex-end;
+}
+/* Les icônes sortent de la bande : `fixed` se cale sur l'écran, transformé (mis à l'échelle), qui
+   sert donc de repère ; sans transformation, l'écran remplit la fenêtre et le coin est le même. */
+.tv.v2.p3 .centre .controls > span {
+  position: fixed;
+  right: var(--s-8);
+  bottom: var(--s-8);
 }
 
 /* ---------- Tablette à plat : chaque grille tournée vers son joueur ----------
@@ -1579,25 +1588,20 @@ body {
 }
 
 /* ---- À trois : la bande en haut sur toute la largeur (comme l'écran normal, voir plus haut), les trois grilles
-   en dessous, centrées, celles de gauche et de droite tournées vers leur joueur, les icônes en bas à droite. ---- */
-/* Une réserve en bas pour les icônes de réglage, que les grilles ne touchent pas. */
+   juste en dessous, le plus près possible du centre de la table, celles de gauche et de droite tournées
+   vers leur joueur ; seules les icônes de réglage restent en bas à droite (voir plus haut). ---- */
 .tv.v2.flat.p3 .board {
   grid-template-columns: repeat(3, 580px);
-  grid-template-rows: 376px minmax(0, 1fr);
+  grid-template-rows: 300px minmax(0, 1fr);
   justify-content: center;
-  align-items: center;
-  padding-bottom: 48px;
+  align-items: start;
 }
-/* Le centre ne positionne rien : les icônes de réglage vont en bas à droite de l'écran, sous les grilles. */
+/* Le centre ne positionne rien (les icônes se posent sur l'écran) et garde la hauteur de la bande. */
 .tv.v2.flat.p3 .centre {
   grid-column: 1 / span 3;
   grid-row: 1;
+  align-self: stretch;
   position: static;
-}
-.tv.v2.flat.p3 .centre .controls > span {
-  position: absolute;
-  right: var(--s-8);
-  bottom: var(--s-8);
 }
 /* Grilles un peu plus petites qu'à l'écran normal (cases jusqu'à 56 px), centrées, de l'air autour. */
 .tv.v2.flat.p3 .zone .grid {

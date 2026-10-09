@@ -44,8 +44,9 @@ export function BoardPlaying({
   const active = round?.activePlayerId ? byId.get(round.activePlayerId) : undefined;
   const committed = useCommittedShooters(round);
   const secondsLeft = useCountdown(round?.deadline ?? null);
-  // À plat, le journal a la place d'un petit historique, au-delà de la dernière manche.
+  // À plat, et dans la bande à trois, le journal a la place d'un petit historique, au-delà de la dernière manche.
   const history = useShotHistory(view.lastShots, view.gameId, 3);
+  const showHistory = flat || layout === 'p3';
   const { rootRef, reveals, fresh, callout, salvoStep } = useShotSequence({
     events: useGame((s) => s.events),
     players,
@@ -163,7 +164,7 @@ export function BoardPlaying({
           centreMain
         )}
         {callouts}
-        <ShotLog shots={flat ? history : view.lastShots} playerOf={(id) => byId.get(id)} />
+        <ShotLog shots={showHistory ? history : view.lastShots} playerOf={(id) => byId.get(id)} />
         <div className="controls">
           {view.isHost && (
             <>
