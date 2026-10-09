@@ -1330,6 +1330,34 @@ body {
   }
 }
 
+/* ---------- Écran central à trois : la bande en haut, les grilles en dessous (demande d'Antoine, 2026-10-09) ----------
+   Vaut pour l'écran normal et la tablette à plat. Dans la bande : la marque à gauche sur toute la
+   hauteur, « Au tour de » au milieu, à droite le journal au-dessus des commandes et des icônes (à
+   gauche, marque + commandes débordaient sur les grilles). */
+.tv.v2.p3 .board {
+  grid-template-rows: 376px 616px;
+}
+.tv.v2.p3 .centre {
+  grid-row: 1;
+}
+.tv.v2.p3 .zone[data-seat='0'],
+.tv.v2.p3 .zone[data-seat='1'],
+.tv.v2.p3 .zone[data-seat='2'] {
+  grid-row: 2;
+}
+.tv.v2.p3 .centre .top {
+  grid-row: 1 / span 2;
+}
+.tv.v2.p3 .centre .log {
+  grid-column: 3;
+  grid-row: 1;
+}
+.tv.v2.p3 .centre .controls {
+  grid-column: 3;
+  grid-row: 2;
+  justify-content: flex-end;
+}
+
 /* ---------- Tablette à plat : chaque grille tournée vers son joueur ----------
    Les zones sont dans des cadres (.seat) tournés par côté de table ; la zone
    elle-même garde ses propres transformations (secousse d'impact). Le plateau
@@ -1499,8 +1527,8 @@ body {
   font-size: 38px;
 }
 
-/* ---- À trois : la bande de l'écran normal, en haut sur toute la largeur ; les trois grilles en dessous,
-   aux dimensions de l'écran normal, celles de gauche et de droite tournées vers leur joueur. ---- */
+/* ---- À trois : la bande en haut sur toute la largeur (comme l'écran normal, voir plus haut), les trois grilles
+   en dessous, centrées, celles de gauche et de droite tournées vers leur joueur, les icônes en bas à droite. ---- */
 /* Une réserve en bas pour les icônes de réglage, que les grilles ne touchent pas. */
 .tv.v2.flat.p3 .board {
   grid-template-columns: repeat(3, 580px);
@@ -1527,20 +1555,6 @@ body {
     calc((493px - var(--lbl) - var(--cols) * var(--gap)) / var(--cols)),
     calc((493px - var(--lbl) - var(--rows) * var(--gap)) / var(--rows))
   );
-}
-/* Dans la bande : la marque à gauche sur toute la hauteur, « Au tour de » au milieu, à droite le journal
-   au-dessus des commandes (en bas, la colonne de gauche débordait sur la grille). */
-.tv.v2.flat.p3 .centre .top {
-  grid-row: 1 / span 2;
-}
-.tv.v2.flat.p3 .centre .log {
-  grid-column: 3;
-  grid-row: 1;
-}
-.tv.v2.flat.p3 .centre .controls {
-  grid-column: 3;
-  grid-row: 2;
-  justify-content: flex-end;
 }
 .tv.v2.flat.p3 .seat[data-side='left'] {
   grid-area: 2 / 1;
