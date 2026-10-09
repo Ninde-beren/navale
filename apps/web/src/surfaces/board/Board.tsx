@@ -9,6 +9,7 @@ import { FeedbackButton } from '../../shared/ui/Feedback.js';
 import { Notice } from '../../shared/ui/Notice.js';
 import { Splash } from '../../shared/ui/Splash.js';
 import { useLaunchSplash } from '../../shared/useLaunchSplash.js';
+import { PHONE_QUERY, useMedia } from '../../shared/useMedia.js';
 import { useWakeLock } from '../../shared/useWakeLock.js';
 import { BoardFinished } from './BoardFinished.js';
 import { BoardLobby } from './BoardLobby.js';
@@ -27,6 +28,8 @@ export function Board() {
   const { view, conn, error } = useGame();
   // Tablette posée à plat : grilles tournées vers les joueurs, pendant la partie seulement.
   const flat = useBoardPrefs((s) => s.flat);
+  // Sur smartphone, on ne crée pas de partie : l'avis ne le propose pas.
+  const phone = useMedia(PHONE_QUERY);
   // La table reste allumée du lobby à la fin de partie.
   const wake = useWakeLock(view?.status === 'LOBBY' || view?.status === 'PLAYING');
   // Musique de fond tant que la table est ouverte ; la victoire la coupe.
@@ -40,13 +43,17 @@ export function Board() {
         title="Aucune partie avec ce code"
         text={
           error?.code === 'CODE_UNKNOWN' || !error
-            ? 'La partie est peut-être terminée ou expirée : un code est libéré après la fin. Vérifie-le sur l’écran central, ou crée une nouvelle partie.'
+            ? `La partie est peut-être terminée ou expirée : un code est libéré après la fin. Vérifie-le sur l’écran central${phone ? '.' : ', ou crée une nouvelle partie.'}`
             : error.message
         }
-        actions={[
-          { to: '/create', label: 'Créer une partie', primary: true },
-          { to: '/', label: 'Retour à l’accueil' },
-        ]}
+        actions={
+          phone
+            ? [{ to: '/', label: 'Retour à l’accueil', primary: true }]
+            : [
+                { to: '/create', label: 'Créer une partie', primary: true },
+                { to: '/', label: 'Retour à l’accueil' },
+              ]
+        }
       />
     );
   }

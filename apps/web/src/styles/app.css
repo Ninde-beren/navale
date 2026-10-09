@@ -1457,9 +1457,10 @@ body {
   transform: rotate(180deg);
 }
 /* À trois : le bas, puis la gauche et la droite ; le haut reste au centre. */
-/* À trois, la colonne centrale se contente de 464 px : les zones prennent le reste (cases jusqu'à 56 px en 10×10). */
+/* À trois, la colonne centrale doit contenir la zone du bas : cases jusqu'à 50 px en 10×10 et 62 px en 8×8,
+   colonnes latérales de 614 px, colonne centrale de 596 px. */
 .tv.v2.flat.p3 .board {
-  --z: 680px;
+  --z: 614px;
   grid-template-rows: minmax(0, 1fr) auto;
 }
 .tv.v2.flat.p3 .seat[data-side='bottom'] {
@@ -1476,9 +1477,9 @@ body {
 }
 .tv.v2.flat.p3 .zone .grid {
   --cell: min(
-    64px,
-    calc((611px - var(--lbl) - var(--cols) * var(--gap)) / var(--cols)),
-    calc((611px - var(--lbl) - var(--rows) * var(--gap)) / var(--rows))
+    62px,
+    calc((551px - var(--lbl) - var(--cols) * var(--gap)) / var(--cols)),
+    calc((551px - var(--lbl) - var(--rows) * var(--gap)) / var(--rows))
   );
 }
 /* À trois, les coins du haut comme du bas sont libres : la marque en haut à gauche, le journal en bas à gauche, les commandes en bas à droite. */

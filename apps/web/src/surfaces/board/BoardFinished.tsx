@@ -79,6 +79,9 @@ export function BoardFinished({ view, socket }: { view: GameView; socket: Socket
         ) : (
           <p className="muted">L’hôte peut lancer une revanche : mêmes joueurs, même code.</p>
         )}
+        <Link className="btn ghost" to="/">
+          Quitter
+        </Link>
         <span className="flex items-center gap-3">
           <SoundButton />
           <FeedbackButton />

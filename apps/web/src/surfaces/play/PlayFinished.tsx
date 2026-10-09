@@ -1,11 +1,14 @@
 import clsx from 'clsx';
+import { useNavigate } from 'react-router';
 import type { PlayerView, PublicPlayer } from '@navale/protocol';
 import { STATS, ordinal } from '../../shared/labels.js';
+import { clearPlayer } from '../../shared/session.js';
 import { PhoneScreen } from '../../shared/ui/PhoneScreen.js';
 import { MyFleetGrid } from './MyFleetGrid.js';
 
 /** Fin de partie, ou élimination quand la partie continue sans moi : mon rang et mes chiffres. */
 export function PlayFinished({ view, me }: { view: PlayerView; me: PublicPlayer }) {
+  const navigate = useNavigate();
   const finished = view.status === 'FINISHED';
   const entry = view.ranking?.find((r) => r.playerId === me.playerId);
   const rank = me.rank ?? entry?.rank ?? null;
@@ -37,6 +40,19 @@ export function PlayFinished({ view, me }: { view: PlayerView; me: PublicPlayer 
       <a className="btn ghost" href={`/board/${view.code}`} target="_blank" rel="noreferrer">
         Regarder l'écran central
       </a>
+      <button
+        className="btn sm ghost"
+        type="button"
+        onClick={() => {
+          // Partie finie : rien à libérer, on oublie le jeton et on rentre. Éliminé en cours de
+          // partie : on reste au classement côté serveur, mais ce téléphone ne reviendra plus.
+          if (!finished && !confirm('Quitter la partie ? Tu ne pourras plus y revenir.')) return;
+          clearPlayer(view.code);
+          void navigate('/');
+        }}
+      >
+        Quitter
+      </button>
     </PhoneScreen>
   );
 }
