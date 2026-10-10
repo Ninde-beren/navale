@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { io as connect } from 'socket.io-client';
 import { basicCredentials } from '../src/http/admin.js';
 import { parisDay } from '../src/admin/stats.js';
+import { OBSERVER_COOKIE } from '../src/admin/tracking.js';
 import {
   command,
   createGame,
@@ -193,5 +195,112 @@ describe('chiffres de /admin', () => {
     expect(parisDay(Date.parse('2026-10-09T23:30:00Z'))).toBe('2026-10-10');
     expect(parisDay(Date.parse('2026-01-09T23:30:00Z'))).toBe('2026-01-10');
     expect(parisDay(Date.parse('2026-01-09T22:30:00Z'))).toBe('2026-01-09');
+  });
+});
+
+describe('statistiques d’utilisation', () => {
+  let app: TestServer;
+  let baseUrl: string;
+  const statsPage = async (query = '') => {
+    const res = await app.app.inject({
+      method: 'GET',
+      url: `/admin/statistiques${query}`,
+      headers: { authorization: basic('antoine', 's3cret') },
+    });
+    return res;
+  };
+  const text = (html: string, name: string) =>
+    new RegExp(`data-stat="${name}">([^<]*)<`).exec(html)?.[1];
+  beforeAll(async () => {
+    ({ app, baseUrl } = await boot('s3cret'));
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('demande les mêmes identifiants et marque le navigateur de l’exploitant', async () => {
+    const refused = await app.app.inject({ method: 'GET', url: '/admin/statistiques' });
+    expect(refused.statusCode).toBe(401);
+    expect(refused.headers['set-cookie']).toBeUndefined();
+
+    const res = await statsPage();
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(res.headers['set-cookie']).toContain(`${OBSERVER_COOKIE}=1`);
+    expect(res.headers['set-cookie']).toContain('HttpOnly');
+    expect(res.body).toContain('<a href="/admin">En direct</a>');
+    expect(res.body).toContain('href="/admin/statistiques" aria-current="page"');
+    expect(stat(res.body, 'usage-games')).toBe(0);
+    // Une période inconnue retombe sur tout l'historique.
+    expect((await statsPage('?periode=n-importe')).body).toContain(
+      'href="/admin/statistiques" aria-current="page"',
+    );
+    expect((await statsPage('?periode=7')).body).toContain('?periode=7" aria-current="page"');
+  });
+
+  it('note l’écran ouvert ailleurs, sauf celui de l’hôte et celui de l’exploitant', async () => {
+    const g = await createGame(baseUrl);
+    const host = await open(baseUrl, { kind: 'board', code: g.code, hostToken: g.hostToken });
+    await until(() => host.connected);
+    expect(app.marks.all().get(g.gameId)).toBeUndefined();
+
+    // L'exploitant ouvre l'écran depuis /admin : son navigateur porte le cookie.
+    const observer = connect(baseUrl, {
+      auth: { kind: 'board', code: g.code },
+      transports: ['websocket'],
+      reconnection: false,
+      extraHeaders: { cookie: `autre=1; ${OBSERVER_COOKIE}=1` },
+    });
+    await new Promise((resolve) => observer.once('snapshot', resolve));
+    expect(app.marks.all().get(g.gameId)).toBeUndefined();
+
+    // Un joueur à distance ouvre le lien partagé.
+    const remote = await open(baseUrl, { kind: 'board', code: g.code });
+    expect([...(app.marks.all().get(g.gameId) ?? [])]).toEqual(['remote_board']);
+
+    for (const socket of [host, observer, remote]) socket.disconnect();
+  });
+
+  it('note le partage du lien, une fois par partie et par origine', async () => {
+    const g = await createGame(baseUrl);
+    const share = (from: unknown, code = g.code) =>
+      app.app.inject({ method: 'POST', url: `/api/games/${code}/shared`, payload: { from } });
+    expect((await share('board')).statusCode).toBe(204);
+    expect((await share('board')).statusCode).toBe(204);
+    expect((await share('phone')).statusCode).toBe(204);
+    expect([...(app.marks.all().get(g.gameId) ?? [])].sort()).toEqual([
+      'shared_board',
+      'shared_phone',
+    ]);
+    expect((await share('tablette')).statusCode).toBe(400);
+    expect((await share('board', 'ZZZZ')).statusCode).toBe(404);
+  });
+
+  it('compte une partie lancée contre un bot, partagée et ouverte ailleurs', async () => {
+    const g = await createGame(baseUrl);
+    const board = await open(baseUrl, { kind: 'board', code: g.code, hostToken: g.hostToken });
+    const me = await open(baseUrl, { kind: 'join', code: g.code });
+    expect((await command(me, { type: 'JOIN_GAME', name: 'Julie', color: 'teal' })).ok).toBe(true);
+    expect((await command(board, { type: 'ADD_BOT' })).ok).toBe(true);
+    const bot = app.registry.get(g.gameId)!.state.players.find((p) => p.kind === 'bot')!;
+    const ships = bot.fleet.map((s) => ({ type: s.type, bow: s.bow, orientation: s.orientation }));
+    expect((await command(me, { type: 'PLACE_FLEET', ships })).ok).toBe(true);
+    expect((await command(me, { type: 'SET_READY', ready: true })).ok).toBe(true);
+    await app.app.inject({
+      method: 'POST',
+      url: `/api/games/${g.code}/shared`,
+      payload: { from: 'board' },
+    });
+    const remote = await open(baseUrl, { kind: 'board', code: g.code });
+    expect((await command(board, { type: 'START_GAME' })).ok).toBe(true);
+
+    const html = (await statsPage()).body;
+    expect(stat(html, 'usage-games')).toBe(1);
+    expect(text(html, 'usage-humans')).toBe('50 %');
+    expect(text(html, 'usage-remote')).toBe('100 %');
+    expect(text(html, 'usage-shared')).toBe('100 %');
+    expect(html).toContain('Tour par tour · classique 10×10 · 2 joueurs · sans commandants');
+
+    for (const socket of [board, me, remote]) socket.disconnect();
   });
 });

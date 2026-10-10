@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { boardUrl, playUrl, shareMessage, shortUrl } from '../src/shared/share.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { boardUrl, playUrl, reportShare, shareMessage, shortUrl } from '../src/shared/share.js';
 
 const origin = 'https://navale.exemple.fr';
 
@@ -16,5 +16,23 @@ describe('partage de la partie', () => {
     expect(message).toContain('/board/ABCD');
     expect(message).toContain('/play/ABCD');
     expect(message.split('\n')).toHaveLength(3);
+  });
+});
+
+describe('mesure du partage', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('signale le partage au serveur, sans attendre ni gêner en cas d’échec', async () => {
+    const fetch = vi.fn().mockRejectedValue(new Error('hors ligne'));
+    vi.stubGlobal('fetch', fetch);
+    reportShare('ABCD', 'board');
+    expect(fetch).toHaveBeenCalledWith('/api/games/ABCD/shared', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ from: 'board' }),
+      keepalive: true,
+    });
+    // Le rejet est absorbé : rien ne remonte.
+    await Promise.resolve();
   });
 });

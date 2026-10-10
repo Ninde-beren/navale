@@ -69,7 +69,7 @@ export function Waiting({
       >
         Modifier ma flotte
       </button>
-      <ShareButton code={view.code} label="Inviter des amis à distance" />
+      <ShareButton code={view.code} from="phone" label="Inviter des amis à distance" />
       <LeaveButton code={view.code} socket={socket} onLeft={() => void navigate('/')} />
     </PhoneScreen>
   );

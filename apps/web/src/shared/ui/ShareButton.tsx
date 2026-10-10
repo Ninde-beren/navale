@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import clsx from 'clsx';
-import { canShare, shareGame } from '../share.js';
+import type { ShareSource } from '@navale/protocol';
+import { canShare, reportShare, shareGame } from '../share.js';
 
 type State = 'idle' | 'copied' | 'failed';
 
@@ -11,11 +12,14 @@ type State = 'idle' | 'copied' | 'failed';
  */
 export function ShareButton({
   code,
+  from,
   label = 'Partager la partie',
   className = 'btn ghost',
   variant = 'text',
 }: {
   code: string;
+  /** Où est le bouton : l'écran central ou un téléphone, pour les statistiques. */
+  from: ShareSource;
   label?: string;
   className?: string;
   variant?: 'text' | 'icon';
@@ -37,6 +41,7 @@ export function ShareButton({
           : 'Copier le lien';
   const onClick = () => {
     void shareGame(code).then((outcome) => {
+      if (outcome === 'shared' || outcome === 'copied') reportShare(code, from);
       if (outcome === 'copied' || outcome === 'failed') setState(outcome);
     });
   };

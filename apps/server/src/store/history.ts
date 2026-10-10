@@ -1,8 +1,25 @@
 import type { DatabaseSync } from 'node:sqlite';
-import type { GameEvent, GameEventOf, Variant } from '@navale/protocol';
+import { normalizeSettings } from '@navale/engine';
+import type {
+  BotLevel,
+  GameEvent,
+  GameEventOf,
+  GameSettings,
+  PlayerKind,
+  Variant,
+} from '@navale/protocol';
 
 /** Issue d'une partie lancée, pour l'historique de l'administration. */
 export type PlayedOutcome = 'playing' | 'finished' | 'cancelled' | 'expired';
+
+/** Un siège au lancement : humain ou bot, et le commandant choisi au lobby. */
+export interface PlayedSeat {
+  playerId: string;
+  kind: PlayerKind;
+  /** Niveau d'un bot ; `null` pour un humain. */
+  level: BotLevel | null;
+  commanderId: string | null;
+}
 
 export interface PlayedGame {
   gameId: string;
@@ -19,6 +36,16 @@ export interface PlayedGame {
   humans: string[];
   bots: number;
   shots: number;
+  /** Réglages au lancement, complétés pour les journaux d'avant un nouveau réglage. */
+  settings: GameSettings;
+  /** Réglages qui n'existaient pas encore au lancement : complétés, mais pas choisis. */
+  unsetSettings: Array<keyof GameSettings>;
+  /** Sièges dans l'ordre du lancement. */
+  seats: PlayedSeat[];
+  /** Vainqueur d'une partie terminée ; `null` sinon, ou sans vainqueur. */
+  winnerId: string | null;
+  /** La revanche ouverte depuis cette partie, lancée ou non. */
+  rematchGameId: string | null;
 }
 
 /**
@@ -37,11 +64,10 @@ export class GameHistory {
          WHERE e.type = 'GAME_STARTED' ORDER BY e.at DESC`,
       )
       .all() as Array<{ game_id: string; at: number; payload: string; code: string }>;
-    const joined = this.db.prepare(
-      "SELECT payload FROM events WHERE game_id = ? AND type = 'PLAYER_JOINED'",
-    );
-    const ended = this.db.prepare(
-      "SELECT at, payload FROM events WHERE game_id = ? AND type IN ('GAME_FINISHED', 'GAME_CANCELLED')",
+    const lifecycle = this.db.prepare(
+      `SELECT at, payload FROM events WHERE game_id = ? AND type IN
+         ('PLAYER_JOINED', 'COMMANDER_CHOSEN', 'GAME_FINISHED', 'GAME_CANCELLED', 'REMATCH_CREATED')
+       ORDER BY seq`,
     );
     const activity = this.db.prepare(
       `SELECT SUM(type = 'SHOT_RESOLVED') AS shots,
@@ -50,14 +76,31 @@ export class GameHistory {
     );
     return started.map((row) => {
       const start = JSON.parse(row.payload) as GameEventOf<'GAME_STARTED'>;
-      const kinds = new Map(
-        (joined.all(row.game_id) as Array<{ payload: string }>).map((r) => {
-          const e = JSON.parse(r.payload) as GameEventOf<'PLAYER_JOINED'>;
-          return [e.playerId, e.kind] as const;
-        }),
-      );
-      const humans = start.seats.filter((id) => kinds.get(id) === 'human');
-      const end = ended.get(row.game_id) as { at: number; payload: string } | undefined;
+      const joined = new Map<string, { kind: PlayerKind; level: BotLevel | null }>();
+      const commanders = new Map<string, string>();
+      let end: { at: number; event: GameEvent } | null = null;
+      let rematchGameId: string | null = null;
+      for (const r of lifecycle.all(row.game_id) as Array<{ at: number; payload: string }>) {
+        const e = JSON.parse(r.payload) as GameEvent;
+        if (e.type === 'PLAYER_JOINED')
+          joined.set(e.playerId, {
+            kind: e.kind,
+            // Avant les niveaux, un bot jouait toujours au niveau normal.
+            level: e.kind === 'bot' ? (e.level ?? 'normal') : null,
+          });
+        // Le choix se fait au lobby et peut changer : le dernier compte.
+        else if (e.type === 'COMMANDER_CHOSEN') commanders.set(e.playerId, e.commanderId);
+        else if (e.type === 'REMATCH_CREATED') rematchGameId = e.newGameId;
+        else if (e.type === 'GAME_FINISHED' || e.type === 'GAME_CANCELLED')
+          end = { at: r.at, event: e };
+      }
+      const seats: PlayedSeat[] = start.seats.map((playerId) => ({
+        playerId,
+        kind: joined.get(playerId)?.kind ?? 'human',
+        level: joined.get(playerId)?.level ?? null,
+        commanderId: commanders.get(playerId) ?? null,
+      }));
+      const humans = seats.filter((p) => p.kind === 'human').map((p) => p.playerId);
       const { shots, last } = activity.get(row.game_id) as { shots: number; last: number };
       return {
         gameId: row.game_id,
@@ -65,10 +108,17 @@ export class GameHistory {
         variant: start.settings.variant,
         startedAt: row.at,
         playedUntil: end ? last : null,
-        outcome: end ? outcomeOf(JSON.parse(end.payload) as GameEvent) : 'playing',
+        outcome: end ? outcomeOf(end.event) : 'playing',
         humans,
-        bots: start.seats.length - humans.length,
+        bots: seats.length - humans.length,
         shots,
+        settings: normalizeSettings(start.settings),
+        unsetSettings: (
+          Object.keys(normalizeSettings(start.settings)) as Array<keyof GameSettings>
+        ).filter((key) => !(key in start.settings)),
+        seats,
+        winnerId: end?.event.type === 'GAME_FINISHED' ? end.event.winnerId : null,
+        rematchGameId,
       };
     });
   }

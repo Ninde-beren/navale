@@ -3,11 +3,13 @@ import Fastify from 'fastify';
 import { Server } from 'socket.io';
 import type { Variant } from '@navale/protocol';
 import type { ServerConfig } from './config.js';
+import { trackRemoteBoards } from './admin/tracking.js';
 import { registerAdmin } from './http/admin.js';
 import { registerFeedback } from './http/feedback.js';
 import { registerGameRoutes } from './http/games.js';
 import { registerRateLimit } from './http/rate-limit.js';
 import { registerStatic } from './http/static.js';
+import { registerUsageRoutes } from './http/usage.js';
 import { mailerFromConfig, type Mailer } from './mail/mailer.js';
 import { registerSockets } from './realtime/handlers.js';
 import { PresenceTracker } from './realtime/presence.js';
@@ -25,6 +27,7 @@ import { FeedbackStore } from './store/feedback-store.js';
 import { GameHistory } from './store/history.js';
 import { GameRegistry } from './store/registry.js';
 import { TokenStore } from './store/token-store.js';
+import { UsageMarks } from './store/usage-marks.js';
 
 export interface AppOptions {
   /** Délai de réflexion des bots selon la variante, injectable pour les tests. */
@@ -47,6 +50,7 @@ export async function createApp(
   const tokens = new TokenStore(db);
   const feedback = new FeedbackStore(db);
   const history = new GameHistory(db);
+  const marks = new UsageMarks(db);
   const app = Fastify({
     logger: config.logLevel === 'silent' ? false : { level: config.logLevel },
     // Derrière Caddy (réseau Docker privé) ou le proxy de Vite (boucle locale), l'adresse
@@ -129,8 +133,11 @@ export async function createApp(
   await registerRateLimit(app);
   registerGameRoutes(app, registry, config);
   registerFeedback(app, { store: feedback, mailer, version }, config);
-  registerAdmin(app, { registry, presence, io, history, feedback, mailer }, config);
+  registerAdmin(app, { registry, presence, io, history, feedback, marks, mailer }, config);
+  registerUsageRoutes(app, registry, marks);
   registerSockets(io, registry, publisher, presence, report);
+  // Après les sockets du jeu : la connexion y est authentifiée, ou déjà refusée.
+  trackRemoteBoards(io, marks);
   if (config.webDist) await registerStatic(app, config.webDist, config.publicUrl);
 
   return {
@@ -139,6 +146,7 @@ export async function createApp(
     registry,
     store,
     feedback,
+    marks,
     config,
     restored,
     /** Parties mises de côté à ce démarrage : leur journal ne se rejoue plus. */

@@ -1,3 +1,5 @@
+import type { GameSharedRequest, ShareSource } from '@navale/protocol';
+
 /*
  * Partage d'une partie à distance : le lien de l'écran central, à ouvrir sur un
  * ordinateur ou une tablette, et le lien pour jouer depuis un téléphone. Feuille
@@ -53,4 +55,18 @@ export async function copyText(text: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * Dit au serveur que le partage a servi, pour les statistiques de l'exploitant (jeu sur
+ * place ou à distance). Anonyme, sans réponse attendue : un échec ne gêne personne.
+ */
+export function reportShare(code: string, from: ShareSource): void {
+  const body: GameSharedRequest = { from };
+  void fetch(`/api/games/${encodeURIComponent(code)}/shared`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+    keepalive: true,
+  }).catch(() => undefined);
 }

@@ -33,3 +33,14 @@ export const GameInfoSchema = z.object({
   takenNames: z.array(z.string()),
 });
 export type GameInfo = z.infer<typeof GameInfoSchema>;
+
+/** D'où vient un partage de la partie : l'écran central (lobby) ou un téléphone. */
+export const ShareSourceSchema = z.enum(['board', 'phone']);
+export type ShareSource = z.infer<typeof ShareSourceSchema>;
+
+/**
+ * `POST /api/games/:code/shared` : le bouton de partage a servi (feuille de partage ou
+ * lien copié). Une mesure anonyme pour savoir si l'on joue sur place ou à distance.
+ */
+export const GameSharedRequestSchema = z.object({ from: ShareSourceSchema });
+export type GameSharedRequest = z.infer<typeof GameSharedRequestSchema>;

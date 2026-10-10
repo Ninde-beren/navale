@@ -52,7 +52,9 @@ base de l'image d'aperçu des liens partagés, posée dans `index.html` au déma
 ## Administration
 
 `/admin` montre les parties en ligne, les joueurs connectés et l'historique des
-parties jouées. Le navigateur demande l'identifiant (`ADMIN_USER`, `admin` par
+parties jouées ; `/admin/statistiques`, les configurations les plus jouées, les
+commandants, les sessions, la durée des parties, la part des bots et le jeu sur
+place ou à distance. Le navigateur demande l'identifiant (`ADMIN_USER`, `admin` par
 défaut) et le mot de passe (`ADMIN_PASSWORD`). En production, les deux vont
 dans le `.env` du serveur, à côté de `PUBLIC_URL`, jamais dans le dépôt :
 
