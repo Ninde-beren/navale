@@ -14,6 +14,12 @@ export interface NewsItem {
 
 export const NEWS: readonly NewsItem[] = [
   {
+    n: 91,
+    day: '10 octobre',
+    title: 'Ta couleur te suit',
+    text: 'Ton téléphone retient aussi ta couleur : elle t’attend au prochain « Rejoindre », si personne ne l’a prise.',
+  },
+  {
     n: 87,
     day: '10 octobre',
     title: 'Les éliminés deviennent des fantômes',
