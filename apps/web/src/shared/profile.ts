@@ -1,26 +1,31 @@
 import { useEffect, useMemo } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { GameView } from '@navale/protocol';
+import type { ColorId, GameView } from '@navale/protocol';
 import { myRank, outcomeOf, tally, withResult, type Outcome, type Results } from './record.js';
 import { isPlayerView } from './store.js';
 
 interface Profile {
   /** Dernier pseudo saisi, proposé au prochain « Rejoindre ». */
   name: string;
+  /** Dernière couleur choisie, proposée au prochain « Rejoindre » si elle est libre ; absente des profils d'avant. */
+  color?: ColorId | null;
   results: Results;
 }
 
 /**
- * Ce que l'appareil retient du joueur : son pseudo et son bilan, dans `localStorage`.
- * Jamais envoyé au serveur ; sans stockage (navigation privée…), ça vit jusqu'au rechargement.
+ * Ce que l'appareil retient du joueur : son pseudo, sa couleur et son bilan, dans
+ * `localStorage`. Jamais envoyé au serveur ; sans stockage (navigation privée…), ça vit
+ * jusqu'au rechargement.
  */
 export const useProfile = create<Profile>()(
-  persist(() => ({ name: '', results: {} }), { name: 'navale.profile' }),
+  persist((): Profile => ({ name: '', color: null, results: {} }), { name: 'navale.profile' }),
 );
 
-export function rememberName(name: string): void {
-  if (name !== useProfile.getState().name) useProfile.setState({ name });
+/** Retient le pseudo et la couleur avec lesquels on vient de rejoindre. */
+export function rememberPlayer(name: string, color: ColorId): void {
+  const current = useProfile.getState();
+  if (name !== current.name || color !== current.color) useProfile.setState({ name, color });
 }
 
 /** Note l'issue d'une partie ; une partie déjà notée ne change rien. */

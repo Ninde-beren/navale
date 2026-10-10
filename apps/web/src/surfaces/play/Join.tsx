@@ -7,7 +7,7 @@ import {
   type ColorId,
   type GameView,
 } from '@navale/protocol';
-import { rememberName, useProfile, useRecord } from '../../shared/profile.js';
+import { rememberPlayer, useProfile, useRecord } from '../../shared/profile.js';
 import { recordLabel } from '../../shared/record.js';
 import { sendCommand, type SocketRef } from '../../shared/socket.js';
 import { initialOf } from '../../shared/ui/Avatar.js';
@@ -23,9 +23,12 @@ export function Join({
   onJoined: (playerId: string, token: string) => void;
 }) {
   const taken = new Map(view.players.map((p) => [p.color, p.name]));
-  // Le pseudo de la dernière fois est proposé d'office.
+  // Le pseudo de la dernière fois est proposé d'office, et sa couleur si personne ne l'a prise.
   const [name, setName] = useState(() => useProfile.getState().name);
-  const [color, setColor] = useState<ColorId | null>(COLOR_IDS.find((c) => !taken.has(c)) ?? null);
+  const [color, setColor] = useState<ColorId | null>(() => {
+    const mine = useProfile.getState().color;
+    return mine && !taken.has(mine) ? mine : (COLOR_IDS.find((c) => !taken.has(c)) ?? null);
+  });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const record = recordLabel(useRecord());
@@ -44,7 +47,7 @@ export function Join({
       return;
     }
     const { playerId, playerToken } = JoinedSchema.parse(ack.data);
-    rememberName(name.trim());
+    rememberPlayer(name.trim(), color);
     onJoined(playerId, playerToken);
   };
 
