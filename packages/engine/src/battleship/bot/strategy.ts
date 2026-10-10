@@ -1,4 +1,4 @@
-import type { BotLevel, Coord, PlayerView, PublicPlayer } from '@navale/protocol';
+import type { Bet, BotLevel, Coord, PlayerView, PublicPlayer } from '@navale/protocol';
 import { pick, randomInt } from '../../core/random.js';
 import { decoyCells, missileStrikes, radarZone, repairableCells } from '../rules/abilities.js';
 import { coordKey, inBounds } from '../state.js';
@@ -99,6 +99,21 @@ function radarContacts(view: PlayerView, p: PublicPlayer): Coord[] {
     if (r.targetId === p.playerId)
       for (const c of r.contacts ?? []) if (!closed.has(coordKey(c))) out.set(coordKey(c), c);
   return [...out.values()];
+}
+
+/**
+ * Le pronostic d'un bot fantôme, sur ce que tout le monde voit : un tireur attendu qui a
+ * une touche à achever chez un adversaire va sans doute toucher ; sinon, l'eau est plus
+ * probable qu'un navire.
+ */
+export function chooseBet(view: PlayerView): Bet {
+  const shooters = view.round?.expectedShooters ?? [];
+  const wounded = shooters.some((id) =>
+    view.players.some(
+      (p) => p.playerId !== id && p.status === 'ALIVE' && woundedCells(p).length > 0,
+    ),
+  );
+  return wounded ? 'HIT' : 'MISS';
 }
 
 /**

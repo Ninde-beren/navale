@@ -34,6 +34,8 @@ export const ErrorCodeSchema = z.enum([
   'ABILITY_UNAVAILABLE',
   'CELL_NOT_REPAIRABLE',
   'CELL_NOT_FREE',
+  /** Pronostiquer est réservé aux éliminés d'une partie à fantômes. */
+  'NOT_A_GHOST',
 ]);
 export type ErrorCode = z.infer<typeof ErrorCodeSchema>;
 

@@ -1,4 +1,4 @@
-import { battleship, chooseAction, type Player } from '@navale/engine';
+import { battleship, chooseAction, chooseBet, type Player } from '@navale/engine';
 import type { EventEnvelope, GameEventOf, Variant } from '@navale/protocol';
 import { contain, type ReportFailure } from './failure.js';
 import type { GameRuntime } from './game-runtime.js';
@@ -13,10 +13,19 @@ export function defaultThinkMs(variant: Variant): number {
   return 1000 + Math.random() * (variant === 'simultaneous' ? 2000 : 1000);
 }
 
+/** Le temps laissé en plus à un humain fantôme pour pronostiquer le tir d'un bot. */
+const GHOST_GRACE_MS = 2500;
+
+/** Un bot fantôme pronostique vite, avant le tir qu'il pronostique : 0,3 à 1 s après l'annonce. */
+export function defaultBetMs(): number {
+  return 300 + Math.random() * 700;
+}
+
 export interface BotDriverOptions {
   /** Quand l'écran central aura fini d'annoncer les tirs déjà publiés (`Publisher.settledAt`). */
   settledAt: (gameId: string) => number;
   thinkMs?: (variant: Variant) => number;
+  betMs?: () => number;
   log?: (message: string) => void;
   /** Un tir qui lève, hors de toute requête : signalé, la partie suivante continue. */
   report?: ReportFailure;
@@ -35,12 +44,14 @@ export class BotDriver {
   private readonly timers = new Map<string, NodeJS.Timeout>();
   private readonly settledAt: (gameId: string) => number;
   private readonly thinkMs: (variant: Variant) => number;
+  private readonly betMs: () => number;
   private readonly log: (message: string) => void;
   private readonly report: ReportFailure;
 
   constructor(options: BotDriverOptions) {
     this.settledAt = options.settledAt;
     this.thinkMs = options.thinkMs ?? defaultThinkMs;
+    this.betMs = options.betMs ?? defaultBetMs;
     this.log = options.log ?? (() => undefined);
     this.report = options.report ?? (() => undefined);
   }
@@ -54,7 +65,10 @@ export class BotDriver {
     const started = events.find(
       (e): e is GameEventOf<'ROUND_STARTED'> => e.type === 'ROUND_STARTED',
     );
-    if (started) this.schedule(runtime, started.round, started.expectedShooters);
+    if (started) {
+      this.schedule(runtime, started.round, started.expectedShooters);
+      this.scheduleBets(runtime, started.round);
+    }
     // Un absent relayé en pleine manche : le bot joue tout de suite ce qu'on attend de lui ;
     // un revenant reprend la main, le tir programmé pour lui est oublié.
     for (const e of events) {
@@ -67,12 +81,54 @@ export class BotDriver {
   /** Reprise après redémarrage : les bots attendus dans la manche courante rejouent. */
   resume(runtime: GameRuntime): void {
     const { status, round } = runtime.state;
-    if (status === 'PLAYING' && round) this.schedule(runtime, round.index, round.expectedShooters);
+    if (status === 'PLAYING' && round) {
+      this.schedule(runtime, round.index, round.expectedShooters);
+      this.scheduleBets(runtime, round.index);
+    }
+  }
+
+  /** Les bots éliminés d'une partie à fantômes pronostiquent chaque manche, sur la vue publique. */
+  private scheduleBets(runtime: GameRuntime, roundIndex: number): void {
+    const { state, gameId } = runtime;
+    if (state.settings.eliminated !== 'ghosts') return;
+    const announced = Math.max(0, this.settledAt(gameId) - Date.now());
+    for (const ghost of state.players) {
+      if (ghost.kind !== 'bot' || ghost.status !== 'ELIMINATED') continue;
+      const key = `${gameId}:${ghost.playerId}:bet`;
+      clearTimeout(this.timers.get(key));
+      const timer = setTimeout(() => {
+        this.timers.delete(key);
+        contain(this.report, { gameId, during: 'pronostic du bot', playerId: ghost.playerId }, () =>
+          this.bet(runtime, ghost.playerId, roundIndex),
+        );
+      }, announced + this.betMs());
+      this.timers.set(key, timer);
+    }
+  }
+
+  private async bet(runtime: GameRuntime, botId: string, roundIndex: number): Promise<void> {
+    const { state } = runtime;
+    if (state.status !== 'PLAYING' || state.round?.index !== roundIndex) return;
+    const view = battleship.projectPrivate(state, botId);
+    if (!view.me.canBet || view.me.bet !== null) return;
+    const decision = await runtime.handle(
+      { kind: 'player', playerId: botId },
+      { type: 'PLACE_BET', round: roundIndex, bet: chooseBet(view) },
+    );
+    if (!decision.ok)
+      this.log(`bot ${botId} refusé (${decision.rejection.code}) : ${decision.rejection.message}`);
   }
 
   private schedule(runtime: GameRuntime, roundIndex: number, expectedShooters: string[]): void {
     const { state, gameId } = runtime;
     const announced = Math.max(0, this.settledAt(gameId) - Date.now());
+    // Un humain fantôme pronostique le tir du bot : il lui faut le temps de taper.
+    const grace = state.players.some(
+      (p) =>
+        p.kind === 'human' && p.status === 'ELIMINATED' && state.settings.eliminated === 'ghosts',
+    )
+      ? GHOST_GRACE_MS
+      : 0;
     for (const botId of expectedShooters) {
       const bot = state.players.find((p) => p.playerId === botId);
       if (!botControlled(bot) || state.round?.committed[botId]) continue;
@@ -85,7 +141,7 @@ export class BotDriver {
             this.fire(runtime, botId, roundIndex),
           );
         },
-        announced + this.thinkMs(state.settings.variant),
+        announced + grace + this.thinkMs(state.settings.variant),
       );
       this.timers.set(key, timer);
     }

@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import type { GameView } from '@navale/protocol';
 import { play } from '../../shared/audio.js';
-import { STATS } from '../../shared/labels.js';
-import { playerLookup } from '../../shared/players.js';
+import { STATS, betsLabel } from '../../shared/labels.js';
+import { bestGhosts, playerLookup } from '../../shared/players.js';
 import { sendCommand, type SocketRef } from '../../shared/socket.js';
 import { PlayerAvatar } from '../../shared/ui/Avatar.js';
 import { FeedbackButton } from '../../shared/ui/Feedback.js';
@@ -14,6 +14,7 @@ export function BoardFinished({ view, socket }: { view: GameView; socket: Socket
   const ranking = view.ranking ?? [];
   const { byId, nameOf } = playerLookup(view.players);
   const winner = ranking.find((r) => r.rank === 1);
+  const ghosts = bestGhosts(view.players);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,6 +67,18 @@ export function BoardFinished({ view, socket }: { view: GameView; socket: Socket
           })}
         </tbody>
       </table>
+      {ghosts.length > 0 && (
+        <p className="ghost-best">
+          Meilleur fantôme :{' '}
+          {ghosts.map((p, i) => (
+            <span key={p.playerId}>
+              {i > 0 && ', '}
+              <b className={`c-${p.color} pc`}>{p.name}</b>
+            </span>
+          ))}
+          , {betsLabel(ghosts[0]!.bets)}
+        </p>
+      )}
       <div className="actions">
         {view.isHost ? (
           <>

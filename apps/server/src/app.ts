@@ -29,6 +29,8 @@ import { TokenStore } from './store/token-store.js';
 export interface AppOptions {
   /** Délai de réflexion des bots selon la variante, injectable pour les tests. */
   botThinkMs?: (variant: Variant) => number;
+  /** Délai avant le pronostic d'un bot fantôme, injectable pour les tests. */
+  botBetMs?: () => number;
   /** Politique d'expiration des parties. */
   expiry?: ExpiryPolicy;
   /** Envoi des retours par mail ; par défaut SMTP d'après la configuration, `null` sans SMTP. */
@@ -68,6 +70,7 @@ export async function createApp(
   const bots = new BotDriver({
     settledAt: (gameId) => publisher.settledAt(gameId),
     ...(options.botThinkMs ? { thinkMs: options.botThinkMs } : {}),
+    ...(options.botBetMs ? { betMs: options.botBetMs } : {}),
     log: (message) => app.log.warn(message),
     report,
   });

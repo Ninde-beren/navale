@@ -1,4 +1,5 @@
 import type {
+  Bet,
   BotLevel,
   ColorId,
   Commander,
@@ -42,6 +43,8 @@ export interface Player {
   shotsReceived: Array<{ coord: Coord; result: 'MISS' | 'HIT' }>;
   eliminatedAtRound: number | null;
   rank: number | null;
+  /** Ses pronostics de fantôme réglés : les bons, sur ceux qui ont compté. Public. */
+  bets: { won: number; total: number };
 }
 
 export interface Round {
@@ -50,6 +53,8 @@ export interface Round {
   expectedShooters: string[];
   /** Simultané : tirs engagés, privés jusqu'à la résolution. */
   committed: Record<string, PendingShot>;
+  /** Les pronostics des fantômes sur cette manche, privés jusqu'à sa résolution. */
+  bets: Record<string, Bet>;
   startedAt: number;
   deadline: number | null;
 }

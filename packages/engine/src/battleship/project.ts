@@ -8,6 +8,7 @@ import type {
   VisibleEvent,
 } from '@navale/protocol';
 import type { Presence } from '../core/definition.js';
+import { canBet } from './rules/ghosts.js';
 import { startBlocker } from './rules/start.js';
 import { antiFocusBlocked, legalTargets } from './rules/targets.js';
 import {
@@ -50,6 +51,7 @@ function publicPlayer(state: GameState, p: Player, presence: Presence): PublicPl
     revealed: p.shotsReceived.map((s) => ({ coord: s.coord, result: s.result })),
     sunkShips: p.fleet.filter(isSunk).map((ship) => sunkInfo(state.settings, ship)),
     rank: p.rank,
+    bets: p.bets,
   };
 }
 
@@ -117,6 +119,8 @@ export function projectPrivate(
       radarResults: me.radarResults,
       decoys: me.decoys,
       shield: me.shield,
+      canBet: canBet(state, me),
+      bet: round?.bets[playerId] ?? null,
     },
   };
 }
@@ -151,6 +155,10 @@ export function publicEvent(event: GameEvent): VisibleEvent {
       const { center: _center, size: _size, ...raised } = event;
       return raised;
     }
+    case 'BET_PLACED': {
+      const { bet: _bet, ...placed } = event;
+      return placed;
+    }
     default:
       return event;
   }
@@ -166,6 +174,7 @@ export function privateRecipient(event: GameEvent): string | null {
     case 'RADAR_RESULT':
     case 'DECOY_PLACED':
     case 'SHIELD_RAISED':
+    case 'BET_PLACED':
       return event.playerId;
     case 'ABILITY_USED':
       return SECRET_ABILITIES.has(event.ability) ? event.playerId : null;

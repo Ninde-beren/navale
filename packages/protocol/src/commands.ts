@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { BotLevelSchema, ColorIdSchema, CoordSchema, ShipPlacementSchema } from './common.js';
+import {
+  BetSchema,
+  BotLevelSchema,
+  ColorIdSchema,
+  CoordSchema,
+  ShipPlacementSchema,
+} from './common.js';
 
 /** Longueur d'un pseudo : la même pour le formulaire et pour la validation. */
 export const PLAYER_NAME_LENGTH = { min: 2, max: 16 } as const;
@@ -25,6 +31,8 @@ export const CommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('FIRE'), targetId: z.string(), coord: CoordSchema }),
   /** Mon action de la manche, à la place d'un tir : la capacité de mon commandant sur cette case. */
   z.object({ type: z.literal('USE_ABILITY'), targetId: z.string(), coord: CoordSchema }),
+  /** Fantôme : mon pronostic sur cette manche, la manche en cours, changeable jusqu'à sa résolution. */
+  z.object({ type: z.literal('PLACE_BET'), round: z.number().int().min(0), bet: BetSchema }),
   z.object({ type: z.literal('FORCE_ROUND') }),
   /** Joueur absent : un bot prend son tour (serveur), le joueur reprend la main à son retour. */
   z.object({ type: z.literal('SUBSTITUTE_PLAYER'), playerId: z.string() }),

@@ -41,6 +41,7 @@ function apply(state: GameState, event: GameEvent): GameState {
         shotsReceived: [],
         eliminatedAtRound: null,
         rank: null,
+        bets: { won: 0, total: 0 },
       };
       return { ...state, players: [...state.players, player].sort((a, b) => a.seat - b.seat) };
     }
@@ -120,6 +121,7 @@ function apply(state: GameState, event: GameEvent): GameState {
           index: event.round,
           expectedShooters: [...event.expectedShooters],
           committed: {},
+          bets: {},
           startedAt: event.startedAt,
           deadline: event.deadline,
         },
@@ -167,6 +169,23 @@ function apply(state: GameState, event: GameEvent): GameState {
               );
         return { ...p, shotsReceived: revealed, fleet };
       });
+    }
+    case 'BET_PLACED':
+      if (!state.round) return state;
+      return {
+        ...state,
+        round: { ...state.round, bets: { ...state.round.bets, [event.playerId]: event.bet } },
+      };
+    case 'BETS_SETTLED': {
+      const { outcome } = event;
+      if (outcome === null) return state;
+      let next = state;
+      for (const { playerId, bet } of event.bets)
+        next = mapPlayer(next, playerId, (p) => ({
+          ...p,
+          bets: { won: p.bets.won + (bet === outcome ? 1 : 0), total: p.bets.total + 1 },
+        }));
+      return next;
     }
     case 'PLAYER_SUBSTITUTED':
       return mapPlayer(state, event.playerId, (p) => ({ ...p, substitute: event.level }));

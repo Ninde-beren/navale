@@ -59,6 +59,7 @@ const DEFAULTS = {
   afkBotSeconds: 45,
   afkBotLevel: 'normal',
   commanders: [],
+  eliminated: 'ghosts',
 } satisfies Partial<GameSettings>;
 
 export function makeSettings(
@@ -70,10 +71,14 @@ export function makeSettings(
 
 /**
  * Complète des réglages journalisés avant qu'un réglage existe : un ancien journal
- * se rejoue avec les valeurs d'alors (pas de commandants, on attend les absents),
- * jamais avec un champ manquant.
+ * se rejoue avec les valeurs d'alors (pas de commandants, on attend les absents, les
+ * éliminés regardent), jamais avec un champ manquant.
  */
-const LEGACY_DEFAULTS: Partial<GameSettings> = { ...DEFAULTS, afkBotSeconds: null };
+const LEGACY_DEFAULTS: Partial<GameSettings> = {
+  ...DEFAULTS,
+  afkBotSeconds: null,
+  eliminated: 'spectators',
+};
 
 export function normalizeSettings(settings: GameSettings): GameSettings {
   return { ...LEGACY_DEFAULTS, ...settings };

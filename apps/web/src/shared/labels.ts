@@ -1,9 +1,11 @@
 import type {
   Ability,
   AbilityType,
+  Bet,
   BotLevel,
   Commander,
   Echo,
+  EliminatedRole,
   EndCondition,
   GameSettings,
   RadarResult,
@@ -45,6 +47,21 @@ export const SUNK_REVEAL_LABELS: Record<SunkReveal, string> = {
   classic: 'Cases révélées',
   secret: 'Seulement « coulé »',
 };
+
+export const ELIMINATED_LABELS: Record<EliminatedRole, string> = {
+  ghosts: 'Fantômes',
+  spectators: 'Spectateurs',
+};
+
+export const BET_LABELS: Record<Bet, string> = {
+  HIT: 'Touché',
+  MISS: 'Raté',
+};
+
+/** « 3 bons sur 5 », les pronostics d'un fantôme. */
+export function betsLabel({ won, total }: { won: number; total: number }): string {
+  return `${won} bon${won > 1 ? 's' : ''} sur ${total}`;
+}
 
 export const RESULT_LABELS: Record<ShotResult, string> = {
   MISS: 'RATÉ',

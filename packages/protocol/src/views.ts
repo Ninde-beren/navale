@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  BetSchema,
   BotLevelSchema,
   ColorIdSchema,
   CoordSchema,
@@ -47,6 +48,8 @@ export const PublicPlayerSchema = z.object({
     }),
   ),
   rank: z.number().int().min(1).nullable(),
+  /** Ses pronostics de fantôme : les bons, sur ceux qui ont compté. */
+  bets: z.object({ won: z.number().int().min(0), total: z.number().int().min(0) }),
 });
 export type PublicPlayer = z.infer<typeof PublicPlayerSchema>;
 
@@ -98,6 +101,10 @@ export const PrivateMeSchema = z.object({
   decoys: z.array(CoordSchema),
   /** Mon bouclier : sa zone, que je suis seul à voir, et ses cases percées ; `null` sans bouclier. */
   shield: ShieldSchema.nullable(),
+  /** Fantôme : je peux pronostiquer la manche en cours. */
+  canBet: z.boolean(),
+  /** Mon pronostic sur la manche en cours, tant qu'elle n'est pas résolue. */
+  bet: BetSchema.nullable(),
 });
 export type PrivateMe = z.infer<typeof PrivateMeSchema>;
 

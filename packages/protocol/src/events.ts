@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   AbilityTypeSchema,
+  BetSchema,
   BotLevelSchema,
   ColorIdSchema,
   CoordSchema,
@@ -55,6 +56,14 @@ const DecoyPlacedSchema = z.object({
   round: z.number().int().min(0),
   playerId: z.string(),
   coord: CoordSchema,
+});
+
+/** Le pronostic d'un fantôme. Privé : les autres savent qu'il a parié, pas sur quoi, jusqu'à la résolution. */
+const BetPlacedSchema = z.object({
+  type: z.literal('BET_PLACED'),
+  round: z.number().int().min(0),
+  playerId: z.string(),
+  bet: BetSchema,
 });
 
 /** Privé : seul l'auteur de la détection reçoit `shipCells`, `contacts` et `echo`. */
@@ -130,6 +139,18 @@ export const GameEventSchema = z.discriminatedUnion('type', [
     round: z.number().int().min(0),
     rank: z.number().int().min(1),
   }),
+  BetPlacedSchema,
+  /**
+   * Les pronostics de la manche, dévoilés après ses tirs : `outcome` dit si au moins un
+   * tir a touché ; `null` pour une manche sans tir (capacités seules, tour passé), où
+   * les pronostics ne comptent pas.
+   */
+  z.object({
+    type: z.literal('BETS_SETTLED'),
+    round: z.number().int().min(0),
+    outcome: BetSchema.nullable(),
+    bets: z.array(z.object({ playerId: z.string(), bet: BetSchema })),
+  }),
   /** Un bot tire pour ce joueur absent, à ce niveau, jusqu'à son retour. */
   z.object({ type: z.literal('PLAYER_SUBSTITUTED'), playerId: z.string(), level: BotLevelSchema }),
   /** Le joueur est revenu : il reprend sa flotte, le bot s'efface. */
@@ -170,6 +191,7 @@ export const VisibleEventSchema = z.union([
   AbilityUsedSchema.omit({ targetId: true, coord: true }),
   ShieldRaisedSchema.omit({ center: true, size: true }),
   DecoyPlacedSchema.omit({ coord: true }),
+  BetPlacedSchema.omit({ bet: true }),
 ]);
 export type VisibleEvent = z.infer<typeof VisibleEventSchema>;
 

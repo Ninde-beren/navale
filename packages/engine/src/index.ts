@@ -52,6 +52,7 @@ export { coordKey, isSunk, sameCoord } from './battleship/state.js';
 // ---- Bataille navale : bot ------------------------------------------------------
 export {
   chooseAction,
+  chooseBet,
   chooseShot,
   type BotAction,
   type BotShot,

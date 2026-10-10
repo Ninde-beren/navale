@@ -1,34 +1,57 @@
 import clsx from 'clsx';
 import { useNavigate } from 'react-router';
 import type { PlayerView, PublicPlayer } from '@navale/protocol';
-import { STATS, ordinal } from '../../shared/labels.js';
+import { STATS, betsLabel, ordinal } from '../../shared/labels.js';
+import { bestGhosts } from '../../shared/players.js';
 import { useRecord } from '../../shared/profile.js';
 import { recordLabel } from '../../shared/record.js';
 import { clearPlayer } from '../../shared/session.js';
+import type { SocketRef } from '../../shared/socket.js';
 import { PhoneScreen } from '../../shared/ui/PhoneScreen.js';
+import { GhostBets } from './GhostBets.js';
 import { MyFleetGrid } from './MyFleetGrid.js';
 
-/** Fin de partie, ou élimination quand la partie continue sans moi : mon rang et mes chiffres. */
-export function PlayFinished({ view, me }: { view: PlayerView; me: PublicPlayer }) {
+/**
+ * Fin de partie, ou élimination quand la partie continue sans moi : mon rang et mes
+ * chiffres ; dans une partie à fantômes, mes pronostics tant qu'elle continue.
+ */
+export function PlayFinished({
+  view,
+  me,
+  socket,
+}: {
+  view: PlayerView;
+  me: PublicPlayer;
+  socket: SocketRef;
+}) {
   const navigate = useNavigate();
   const record = recordLabel(useRecord());
   const finished = view.status === 'FINISHED';
+  const ghost = !finished && view.settings.eliminated === 'ghosts';
   const entry = view.ranking?.find((r) => r.playerId === me.playerId);
   const rank = me.rank ?? entry?.rank ?? null;
-  const headline = !finished
-    ? 'Tu es éliminé'
-    : rank === 1
-      ? 'Victoire !'
-      : `${rank ? ordinal(rank) : '?'} sur ${view.players.length}`;
+  const best = finished ? bestGhosts(view.players) : [];
+  const headline = ghost
+    ? 'Tu es fantôme'
+    : !finished
+      ? 'Tu es éliminé'
+      : rank === 1
+        ? 'Victoire !'
+        : `${rank ? ordinal(rank) : '?'} sur ${view.players.length}`;
 
   return (
     <PhoneScreen code={view.code} color={me.color} gap={16}>
       <div>
         <h1 className={clsx('state', rank === 1 && 'me')}>{headline}</h1>
         <p className="muted">
-          {finished ? 'La partie est terminée.' : 'La partie continue sans toi.'}
+          {ghost
+            ? 'Éliminé, mais pas sorti du jeu : pronostique chaque manche.'
+            : finished
+              ? 'La partie est terminée.'
+              : 'La partie continue sans toi.'}
         </p>
       </div>
+      {ghost && <GhostBets view={view} me={me} socket={socket} />}
       <MyFleetGrid view={view} me={me} dim />
       {entry && (
         <div className="panel flex flex-col gap-2">
@@ -38,7 +61,20 @@ export function PlayFinished({ view, me }: { view: PlayerView; me: PublicPlayer 
               <b>{stat.value(entry)}</b>
             </div>
           ))}
+          {me.bets.total > 0 && (
+            <div className="kv">
+              <span>Pronostics</span>
+              <b>{betsLabel(me.bets)}</b>
+            </div>
+          )}
         </div>
+      )}
+      {best.length > 0 && (
+        <p className="muted">
+          Meilleur fantôme :{' '}
+          {best.map((p) => (p.playerId === me.playerId ? 'toi' : p.name)).join(', ')} (
+          {betsLabel(best[0]!.bets)}).
+        </p>
       )}
       {record && <p className="muted">Ton bilan sur ce téléphone : {record}.</p>}
       <a className="btn ghost" href={`/board/${view.code}`} target="_blank" rel="noreferrer">

@@ -211,6 +211,11 @@ export function BoardLobby({ view, socket }: { view: GameView; socket: SocketRef
               <span className="chip plain">{afkBotLabel(settings.afkBotSeconds)}</span>
             )}
             {commandersOf(settings).length > 0 && <span className="chip plain">Commandants</span>}
+            {settings.eliminated === 'ghosts' &&
+              settings.maxPlayers >= 3 &&
+              settings.endCondition === 'last_standing' && (
+                <span className="chip plain">Éliminés fantômes</span>
+              )}
             <FlatButton variant="chip" />
           </div>
           <div className="launch">

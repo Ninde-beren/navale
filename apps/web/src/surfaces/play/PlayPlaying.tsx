@@ -79,7 +79,7 @@ export function PlayPlaying({
   );
 
   if (view.status === 'FINISHED' || me.status === 'ELIMINATED')
-    return <PlayFinished view={view} me={me} />;
+    return <PlayFinished view={view} me={me} socket={socket} />;
 
   const sent = sentInRound === roundIndex;
   if (view.me.canFire && !sent && view.me.legalTargets.length > 0) {

@@ -135,6 +135,7 @@ export function BoardPlaying({
             fresh={fresh?.targetId === p.playerId ? fresh.coord : null}
             sweep={sweep?.playerId === p.playerId ? sweep : null}
             commander={commanderOf(settings, p.commanderId)}
+            ghost={settings.eliminated === 'ghosts' && p.status === 'ELIMINATED'}
           />
         );
         // À plat, chaque zone est dans un cadre tourné vers le côté de la table où son joueur est assis.

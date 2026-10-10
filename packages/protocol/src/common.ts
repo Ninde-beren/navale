@@ -61,6 +61,17 @@ export type BotLevel = z.infer<typeof BotLevelSchema>;
 export const PresetIdSchema = z.enum(['classic', 'quick']);
 export type PresetId = z.infer<typeof PresetIdSchema>;
 
+/**
+ * Ce que deviennent les joueurs éliminés : des fantômes, qui pronostiquent chaque manche,
+ * ou des spectateurs, qui regardent la fin de la partie.
+ */
+export const EliminatedRoleSchema = z.enum(['ghosts', 'spectators']);
+export type EliminatedRole = z.infer<typeof EliminatedRoleSchema>;
+
+/** Le pronostic d'un fantôme sur une manche : au moins un tir touche (`HIT`), ou aucun (`MISS`). */
+export const BetSchema = z.enum(['HIT', 'MISS']);
+export type Bet = z.infer<typeof BetSchema>;
+
 // ---- Commandants et capacités ----------------------------------------------------
 
 export const AbilityTypeSchema = z.enum(['radar', 'sonar', 'missile', 'repair', 'shield', 'decoy']);
@@ -148,6 +159,8 @@ export const GameSettingsSchema = z.object({
   afkBotLevel: BotLevelSchema.default('normal'),
   /** Commandants proposés aux joueurs ; vide = partie sans capacités. */
   commanders: z.array(CommanderSchema).max(8).default([]),
+  /** Les éliminés : fantômes (ils pronostiquent) ou spectateurs. */
+  eliminated: EliminatedRoleSchema.default('ghosts'),
 });
 export type GameSettings = z.infer<typeof GameSettingsSchema>;
 

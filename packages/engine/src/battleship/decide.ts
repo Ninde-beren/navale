@@ -22,6 +22,7 @@ import {
   repairableCells,
 } from './rules/abilities.js';
 import { computeRanking, isFinishedAfterRound } from './rules/end.js';
+import { canBet, roundOutcome } from './rules/ghosts.js';
 import { resolveRound, type ShotToResolve } from './rules/resolve.js';
 import { startBlocker } from './rules/start.js';
 import { antiFocusBlocked, legalTargets } from './rules/targets.js';
@@ -104,6 +105,8 @@ export function decide(state: GameState, command: Command, ctx: DecideContext): 
       return fire(state, command, ctx);
     case 'USE_ABILITY':
       return useAbility(state, command, ctx);
+    case 'PLACE_BET':
+      return placeBet(state, command, ctx);
     case 'FORCE_ROUND':
       return forceRound(state, ctx);
     case 'SUBSTITUTE_PLAYER':
@@ -194,6 +197,13 @@ function resolveAndAdvance(
       round: roundIndex,
       rank: e.rank,
     });
+  // Les pronostics des fantômes, dévoilés et comptés une fois les tirs de la manche résolus.
+  const bets = Object.entries(state.round?.bets ?? {}).map(([playerId, bet]) => ({
+    playerId,
+    bet,
+  }));
+  if (bets.length > 0)
+    events.push({ type: 'BETS_SETTLED', round: roundIndex, outcome: roundOutcome(resolved), bets });
   events.push({ type: 'ROUND_RESOLVED', round: roundIndex, skipped });
 
   let next = state;
@@ -575,6 +585,35 @@ function useAbility(
   let next = state;
   for (const e of effects.events) next = evolve(next, e);
   return ok([...effects.events, ...resolveAndAdvance(next, effects.shots, [], ctx)]);
+}
+
+/**
+ * Fantôme : un éliminé pronostique la manche en cours, au moins un touché ou aucun.
+ * Il ne voit rien de plus qu'un spectateur, et son pronostic ne change rien à la partie.
+ */
+function placeBet(
+  state: GameState,
+  command: CommandOf<'PLACE_BET'>,
+  ctx: DecideContext,
+): BattleshipDecision {
+  const me = actorPlayer(state, ctx);
+  if (isDecision(me)) return me;
+  if (state.status !== 'PLAYING' || !state.round)
+    return reject('GAME_NOT_PLAYING', 'La partie n’est pas en cours.');
+  if (!canBet(state, me))
+    return reject(
+      'NOT_A_GHOST',
+      state.settings.eliminated === 'ghosts'
+        ? 'Les pronostics sont pour les éliminés.'
+        : 'Cette partie se joue sans fantômes.',
+    );
+  // Le pronostic vise une manche : parti pendant l'annonce de la précédente, il arrive trop tard.
+  if (command.round !== state.round.index)
+    return reject('WRONG_STATE', 'Cette manche est déjà jouée.');
+  if (state.round.bets[me.playerId] === command.bet) return ok([]);
+  return ok([
+    { type: 'BET_PLACED', round: state.round.index, playerId: me.playerId, bet: command.bet },
+  ]);
 }
 
 function forceRound(state: GameState, ctx: DecideContext): BattleshipDecision {

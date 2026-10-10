@@ -906,6 +906,45 @@ body {
   letter-spacing: 0;
   color: var(--text-2);
 }
+/* Fantômes : la plaque d'un éliminé qui pronostique reste allumée, seule sa grille s'éteint ;
+   ses bons pronostics s'allument quand ils changent (la clé du composant suit leur nombre). */
+.zone.out.haunt {
+  opacity: 1;
+  filter: none;
+}
+/* Aussi éteinte que celle d'un éliminé ordinaire (zone à 0,55, grille `.dim` à 0,45). */
+.zone.out.haunt .grid {
+  opacity: 0.25;
+  filter: saturate(0.1);
+}
+.zone.out.haunt .stamp {
+  opacity: 0.55;
+  filter: saturate(0.25);
+}
+.tv.v2 .nameplate .role.ghost {
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ghost);
+  animation: ghost-score 900ms ease-out;
+}
+@keyframes ghost-score {
+  from {
+    text-shadow: 0 0 18px var(--ghost);
+  }
+  to {
+    text-shadow: none;
+  }
+}
+.finish .ghost-best {
+  font: 500 32px/1.3 var(--font-body);
+  color: var(--text-2);
+}
+.ghost-bets .ghost-question {
+  font: 700 20px/1.25 var(--font-display);
+}
+.ghost-bets .btn[aria-pressed='true'] {
+  box-shadow: 0 0 0 2px var(--ghost);
+}
 /* Écran central : les ondes bleues du sonar partent de la case visée et couvrent sa zone
    (--span cases de côté), les mêmes partout, elles ne révèlent rien ; le marteau tape trois
    fois sur la case réparée, une étincelle à chaque coup. Calés sur SONAR_PINGS et HAMMER_TAPS
@@ -1626,6 +1665,15 @@ body {
 }
 .create .field {
   gap: 0.5em;
+}
+/* Deux petits champs dans une même case : les joueurs, et les fantômes quand ils ont un sens. */
+.create .field-pair {
+  display: flex;
+  gap: 0.75em;
+  min-width: 0;
+}
+.create .field-pair > .field {
+  min-width: 0;
 }
 .create .label {
   font-size: 0.8em;

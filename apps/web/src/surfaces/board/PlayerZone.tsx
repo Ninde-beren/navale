@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import type { Commander, Coord, PublicPlayer } from '@navale/protocol';
 import { publicGridClasses } from '../../shared/cells.js';
-import { abilityHint, ordinal } from '../../shared/labels.js';
+import { abilityHint, betsLabel, ordinal } from '../../shared/labels.js';
 import { PlayerAvatar } from '../../shared/ui/Avatar.js';
 import { Grid } from '../../shared/ui/Grid.js';
 import { RadarSweep } from '../../shared/ui/RadarSweep.js';
@@ -18,6 +18,7 @@ export function PlayerZone({
   fresh,
   sweep,
   commander,
+  ghost = false,
 }: {
   player: PublicPlayer;
   seat: number;
@@ -32,11 +33,19 @@ export function PlayerZone({
   fresh: Coord | null;
   /** Un radar qui balaie sa grille : la zone seule, sans écho, qu'il y ait des navires ou non. */
   sweep: Sweep | null;
+  /** Éliminé d'une partie à fantômes : il pronostique, sa plaque montre ses bons pronostics. */
+  ghost?: boolean;
 }) {
   const eliminated = player.status === 'ELIMINATED';
   return (
     <section
-      className={clsx('zone', `c-${player.color}`, active && 'active', eliminated && 'out')}
+      className={clsx(
+        'zone',
+        `c-${player.color}`,
+        active && 'active',
+        eliminated && 'out',
+        ghost && 'haunt',
+      )}
       data-seat={seat}
       data-player={player.playerId}
     >
@@ -46,6 +55,15 @@ export function PlayerZone({
         {commander && (
           <span className="role cmd" title={abilityHint(commander.ability)}>
             {commander.name} {player.abilityUsesLeft > 0 ? '●' : '○'}
+          </span>
+        )}
+        {ghost && (
+          <span
+            key={player.bets.won}
+            className="role ghost"
+            title="Ses pronostics de fantôme : les bons, sur ceux qui ont compté"
+          >
+            fantôme{player.bets.total > 0 && ` · ${betsLabel(player.bets)}`}
           </span>
         )}
         {player.substitute ? (

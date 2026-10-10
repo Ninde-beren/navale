@@ -1,7 +1,14 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { COMMANDERS, PRESETS, defaultPresetFor } from '@navale/engine';
-import type { EndCondition, PresetId, SalvoOrder, SunkReveal, Variant } from '@navale/protocol';
+import type {
+  EliminatedRole,
+  EndCondition,
+  PresetId,
+  SalvoOrder,
+  SunkReveal,
+  Variant,
+} from '@navale/protocol';
 import { api, ApiError } from '../../shared/api.js';
 import { publicGridClasses } from '../../shared/cells.js';
 import {
@@ -93,6 +100,9 @@ export function CreateGame() {
   const [afk, setAfk] = useState<AfkChoice>('45');
   const afkBotSeconds = afk === 'none' ? null : Number(afk);
   const [commanders, setCommanders] = useState(false);
+  // Les éliminés : sans objet à deux joueurs ou à la première flotte coulée, la partie s'arrête avant.
+  const [eliminated, setEliminated] = useState<EliminatedRole>('ghosts');
+  const eliminatedShown = maxPlayers >= 3 && endCondition === 'last_standing';
   // Anti-acharnement : sans objet à deux joueurs, le champ n'apparaît qu'à partir de trois.
   const [antiFocus, setAntiFocus] = useState<AntiFocusChoice>('none');
   const antiFocusMaxStreak = maxPlayers >= 3 && antiFocus !== 'none' ? Number(antiFocus) : null;
@@ -147,6 +157,7 @@ export function CreateGame() {
           antiFocusMaxStreak,
           afkBotSeconds,
           commanders: commanders ? [...COMMANDERS] : [],
+          eliminated,
         },
         preset: effectivePreset,
       });
@@ -263,17 +274,34 @@ export function CreateGame() {
                   : 'Au tir seulement, sans capacité spéciale.'}
               </p>
             </div>
-            <div className="field">
-              <span className="label">Joueurs au maximum</span>
-              <Seg
-                value={String(maxPlayers)}
-                options={[
-                  ['2', '2'],
-                  ['3', '3'],
-                  ['4', '4'],
-                ]}
-                onChange={(v) => setMaxPlayers(Number(v))}
-              />
+            {/* « Fantômes » partage la case des joueurs : le formulaire garde ses quatre rangées et
+                tient sans défilement. */}
+            <div className="field-pair">
+              <div className="field">
+                <span className="label">Joueurs</span>
+                <Seg
+                  value={String(maxPlayers)}
+                  options={[
+                    ['2', '2'],
+                    ['3', '3'],
+                    ['4', '4'],
+                  ]}
+                  onChange={(v) => setMaxPlayers(Number(v))}
+                />
+              </div>
+              {eliminatedShown && (
+                <div className="field">
+                  <span className="label">Fantômes</span>
+                  <Seg
+                    value={eliminated}
+                    options={[
+                      ['spectators', 'Sans'],
+                      ['ghosts', 'Avec'],
+                    ]}
+                    onChange={setEliminated}
+                  />
+                </div>
+              )}
             </div>
             <div className="field">
               <span className="label">Fin de partie</span>

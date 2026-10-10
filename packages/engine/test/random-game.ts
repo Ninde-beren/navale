@@ -3,7 +3,7 @@ import { randomFleet } from '../src/battleship/placement.js';
 import { makeSettings } from '../src/battleship/settings.js';
 import { coordKey } from '../src/battleship/state.js';
 import { legalTargets } from '../src/battleship/rules/targets.js';
-import { COLORS, HOST, Harness } from './helpers.js';
+import { COLORS, HOST, Harness, player } from './helpers.js';
 
 /** Joue une partie entière avec des tirs légaux au hasard. Renvoie le banc d'essai. */
 export function randomGame(
@@ -29,6 +29,14 @@ export function randomGame(
   let commands = 0;
   while (h.state.status === 'PLAYING' && commands++ < maxCommands) {
     const round = h.state.round!;
+    // Les fantômes pronostiquent au hasard : leurs paris passent aussi par le rejeu et les vues.
+    for (const p of h.state.players)
+      if (p.status === 'ELIMINATED' && rnd() < 0.7)
+        h.expectOk(player(p.playerId), {
+          type: 'PLACE_BET',
+          round: round.index,
+          bet: rnd() < 0.5 ? 'HIT' : 'MISS',
+        });
     const shooter = round.expectedShooters.find((id) => !round.committed[id]);
     if (!shooter) {
       h.expectOk(HOST, { type: 'FORCE_ROUND' });
