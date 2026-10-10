@@ -69,9 +69,16 @@ export class GameHistory {
          ('PLAYER_JOINED', 'COMMANDER_CHOSEN', 'GAME_FINISHED', 'GAME_CANCELLED', 'REMATCH_CREATED')
        ORDER BY seq`,
     );
+    // Une partie compactée (plus de 24 h après sa fin) n'a plus ses coups : son nombre de tirs
+    // et sa dernière action ont été notés dans `game_activity` juste avant (EventStore.compact).
     const activity = this.db.prepare(
-      `SELECT SUM(type = 'SHOT_RESOLVED') AS shots,
-         MAX(CASE WHEN type NOT IN ('GAME_CANCELLED', 'REMATCH_CREATED') THEN at END) AS last
+      `SELECT
+         COALESCE((SELECT shots FROM game_activity WHERE game_id = ?), SUM(type = 'SHOT_RESOLVED'))
+           AS shots,
+         COALESCE(
+           (SELECT last_at FROM game_activity WHERE game_id = ?),
+           MAX(CASE WHEN type NOT IN ('GAME_CANCELLED', 'REMATCH_CREATED') THEN at END)
+         ) AS last
        FROM events WHERE game_id = ?`,
     );
     return started.map((row) => {
@@ -101,7 +108,10 @@ export class GameHistory {
         commanderId: commanders.get(playerId) ?? null,
       }));
       const humans = seats.filter((p) => p.kind === 'human').map((p) => p.playerId);
-      const { shots, last } = activity.get(row.game_id) as { shots: number; last: number };
+      const { shots, last } = activity.get(row.game_id, row.game_id, row.game_id) as {
+        shots: number;
+        last: number;
+      };
       return {
         gameId: row.game_id,
         code: row.code,

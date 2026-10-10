@@ -150,9 +150,14 @@ export function Home() {
                 Rejoindre la partie
               </button>
             ) : (
-              <Link className="btn primary xl" to="/create">
-                Créer une partie
-              </Link>
+              <>
+                <Link className="btn primary xl" to="/create">
+                  Créer une partie
+                </Link>
+                <Link className="btn ghost" to="/replay">
+                  Revoir une partie exportée
+                </Link>
+              </>
             )}
           </div>
         </section>

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { battleship, makeSettings } from '@navale/engine';
 import type { Actor, Command, EventEnvelope, GameEvent } from '@navale/protocol';
 import { replayScript, roundCount, roundStart, viewBefore } from '../src/shared/replay.js';
+import { readReplayFile, replayFile, replayFileName } from '../src/shared/replayFile.js';
 
 /** Une petite partie à deux, jouée par le moteur, et son journal : Antoine coule Julie en trois manches. */
 function journal(): EventEnvelope[] {
@@ -90,5 +91,37 @@ describe('replay', () => {
     expect(() => replayScript([])).toThrow();
     const lobby = journal().slice(0, 3);
     expect(() => replayScript(lobby)).toThrow('journal sans lancement');
+  });
+});
+
+describe('partie exportée', () => {
+  it('s’exporte et se rouvre telle quelle, sans le serveur', () => {
+    const file = replayFile({ gameId: 'g', code: 'ABCD', events: journal() }, 5);
+    expect(file).toMatchObject({
+      format: 'navale-replay',
+      version: 1,
+      code: 'ABCD',
+      exportedAt: 5,
+    });
+    expect(replayFileName(file)).toMatch(/^navale-ABCD-\d{4}-\d{2}-\d{2}\.json$/);
+    const read = readReplayFile(JSON.stringify(file));
+    expect(read.ok).toBe(true);
+    if (read.ok) expect(read.script.steps.at(-1)?.view.status).toBe('FINISHED');
+  });
+
+  it('refuse ce qui n’est pas une partie, ou une partie abîmée', () => {
+    expect(readReplayFile('pas du json')).toMatchObject({ ok: false });
+    expect(readReplayFile('{"format":"autre"}')).toMatchObject({ ok: false });
+    const file = replayFile({ gameId: 'g', code: 'ABCD', events: journal() });
+    const broken = {
+      ...file,
+      events: file.events.map((e) => ({ ...e, event: { type: 'NIMPORTE' } })),
+    };
+    expect(readReplayFile(JSON.stringify(broken))).toMatchObject({ ok: false });
+    const lobby = { ...file, events: file.events.slice(0, 3) };
+    expect(readReplayFile(JSON.stringify(lobby))).toEqual({
+      ok: false,
+      error: 'Cette partie ne se rejoue pas : son journal est incomplet.',
+    });
   });
 });

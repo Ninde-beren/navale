@@ -47,12 +47,30 @@ export const GameSharedRequestSchema = z.object({ from: ShareSourceSchema });
 export type GameSharedRequest = z.infer<typeof GameSharedRequestSchema>;
 
 /**
- * `GET /api/games/:gameId/replay` : le journal complet d'une partie terminée, pour la revoir.
- * Une fois la partie finie, plus rien n'y est secret : flottes, détections et pronostics compris.
+ * `GET /api/games/:gameId/replay` : le journal complet d'une partie terminée, pour la revoir,
+ * pendant 24 h après sa fin (`expiresAt`). Une fois la partie finie, plus rien n'y est secret :
+ * flottes, détections et pronostics compris.
  */
 export const ReplaySchema = z.object({
   gameId: z.string(),
   code: z.string(),
   events: z.array(EventEnvelopeSchema),
+  /** Quand le serveur cessera de la servir : passé ce moment, seul un fichier exporté la garde. */
+  expiresAt: z.number(),
 });
 export type Replay = z.infer<typeof ReplaySchema>;
+
+/**
+ * Une partie exportée, pour la revoir plus tard dans le navigateur, sans le serveur : le
+ * journal complet d'une partie terminée. Le fichier vient de n'importe où : le lecteur le
+ * valide entièrement avant de le rejouer.
+ */
+export const ReplayFileSchema = z.object({
+  format: z.literal('navale-replay'),
+  version: z.literal(1),
+  gameId: z.string().max(64),
+  code: z.string().max(16),
+  exportedAt: z.number(),
+  events: z.array(EventEnvelopeSchema).min(1).max(20_000),
+});
+export type ReplayFile = z.infer<typeof ReplayFileSchema>;

@@ -20,6 +20,7 @@ import { BotDriver } from './runtime/bots.js';
 import { contain, type ReportFailure } from './runtime/failure.js';
 import { Publisher } from './runtime/publisher.js';
 import { RematchService } from './runtime/rematch.js';
+import { JournalCompactor } from './runtime/compactor.js';
 import { DEFAULT_EXPIRY, Sweeper, type ExpiryPolicy } from './runtime/sweeper.js';
 import { RoundTimers } from './runtime/timers.js';
 import { openDatabase } from './store/database.js';
@@ -117,6 +118,14 @@ export async function createApp(
     report,
   );
   sweeper.start();
+  // Les coups d'une partie finie depuis plus de 24 h ne servent plus : le replay a expiré.
+  const compactor = new JournalCompactor(
+    store,
+    (options.expiry ?? DEFAULT_EXPIRY).finishedMs,
+    (msg) => app.log.info(msg),
+    report,
+  );
+  compactor.start();
 
   const version = process.env.NAVALE_VERSION ?? 'dev';
   const mailer = options.mailer === undefined ? mailerFromConfig(config) : options.mailer;
@@ -136,7 +145,7 @@ export async function createApp(
   registerFeedback(app, { store: feedback, mailer, version }, config);
   registerAdmin(app, { registry, presence, io, history, feedback, marks, mailer }, config);
   registerUsageRoutes(app, registry, marks);
-  registerReplayRoutes(app, store);
+  registerReplayRoutes(app, store, (options.expiry ?? DEFAULT_EXPIRY).finishedMs);
   registerSockets(io, registry, publisher, presence, report);
   // Après les sockets du jeu : la connexion y est authentifiée, ou déjà refusée.
   trackRemoteBoards(io, marks);
@@ -154,11 +163,13 @@ export async function createApp(
     /** Parties mises de côté à ce démarrage : leur journal ne se rejoue plus. */
     broken,
     sweeper,
+    compactor,
     async listen(): Promise<string> {
       return app.listen({ port: config.port, host: '0.0.0.0' });
     },
     async close(): Promise<void> {
       sweeper.close();
+      compactor.close();
       timers.close();
       afk.close();
       bots.close();

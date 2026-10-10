@@ -1,12 +1,23 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ReplaySchema } from '@navale/protocol';
-import { command, createGame, open, startServer, until, type TestServer } from './support.js';
+import {
+  command,
+  createGame,
+  open,
+  sleep,
+  startServer,
+  until,
+  type TestServer,
+} from './support.js';
 
 let server: TestServer;
 let baseUrl: string;
 
 beforeAll(async () => {
-  ({ server, baseUrl } = await startServer());
+  // Une partie terminée se revoit une seconde : assez pour la lire, puis le replay expire.
+  ({ server, baseUrl } = await startServer({
+    app: { expiry: { lobbyMs: 60_000, playingMs: 60_000, finishedMs: 1000, intervalMs: 0 } },
+  }));
 });
 afterAll(async () => {
   await server.close();
@@ -64,6 +75,14 @@ describe('replay', () => {
     expect(placed.every((e) => e.event.type === 'FLEET_PLACED' && e.event.ships.length > 0)).toBe(
       true,
     );
+    expect(replay.expiresAt).toBeGreaterThan(Date.now());
+    expect(replay.expiresAt).toBeLessThanOrEqual(Date.now() + 1000);
+
+    // Passé le délai, le serveur ne la sert plus : seul un fichier exporté la garde.
+    await sleep(1100);
+    const expired = await replayOf(g.gameId);
+    expect(expired.status).toBe(410);
+    expect(await expired.json()).toMatchObject({ code: 'REPLAY_EXPIRED' });
     me.socket.disconnect();
     board.socket.disconnect();
   });

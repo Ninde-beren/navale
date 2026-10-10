@@ -2,7 +2,7 @@ import clsx from 'clsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { pacing } from '@navale/engine';
-import type { Ship } from '@navale/protocol';
+import type { ReplayFile, Ship } from '@navale/protocol';
 import { api, ApiError } from '../../shared/api.js';
 import { useBoardPrefs } from '../../shared/boardPrefs.js';
 import {
@@ -12,8 +12,15 @@ import {
   viewBefore,
   type ReplayScript,
 } from '../../shared/replay.js';
+import {
+  REPLAY_FILE_MAX_BYTES,
+  downloadReplayFile,
+  readReplayFile,
+  replayFile,
+} from '../../shared/replayFile.js';
 import { useGame } from '../../shared/store.js';
 import { Notice } from '../../shared/ui/Notice.js';
+import { Wordmark } from '../../shared/ui/Wordmark.js';
 import { useWakeLock } from '../../shared/useWakeLock.js';
 import { BoardFinished } from '../board/BoardFinished.js';
 import { BoardPlaying } from '../board/BoardPlaying.js';
@@ -125,39 +132,100 @@ function useReplayPlayer(script: ReplayScript | null) {
   return { next, playing, speed, generation, play, pause, seek, setSpeed };
 }
 
-/** Revoir une partie terminée sur l'écran central, coup par coup, avec ses animations. */
+/** Revoir une partie terminée, gardée par le serveur 24 h après sa fin. */
 export function Replay() {
   const gameId = useParams().gameId ?? '';
-  const [script, setScript] = useState<ReplayScript | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [showFleets, setShowFleets] = useState(false);
+  const [loaded, setLoaded] = useState<{ script: ReplayScript; file: ReplayFile } | null>(null);
+  const [error, setError] = useState<{ expired: boolean; message: string } | null>(null);
   useEffect(() => {
     let alive = true;
-    setScript(null);
+    setLoaded(null);
+    setError(null);
     api
       .replay(gameId)
-      .then((replay) => alive && setScript(replayScript(replay.events)))
+      .then((replay) => {
+        if (alive) setLoaded({ script: replayScript(replay.events), file: replayFile(replay) });
+      })
       .catch((e: unknown) => {
-        if (alive) setError(e instanceof ApiError ? e.message : 'Le serveur ne répond pas.');
+        if (!alive) return;
+        if (e instanceof ApiError)
+          setError({ expired: e.code === 'REPLAY_EXPIRED', message: e.message });
+        else setError({ expired: false, message: 'Le serveur ne répond pas.' });
       });
     return () => {
       alive = false;
     };
   }, [gameId]);
-  const player = useReplayPlayer(script);
-  const view = useGame((s) => s.view);
-  const flat = useBoardPrefs((s) => s.flat);
-  useWakeLock(player.playing);
 
+  if (error?.expired) return <ReplayOpen reason={error.message} />;
   if (error)
     return (
       <Notice
         title="Pas de replay"
-        text={error}
+        text={error.message}
         action={{ to: '/', label: 'Retour à l’accueil' }}
       />
     );
-  if (!script || !view || view.gameId !== script.start.view.gameId)
+  if (!loaded) return <Notice title="Chargement du replay…" />;
+  return <ReplayScreen script={loaded.script} file={loaded.file} />;
+}
+
+/**
+ * Revoir une partie exportée : le fichier reste dans le navigateur, rien ne part au serveur.
+ * Aussi la suite d'un replay expiré, quand quelqu'un a gardé la partie.
+ */
+export function ReplayOpen({ reason }: { reason?: string }) {
+  const [loaded, setLoaded] = useState<{ script: ReplayScript; file: ReplayFile } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  if (loaded) return <ReplayScreen script={loaded.script} file={loaded.file} />;
+
+  const open = async (picked: File | undefined) => {
+    setError(null);
+    if (!picked) return;
+    if (picked.size > REPLAY_FILE_MAX_BYTES)
+      return setError('Ce fichier est bien trop gros pour une partie Navale.');
+    const read = readReplayFile(await picked.text());
+    if (read.ok) setLoaded({ script: read.script, file: read.file });
+    else setError(read.error);
+  };
+
+  return (
+    <div className="notice app-phone">
+      <div className="box">
+        <Wordmark />
+        <h1 className="h1">{reason ? 'Ce replay a expiré' : 'Revoir une partie exportée'}</h1>
+        <p className="muted">
+          {reason ??
+            'Ouvre le fichier d’une partie exportée depuis son replay : elle se rejoue ici, sur cet écran, sans passer par le serveur.'}
+        </p>
+        <div className="actions">
+          <label className="btn primary">
+            Ouvrir un fichier de partie
+            <input
+              type="file"
+              accept=".json,application/json"
+              className="sr-only"
+              onChange={(e) => void open(e.target.files?.[0])}
+            />
+          </label>
+          <Link className="btn ghost" to="/">
+            Retour à l’accueil
+          </Link>
+        </div>
+        {error && <p className="hint err">{error}</p>}
+      </div>
+    </div>
+  );
+}
+
+/** Le lecteur, sur l'écran central : la partie rejouée et sa barre de lecture. */
+function ReplayScreen({ script, file }: { script: ReplayScript; file: ReplayFile }) {
+  const [showFleets, setShowFleets] = useState(false);
+  const player = useReplayPlayer(script);
+  const view = useGame((s) => s.view);
+  const flat = useBoardPrefs((s) => s.flat);
+  useWakeLock(player.playing);
+  if (!view || view.gameId !== script.start.view.gameId)
     return <Notice title="Chargement du replay…" />;
 
   const ended = view.status === 'FINISHED';
@@ -182,6 +250,7 @@ export function Replay() {
               player.seek(0);
               player.play();
             }}
+            onExport={() => downloadReplayFile(file)}
           />
         ) : (
           <BoardPlaying
@@ -249,6 +318,14 @@ export function Replay() {
               onClick={() => setShowFleets((v) => !v)}
             >
               {showFleets ? 'Cacher les flottes' : 'Montrer les flottes'}
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              title="Garde la partie dans un fichier : le serveur l’oublie 24 h après sa fin"
+              onClick={() => downloadReplayFile(file)}
+            >
+              Exporter
             </button>
             <Link className="btn ghost" to="/">
               Quitter

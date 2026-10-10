@@ -17,11 +17,14 @@ export function BoardFinished({
   view,
   socket,
   onRestart,
+  onExport,
 }: {
   view: GameView;
   socket: SocketRef;
   /** Fin d'un replay : le bouton qui le relance depuis le début. */
   onRestart?: () => void;
+  /** Fin d'un replay : le bouton qui garde la partie dans un fichier. */
+  onExport?: () => void;
 }) {
   const ranking = view.ranking ?? [];
   const { byId, nameOf } = playerLookup(view.players);
@@ -93,9 +96,16 @@ export function BoardFinished({
       )}
       <div className="actions">
         {onRestart ? (
-          <button className="btn primary xl" type="button" onClick={onRestart}>
-            Revoir depuis le début
-          </button>
+          <>
+            <button className="btn primary xl" type="button" onClick={onRestart}>
+              Revoir depuis le début
+            </button>
+            {onExport && (
+              <button className="btn ghost" type="button" onClick={onExport}>
+                Exporter la partie
+              </button>
+            )}
+          </>
         ) : view.isHost ? (
           <>
             <button className="btn primary xl" disabled={busy} onClick={() => void rematch()}>

@@ -5,7 +5,7 @@ import { CreateGame } from '../surfaces/home/CreateGame.js';
 import { Home } from '../surfaces/home/Home.js';
 import { OgCard } from '../surfaces/home/OgCard.js';
 import { Play } from '../surfaces/play/Play.js';
-import { Replay } from '../surfaces/replay/Replay.js';
+import { Replay, ReplayOpen } from '../surfaces/replay/Replay.js';
 
 export const router = createBrowserRouter([
   {
@@ -15,6 +15,7 @@ export const router = createBrowserRouter([
       { path: '/create', element: <CreateGame /> },
       { path: '/board/:code', element: <Board /> },
       { path: '/play/:code', element: <Play /> },
+      { path: '/replay', element: <ReplayOpen /> },
       { path: '/replay/:gameId', element: <Replay /> },
       // Source de l'image d'aperçu de lien, à photographier en développement (voir OgCard).
       ...(import.meta.env.DEV ? [{ path: '/og-card', element: <OgCard /> }] : []),
