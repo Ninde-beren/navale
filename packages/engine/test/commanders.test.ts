@@ -59,9 +59,9 @@ describe('commandants : le choix', () => {
     const me = projectPublic(h.state).players[0]!;
     expect(me.commanderId).toBe('amiral');
     expect(me.abilityUsesLeft).toBe(1);
-    // Un bot n'en a pas, et la partie peut se lancer avec lui.
+    // Un bot en tire un au hasard parmi ceux de la partie, et la partie se lance avec lui.
     h.expectOk(HOST, { type: 'ADD_BOT' });
-    expect(projectPublic(h.state).players[1]!.commanderId).toBeNull();
+    expect(COMMANDERS.map((c) => c.id)).toContain(projectPublic(h.state).players[1]!.commanderId);
     h.start();
     h.expectReject(
       player(a),
@@ -134,6 +134,7 @@ describe('capacités, en tour par tour', () => {
         size: 3,
         shipCells: 6,
         contacts: radar.contacts,
+        ability: 'radar',
       },
     ]);
     expect(projectPrivate(h.state, j).me.radarResults).toEqual([]);

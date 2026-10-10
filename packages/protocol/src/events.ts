@@ -30,6 +30,24 @@ const ShotCommittedSchema = z.object({
   ability: AbilityTypeSchema.optional(),
 });
 
+/** Une capacité jouée. Pour un leurre, `targetId` et `coord` sont privés : seul son auteur les reçoit. */
+const AbilityUsedSchema = z.object({
+  type: z.literal('ABILITY_USED'),
+  round: z.number().int().min(0),
+  playerId: z.string(),
+  ability: AbilityTypeSchema,
+  targetId: z.string(),
+  coord: CoordSchema,
+});
+
+/** Privé : seul l'auteur du leurre sait où il est. */
+const DecoyPlacedSchema = z.object({
+  type: z.literal('DECOY_PLACED'),
+  round: z.number().int().min(0),
+  playerId: z.string(),
+  coord: CoordSchema,
+});
+
 /** Privé : seul l'auteur du radar reçoit `shipCells` et `contacts`. */
 const RadarResultEventSchema = RadarResultSchema.extend({
   type: z.literal('RADAR_RESULT'),
@@ -84,16 +102,19 @@ export const GameEventSchema = z.discriminatedUnion('type', [
     deadline: z.number().nullable(),
   }),
   ShotCommittedSchema,
-  /** Une capacité jouée : qui, laquelle, sur qui et où. Ses effets suivent (radar, réparation, tirs). */
+  /** Une capacité jouée : qui, laquelle, sur qui et où. Ses effets suivent (radar, réparation, tirs…). */
+  AbilityUsedSchema,
+  RadarResultEventSchema,
+  /** Bouclier levé : public, il tient jusqu'au prochain tour de son propriétaire (`turns`). */
   z.object({
-    type: z.literal('ABILITY_USED'),
+    type: z.literal('SHIELD_RAISED'),
     round: z.number().int().min(0),
     playerId: z.string(),
-    ability: AbilityTypeSchema,
-    targetId: z.string(),
-    coord: CoordSchema,
+    center: CoordSchema,
+    size: z.number().int().min(1),
+    turns: z.number().int().min(1),
   }),
-  RadarResultEventSchema,
+  DecoyPlacedSchema,
   z.object({
     type: z.literal('SHIP_REPAIRED'),
     round: z.number().int().min(0),
@@ -144,6 +165,8 @@ export const VisibleEventSchema = z.union([
   FleetPlacedSchema.omit({ ships: true }),
   ShotCommittedSchema.omit({ targetId: true, coord: true }),
   RadarResultEventSchema.omit({ shipCells: true, contacts: true }),
+  AbilityUsedSchema.omit({ targetId: true, coord: true }),
+  DecoyPlacedSchema.omit({ coord: true }),
 ]);
 export type VisibleEvent = z.infer<typeof VisibleEventSchema>;
 

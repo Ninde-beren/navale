@@ -10,11 +10,24 @@ import { COLOR_IDS, type ColorId } from '@navale/protocol';
  * premier geste et réveille le contexte ; `useSfx` expose muet / déverrouillé.
  */
 export type SfxName =
-  'launch' | 'miss' | 'hit' | 'sunk' | 'eliminated' | 'victory' | 'turn' | 'radar' | 'hammer';
+  | 'launch'
+  | 'miss'
+  | 'hit'
+  | 'sunk'
+  | 'eliminated'
+  | 'victory'
+  | 'turn'
+  | 'radar'
+  | 'sonar'
+  | 'hammer'
+  | 'shield'
+  | 'blocked'
+  | 'decoy';
 
 /**
  * Rythme des sons de capacité, en secondes : l'écran central cale ses animations
- * dessus (les ondes du radar partent sur chaque ping, le marteau frappe sur chaque coup).
+ * dessus (les ondes du radar et du sonar partent sur chaque ping, le marteau frappe
+ * sur chaque coup).
  */
 export const RADAR_PINGS = [0, 0.3, 0.6] as const;
 export const HAMMER_TAPS = [0.22, 0.54, 0.86] as const;
@@ -260,6 +273,40 @@ const SYNTH: Record<SfxName, (c: AudioContext, out: Out, t: number) => void> = {
       peak: 0.05,
       attack: 0.2,
     });
+  },
+  // Sonar : trois pings plus graves et plus longs que le radar, chacun suivi de son écho, sur un grondement d'eau.
+  sonar: (c, out, t) => {
+    for (const at of RADAR_PINGS) {
+      tone(c, out, t + at, { type: 'sine', from: 760, to: 690, dur: 0.7, peak: 0.3 });
+      tone(c, out, t + at + 0.18, { type: 'sine', from: 760, to: 690, dur: 0.45, peak: 0.08 });
+    }
+    burst(c, out, t, { filter: 'lowpass', from: 420, to: 160, dur: 1.2, peak: 0.08, attack: 0.3 });
+  },
+  // Bouclier : une nappe qui monte et scintille, comme un champ de force qui se lève.
+  shield: (c, out, t) => {
+    tone(c, out, t, { type: 'triangle', from: 220, to: 880, dur: 0.6, peak: 0.16, attack: 0.04 });
+    tone(c, out, t + 0.1, { type: 'sine', from: 440, to: 1320, dur: 0.5, peak: 0.08 });
+    burst(c, out, t, {
+      filter: 'bandpass',
+      from: 1500,
+      to: 5000,
+      q: 2,
+      dur: 0.6,
+      peak: 0.05,
+      attack: 0.2,
+    });
+  },
+  // Tir bloqué : le tir sonne contre le bouclier, un tintement clair et un coup sourd.
+  blocked: (c, out, t) => {
+    burst(c, out, t, { filter: 'highpass', from: 3000, to: 2000, dur: 0.06, peak: 0.4 });
+    tone(c, out, t, { type: 'triangle', from: 1200, to: 1150, dur: 0.25, peak: 0.2 });
+    tone(c, out, t, { type: 'sine', from: 3100, dur: 0.12, peak: 0.08 });
+    tone(c, out, t, { type: 'sine', from: 200, to: 120, dur: 0.1, peak: 0.2 });
+  },
+  // Leurre : deux petits « bloup » discrets, on ne sait pas où.
+  decoy: (c, out, t) => {
+    tone(c, out, t, { type: 'sine', from: 330, to: 220, dur: 0.18, peak: 0.2 });
+    tone(c, out, t + 0.16, { type: 'sine', from: 440, to: 300, dur: 0.2, peak: 0.16 });
   },
   // Marteau : trois coups secs sur de la tôle, un claquement, deux harmoniques métalliques et un petit coup sourd.
   hammer: (c, out, t) => {

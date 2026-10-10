@@ -1,4 +1,5 @@
 import clsx from 'clsx';
+import { radarZone } from '@navale/engine';
 import type { Commander, Coord, PublicPlayer } from '@navale/protocol';
 import { publicGridClasses } from '../../shared/cells.js';
 import { abilityHint, ordinal } from '../../shared/labels.js';
@@ -43,6 +44,7 @@ export function PlayerZone({
             {commander.name} {player.abilityUsesLeft > 0 ? '●' : '○'}
           </span>
         )}
+        {player.shield && <span className="role shield">bouclier</span>}
         {player.substitute ? (
           <span className="role">bot en relais</span>
         ) : (
@@ -52,7 +54,12 @@ export function PlayerZone({
       <Grid
         width={grid.width}
         height={grid.height}
-        cellClass={publicGridClasses([...player.revealed, ...reveals], player.sunkShips, fresh)}
+        cellClass={publicGridClasses(
+          [...player.revealed, ...reveals],
+          player.sunkShips,
+          fresh,
+          player.shield ? radarZone({ grid }, player.shield.center, player.shield.size) : [],
+        )}
         className={clsx(eliminated && 'dim')}
         label={`Grille de ${player.name}`}
       />

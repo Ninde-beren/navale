@@ -30,6 +30,7 @@
   --sunk-line: #8a4330;
   --danger: #ff3b5c; /* conflit de placement, erreur */
   --ok: #3ddc84; /* prêt, succès */
+  --shield: #8fd3ff; /* bouclier, tir bloqué */
 
   /* ---- 8 couleurs de joueurs (saturées, distinctes, encre sombre dessus) ---- */
   --p-red: #ff4a65;

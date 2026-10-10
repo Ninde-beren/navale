@@ -44,11 +44,12 @@ export function PlayWatching({
       <MyFleetGrid view={view} me={me} />
       {radars.length > 0 && (
         <div className="panel flex flex-col gap-2">
-          <span className="label">Mes radars</span>
+          <span className="label">Mes détections</span>
           {radars.map((r) => (
             <div key={`${r.round}-${r.targetId}`} className="kv">
               <span>
-                {nameOf(r.targetId)} · autour de {coordLabel(r.center)}
+                {nameOf(r.targetId)} · {r.ability === 'sonar' ? 'sonar' : 'radar'} autour de{' '}
+                {coordLabel(r.center)}
               </span>
               <b>{count(r.shipCells, 'case')} de navire</b>
             </div>

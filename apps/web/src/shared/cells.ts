@@ -13,10 +13,14 @@ export function hullClasses(cells: Coord[], orientation: 'H' | 'V'): Map<string,
   return out;
 }
 
-/** Classes des cases de ma propre grille : coques, touches, coulés. */
+/**
+ * Classes des cases de ma propre grille : coques, touches, coulés, et ce que je suis
+ * seul à voir de mes capacités : mes leurres (`tricked` une fois tirés) et mon bouclier.
+ */
 export function ownGridClasses(
   fleet: Ship[],
   revealed: Array<{ coord: Coord; result: 'MISS' | 'HIT' }>,
+  extras: { decoys?: Coord[]; shielded?: Coord[] } = {},
 ): (x: number, y: number) => string {
   const map = new Map<string, string>();
   for (const ship of fleet) {
@@ -31,6 +35,12 @@ export function ownGridClasses(
     }
   }
   for (const r of revealed) if (r.result === 'MISS') map.set(coordKey(r.coord), 'miss');
+  for (const d of extras.decoys ?? []) {
+    const tricked = revealed.some((r) => sameCoord(r.coord, d));
+    map.set(coordKey(d), clsx('decoy', tricked && 'tricked'));
+  }
+  for (const c of extras.shielded ?? [])
+    map.set(coordKey(c), clsx(map.get(coordKey(c)), 'shielded'));
   return (x, y) => map.get(coordKey({ x, y })) ?? '';
 }
 
@@ -39,6 +49,8 @@ export function publicGridClasses(
   revealed: Array<{ coord: Coord; result: 'MISS' | 'HIT' }>,
   sunkShips: Array<{ size: number; cells?: Coord[] }>,
   highlight: Coord | null = null,
+  /** Les cases sous un bouclier, publiques : tout le monde voit la zone protégée. */
+  shielded: Coord[] = [],
 ): (x: number, y: number) => string {
   const map = new Map<string, string>();
   for (const r of revealed) map.set(coordKey(r.coord), r.result === 'MISS' ? 'miss' : 'hit');
@@ -49,6 +61,7 @@ export function publicGridClasses(
     for (const c of s.cells) map.set(coordKey(c), clsx('sunk', hull.get(coordKey(c))));
   }
   if (highlight) map.set(coordKey(highlight), clsx(map.get(coordKey(highlight)), 'fresh'));
+  for (const c of shielded) map.set(coordKey(c), clsx(map.get(coordKey(c)), 'shielded'));
   return (x, y) => map.get(coordKey({ x, y })) ?? '';
 }
 

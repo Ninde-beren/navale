@@ -5,7 +5,6 @@ import type { EndCondition, PresetId, SalvoOrder, SunkReveal, Variant } from '@n
 import { api, ApiError } from '../../shared/api.js';
 import { publicGridClasses } from '../../shared/cells.js';
 import {
-  ABILITY_LABELS,
   END_LABELS,
   SALVO_ORDER_LABELS,
   SUNK_REVEAL_LABELS,
@@ -260,7 +259,7 @@ export function CreateGame() {
               />
               <p className="hint">
                 {commanders
-                  ? `Chacun choisit le sien : ${COMMANDERS.map((c) => `${c.name} (${ABILITY_LABELS[c.ability.type].toLowerCase()})`).join(', ')}. Une capacité, à jouer une fois à la place d’un tir.`
+                  ? 'Une capacité chacun, bots compris, une fois.'
                   : 'Au tir seulement, sans capacité spéciale.'}
               </p>
             </div>
@@ -279,14 +278,6 @@ export function CreateGame() {
             <div className="field">
               <span className="label">Fin de partie</span>
               <Seg value={endCondition} options={choices(END_LABELS)} onChange={setEndCondition} />
-            </div>
-            <div className="field">
-              <span className="label">Bateau coulé</span>
-              <Seg
-                value={sunkReveal}
-                options={choices(SUNK_REVEAL_LABELS)}
-                onChange={setSunkReveal}
-              />
             </div>
           </section>
           <aside className="create-summary panel" aria-label="Récapitulatif">
@@ -315,11 +306,15 @@ export function CreateGame() {
               cellClass={preview}
               label={`Aperçu d’une grille ${grid.width}×${grid.height} sur l’écran central`}
             />
-            <p className="hint">
-              {sunkReveal === 'classic'
-                ? 'On dessine le bateau coulé en entier.'
-                : 'On annonce « coulé » sans dessiner le bateau.'}
-            </p>
+            {/* Sous l'aperçu qu'il change, qui montre l'effet : le formulaire garde quatre rangées et tient sans défilement. */}
+            <div className="field">
+              <span className="label">Bateau coulé</span>
+              <Seg
+                value={sunkReveal}
+                options={choices(SUNK_REVEAL_LABELS)}
+                onChange={setSunkReveal}
+              />
+            </div>
             {error && <p className="hint err">{error}</p>}
             <button
               className="btn primary xl"

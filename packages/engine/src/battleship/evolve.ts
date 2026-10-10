@@ -30,6 +30,8 @@ function apply(state: GameState, event: GameEvent): GameState {
         commanderId: null,
         abilityUsesLeft: 0,
         radarResults: [],
+        shield: null,
+        decoys: [],
         name: event.name,
         color: event.color,
         seat: event.seat,
@@ -80,6 +82,16 @@ function apply(state: GameState, event: GameEvent): GameState {
         radarResults: [...p.radarResults, result],
       }));
     }
+    case 'SHIELD_RAISED':
+      return mapPlayer(state, event.playerId, (p) => ({
+        ...p,
+        shield: { center: event.center, size: event.size, turnsLeft: event.turns },
+      }));
+    case 'DECOY_PLACED':
+      return mapPlayer(state, event.playerId, (p) => ({
+        ...p,
+        decoys: [...p.decoys, event.coord],
+      }));
     case 'SHIP_REPAIRED':
       return mapPlayer(state, event.playerId, (p) => ({
         ...p,
@@ -102,6 +114,18 @@ function apply(state: GameState, event: GameEvent): GameState {
     case 'ROUND_STARTED':
       return {
         ...state,
+        // Un bouclier s'use au début de chaque tour de son propriétaire, et tombe au dernier.
+        players: state.players.map((p) =>
+          p.shield && event.expectedShooters.includes(p.playerId)
+            ? {
+                ...p,
+                shield:
+                  p.shield.turnsLeft > 1
+                    ? { ...p.shield, turnsLeft: p.shield.turnsLeft - 1 }
+                    : null,
+              }
+            : p,
+        ),
         round: {
           index: event.round,
           expectedShooters: [...event.expectedShooters],
@@ -129,6 +153,8 @@ function apply(state: GameState, event: GameEvent): GameState {
     case 'SHOT_RESOLVED': {
       const { type: _type, ...shot } = event;
       const withLog = { ...state, shotsLog: [...state.shotsLog, shot] };
+      // Arrêté par un bouclier : rien n'est touché ni révélé.
+      if (event.result === 'BLOCKED') return withLog;
       return mapPlayer(withLog, event.targetId, (p) => {
         const revealed = p.shotsReceived.some((s) => sameCoord(s.coord, event.coord))
           ? p.shotsReceived

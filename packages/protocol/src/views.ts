@@ -11,6 +11,7 @@ import {
   RadarResultSchema,
   RankEntrySchema,
   ResolvedShotSchema,
+  ShieldSchema,
   ShipSchema,
 } from './common.js';
 
@@ -31,6 +32,8 @@ export const PublicPlayerSchema = z.object({
   /** Son commandant (`settings.commanders`), s'il en a choisi un, et les usages qui lui restent. */
   commanderId: z.string().nullable(),
   abilityUsesLeft: z.number().int().min(0),
+  /** Son bouclier, tant qu'il tient ; `null` sinon. */
+  shield: ShieldSchema.nullable(),
   shipsRemaining: z.number().int().min(0),
   revealed: z.array(z.object({ coord: CoordSchema, result: z.enum(['MISS', 'HIT']) })),
   sunkShips: z.array(
@@ -86,8 +89,10 @@ export const PrivateMeSchema = z.object({
   canFire: z.boolean(),
   /** Je peux jouer ma capacité à la place d'un tir : mon tour, un usage restant. */
   canUseAbility: z.boolean(),
-  /** Ce que mes radars ont appris, du plus ancien au plus récent. */
+  /** Ce que mes radars et sonars ont appris, du plus ancien au plus récent. */
   radarResults: z.array(RadarResultSchema),
+  /** Mes leurres : les cases de ma grille où j'ai posé un faux navire. */
+  decoys: z.array(CoordSchema),
 });
 export type PrivateMe = z.infer<typeof PrivateMeSchema>;
 

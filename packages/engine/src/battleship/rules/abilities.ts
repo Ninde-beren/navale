@@ -1,18 +1,41 @@
-import type { Ability, Coord, GameEvent, GameSettings, PendingShot, Ship } from '@navale/protocol';
+import type {
+  Ability,
+  AbilityType,
+  Coord,
+  GameEvent,
+  GameSettings,
+  PendingShot,
+  Ship,
+} from '@navale/protocol';
 import type { DecideContext } from '../../core/definition.js';
-import { coordKey, inBounds, isSunk, playerById, sameCoord, type GameState } from '../state.js';
+import {
+  coordKey,
+  inBounds,
+  isSunk,
+  playerById,
+  sameCoord,
+  type GameState,
+  type Player,
+} from '../state.js';
 import type { ShotToResolve } from './resolve.js';
 
 /*
  * Les capacités des commandants, décrites par `settings.commanders`. Chacune
- * remplace le tir de la manche : le radar apprend, en privé, quelles cases d'une
- * zone portent un navire, sans tirer ; le missile tire sur une case et ses
- * voisines ; la réparation remet en état une case touchée. Ce module calcule les
- * zones et les effets ; `decide` vérifie qui a le droit de jouer quoi.
+ * remplace le tir de la manche. Chez un adversaire : le radar apprend, en privé,
+ * quelles cases d'une zone portent un navire ; le sonar n'en apprend que le total ;
+ * le missile tire sur une case et ses voisines. Sur sa propre flotte : la réparation
+ * remet en état une case touchée, le bouclier protège une zone jusqu'à son prochain
+ * tour, le leurre pose un faux navire sur une case vide. Ce module calcule les zones
+ * et les effets ; `decide` vérifie qui a le droit de jouer quoi.
  */
 
+type Grid = Pick<GameSettings, 'grid'>;
+
+/** Les capacités qui se jouent sur sa propre flotte ; les autres visent un adversaire. */
+export const SELF_ABILITIES: ReadonlySet<AbilityType> = new Set(['repair', 'shield', 'decoy']);
+
 /** Les cases d'une zone carrée de `size` de côté centrée sur `center`, dans la grille. */
-export function radarZone(settings: GameSettings, center: Coord, size: number): Coord[] {
+export function radarZone(settings: Grid, center: Coord, size: number): Coord[] {
   const half = Math.floor(size / 2);
   const cells: Coord[] = [];
   for (let y = center.y - half; y <= center.y + half; y++)
@@ -21,8 +44,18 @@ export function radarZone(settings: GameSettings, center: Coord, size: number): 
   return cells;
 }
 
+/** Une case est-elle sous ce bouclier ? */
+export function shieldCovers(
+  shield: { center: Coord; size: number } | null | undefined,
+  c: Coord,
+): boolean {
+  if (!shield) return false;
+  const half = Math.floor(shield.size / 2);
+  return Math.abs(c.x - shield.center.x) <= half && Math.abs(c.y - shield.center.y) <= half;
+}
+
 /** Les cases frappées par un missile en croix : la case visée et ses quatre voisines, dans la grille. */
-export function missileCells(settings: GameSettings, center: Coord): Coord[] {
+export function missileCells(settings: Grid, center: Coord): Coord[] {
   const around = [
     center,
     { x: center.x - 1, y: center.y },
@@ -33,13 +66,19 @@ export function missileCells(settings: GameSettings, center: Coord): Coord[] {
   return around.filter((c) => inBounds(settings, c));
 }
 
-/** Les cases qu'une rafale de missile frappe vraiment : la croix, sans les cases déjà révélées. */
+/**
+ * Les cases qu'une rafale de missile frappe vraiment : la croix, sans les cases déjà
+ * révélées ni celles qu'un bouclier connu protège.
+ */
 export function missileStrikes(
-  settings: GameSettings,
+  settings: Grid,
   center: Coord,
   revealed: ReadonlyArray<{ coord: Coord }>,
+  shield: { center: Coord; size: number } | null = null,
 ): Coord[] {
-  return missileCells(settings, center).filter((c) => !revealed.some((r) => sameCoord(r.coord, c)));
+  return missileCells(settings, center).filter(
+    (c) => !revealed.some((r) => sameCoord(r.coord, c)) && !shieldCovers(shield, c),
+  );
 }
 
 /**
@@ -56,9 +95,32 @@ export function repairableCells(fleet: Ship[]): Coord[] {
   return fleet.filter((ship) => !isSunk(ship)).flatMap((ship) => ship.hits);
 }
 
-/** Les cases de la liste qui portent un navire de cette flotte, dans l'ordre de la liste. */
-function shipCellsAmong(fleet: Ship[], cells: Coord[]): Coord[] {
-  const hull = new Set(fleet.flatMap((ship) => ship.cells.map(coordKey)));
+/** Les cases de sa grille où l'on peut poser un leurre : ni navire, ni case révélée, ni leurre déjà posé. */
+export function decoyCells(
+  settings: Grid,
+  fleet: Ship[],
+  revealed: ReadonlyArray<{ coord: Coord }>,
+  decoys: Coord[],
+): Coord[] {
+  const taken = new Set([
+    ...fleet.flatMap((ship) => ship.cells.map(coordKey)),
+    ...revealed.map((r) => coordKey(r.coord)),
+    ...decoys.map(coordKey),
+  ]);
+  const out: Coord[] = [];
+  for (let y = 0; y < settings.grid.height; y++)
+    for (let x = 0; x < settings.grid.width; x++)
+      if (!taken.has(coordKey({ x, y }))) out.push({ x, y });
+  return out;
+}
+
+/** Les cases de la liste qu'un détecteur voit comme un navire chez ce joueur : ses navires, et ses leurres. */
+function contactsAmong(player: Player | undefined, cells: Coord[]): Coord[] {
+  if (!player) return [];
+  const hull = new Set([
+    ...player.fleet.flatMap((ship) => ship.cells.map(coordKey)),
+    ...player.decoys.map(coordKey),
+  ]);
   return cells.filter((c) => hull.has(coordKey(c)));
 }
 
@@ -70,9 +132,10 @@ export interface AbilityEffects {
 }
 
 /**
- * Les effets d'une capacité engagée, contre l'état courant. Le radar lit la flotte
- * de la cible : c'est le seul endroit, hors résolution des tirs, où le moteur
- * regarde une flotte adverse, et son résultat reste privé (`RADAR_RESULT`).
+ * Les effets d'une capacité engagée, contre l'état courant. Le radar et le sonar
+ * lisent la flotte de la cible (leurres compris : ils trompent aussi les détecteurs) :
+ * c'est le seul endroit, hors résolution des tirs, où le moteur regarde une flotte
+ * adverse, et leur résultat reste privé (`RADAR_RESULT`).
  */
 export function abilityEffects(
   state: GameState,
@@ -91,10 +154,10 @@ export function abilityEffects(
     coord: pending.coord,
   };
   switch (ability.type) {
-    case 'radar': {
-      const target = playerById(state, pending.targetId);
+    case 'radar':
+    case 'sonar': {
       const cells = radarZone(state.settings, pending.coord, ability.size);
-      const contacts = target ? shipCellsAmong(target.fleet, cells) : [];
+      const contacts = contactsAmong(playerById(state, pending.targetId), cells);
       return {
         events: [
           used,
@@ -106,7 +169,9 @@ export function abilityEffects(
             center: pending.coord,
             size: ability.size,
             shipCells: contacts.length,
-            contacts,
+            // Le sonar ne dit que combien, pas où.
+            ...(ability.type === 'radar' ? { contacts } : {}),
+            ability: ability.type,
           },
         ],
         shots: [],
@@ -117,9 +182,34 @@ export function abilityEffects(
         events: [used, { type: 'SHIP_REPAIRED', round, playerId, coord: pending.coord }],
         shots: [],
       };
+    case 'shield':
+      return {
+        events: [
+          used,
+          {
+            type: 'SHIELD_RAISED',
+            round,
+            playerId,
+            center: pending.coord,
+            size: ability.size,
+            turns: ability.turns,
+          },
+        ],
+        shots: [],
+      };
+    case 'decoy':
+      return {
+        events: [used, { type: 'DECOY_PLACED', round, playerId, coord: pending.coord }],
+        shots: [],
+      };
     case 'missile': {
       const target = playerById(state, pending.targetId);
-      const cells = missileStrikes(state.settings, pending.coord, target?.shotsReceived ?? []);
+      const cells = missileStrikes(
+        state.settings,
+        pending.coord,
+        target?.shotsReceived ?? [],
+        target?.shield ?? null,
+      );
       const burst = { center: pending.coord, size: cells.length };
       const shots = cells.map((coord) => ({
         shooterId: playerId,

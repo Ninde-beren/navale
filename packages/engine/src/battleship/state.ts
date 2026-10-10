@@ -26,8 +26,12 @@ export interface Player {
   commanderId: string | null;
   /** Usages restants de la capacité de son commandant. */
   abilityUsesLeft: number;
-  /** Privé : ce que ses radars lui ont appris. */
+  /** Privé : ce que ses radars et sonars lui ont appris. */
   radarResults: RadarResult[];
+  /** Public : son bouclier, et combien de ses tours il tient encore. */
+  shield: { center: Coord; size: number; turnsLeft: number } | null;
+  /** Privé : ses leurres, des faux navires sur des cases vides de sa grille. */
+  decoys: Coord[];
   name: string;
   color: ColorId;
   seat: number;
@@ -117,6 +121,6 @@ export function shipsRemaining(player: Player): number {
   return player.fleet.filter((s) => !isSunk(s)).length;
 }
 
-export function inBounds(settings: GameSettings, c: Coord): boolean {
+export function inBounds(settings: Pick<GameSettings, 'grid'>, c: Coord): boolean {
   return c.x >= 0 && c.y >= 0 && c.x < settings.grid.width && c.y < settings.grid.height;
 }

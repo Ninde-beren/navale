@@ -1,0 +1,331 @@
+import fc from 'fast-check';
+import { describe, expect, it } from 'vitest';
+import type { Command, Coord, GameEvent, GameSettings } from '@navale/protocol';
+import { chooseAction } from '../src/battleship/bot/strategy.js';
+import { evolve } from '../src/battleship/evolve.js';
+import { initialState } from '../src/battleship/index.js';
+import {
+  privateRecipient,
+  projectPrivate,
+  projectPublic,
+  publicEvent,
+} from '../src/battleship/project.js';
+import { statsOf } from '../src/battleship/rules/end.js';
+import { COMMANDERS, makeSettings } from '../src/battleship/settings.js';
+import { cellsRemaining, type GameState } from '../src/battleship/state.js';
+import { mulberry32 } from '../src/core/random.js';
+import { randomFleet } from '../src/battleship/placement.js';
+import { COLORS, FIXED_QUICK, HOST, Harness, player } from './helpers.js';
+import { assertNoLeak } from './leak.js';
+
+const settings = (over: Partial<GameSettings> = {}) =>
+  makeSettings(
+    { variant: 'sequential', maxPlayers: 2, commanders: [...COMMANDERS], ...over },
+    'quick',
+  );
+
+/** Des joueurs prêts avec la flotte fixe (navires sur les lignes 1, 3, 5 et 7, à gauche), chacun son commandant. */
+function game(commanderIds: string[], over: Partial<GameSettings> = {}) {
+  const h = new Harness(settings({ maxPlayers: Math.max(2, commanderIds.length), ...over }));
+  const names = ['Antoine', 'Julie', 'Marc', 'Sophie'];
+  const ids = commanderIds.map((commanderId, i) => {
+    const id = h.join(names[i]!, COLORS[i]!);
+    h.expectOk(player(id), { type: 'CHOOSE_COMMANDER', commanderId });
+    h.place(id, FIXED_QUICK);
+    h.ready(id);
+    return id;
+  });
+  h.start();
+  return { h, ids };
+}
+
+const use = (h: Harness, who: string, targetId: string, coord: Coord) =>
+  h.expectOk(player(who), { type: 'USE_ABILITY', targetId, coord });
+const pub = (h: Harness, id: string) =>
+  projectPublic(h.state).players.find((p) => p.playerId === id)!;
+
+describe('sonar', () => {
+  it('ne dit que combien de cases de navire, sur une zone plus grande, et à son auteur seulement', () => {
+    const { h, ids } = game(['sonariste', 'amiral']);
+    const [a, j] = ids as [string, string];
+    // Zone 5 × 5 autour de C3 : 4 cases du croiseur, 3 et 3 des contre-torpilleurs.
+    const events = use(h, a, j, { x: 2, y: 2 });
+    const radar = events.find((e) => e.type === 'RADAR_RESULT')!;
+    expect(radar).toMatchObject({ ability: 'sonar', size: 5, shipCells: 10 });
+    expect(radar).not.toHaveProperty('contacts');
+    expect(publicEvent(radar)).not.toHaveProperty('shipCells');
+    expect(projectPrivate(h.state, a).me.radarResults[0]).toMatchObject({
+      ability: 'sonar',
+      shipCells: 10,
+    });
+    expect(projectPrivate(h.state, j).me.radarResults).toEqual([]);
+  });
+});
+
+describe('bouclier', () => {
+  it('en tour par tour : public, il interdit de tirer dans sa zone jusqu’au prochain tour de son propriétaire', () => {
+    const { h, ids } = game(['capitaine', 'amiral']);
+    const [a, j] = ids as [string, string];
+    expect(h.types(use(h, a, a, { x: 1, y: 1 }))).toEqual([
+      'ABILITY_USED',
+      'SHIELD_RAISED',
+      'ROUND_RESOLVED',
+      'ROUND_STARTED',
+    ]);
+    expect(pub(h, a).shield).toEqual({ center: { x: 1, y: 1 }, size: 3 });
+    h.expectReject(
+      player(j),
+      { type: 'FIRE', targetId: a, coord: { x: 0, y: 0 } },
+      'CELL_SHIELDED',
+    );
+    h.fire(j, a, { x: 5, y: 5 });
+    // Le tour d'Antoine revient : le bouclier tombe.
+    expect(pub(h, a).shield).toBeNull();
+    h.fire(a, j, { x: 7, y: 7 });
+    expect(h.fire(j, a, { x: 0, y: 0 }).find((e) => e.type === 'SHOT_RESOLVED')).toMatchObject({
+      result: 'HIT',
+    });
+  });
+
+  it('en salve : levé dans la même manche, il arrête les tirs déjà engagés, sans rien révéler', () => {
+    const { h, ids } = game(['capitaine', 'artificier'], { variant: 'simultaneous' });
+    const [a, j] = ids as [string, string];
+    h.fire(j, a, { x: 0, y: 0 }); // Julie vise le croiseur d'Antoine
+    const resolved = use(h, a, a, { x: 1, y: 1 }); // Antoine lève son bouclier dessus
+    expect(h.types(resolved)).toEqual([
+      'SHOT_COMMITTED',
+      'ABILITY_USED',
+      'SHIELD_RAISED',
+      'SHOT_RESOLVED',
+      'ROUND_RESOLVED',
+      'ROUND_STARTED',
+    ]);
+    expect(resolved.find((e) => e.type === 'SHOT_RESOLVED')).toMatchObject({
+      result: 'BLOCKED',
+      shooterId: j,
+    });
+    const me = h.state.players.find((p) => p.playerId === a)!;
+    expect(me.shotsReceived).toEqual([]);
+    expect(cellsRemaining(me)).toBe(12);
+    expect(
+      statsOf(
+        h.state,
+        h.state.players.find((p) => p.playerId === j)!,
+      ),
+    ).toMatchObject({
+      shotsFired: 1,
+      hits: 0,
+    });
+    // Une manche, et il tombe au tour suivant d'Antoine, c'est-à-dire tout de suite en salve.
+    expect(pub(h, a).shield).toBeNull();
+  });
+
+  it('le missile saute les cases protégées, et une rafale toute protégée est refusée', () => {
+    const { h, ids } = game(['capitaine', 'artificier']);
+    const [a, j] = ids as [string, string];
+    use(h, a, a, { x: 1, y: 1 });
+    h.expectReject(
+      player(j),
+      { type: 'USE_ABILITY', targetId: a, coord: { x: 1, y: 1 } },
+      'CELL_ALREADY_SHOT',
+    );
+    // Autour de C3 : C3, B3, C2 sont protégées ; D3 et C4 restent.
+    const burst = use(h, j, a, { x: 2, y: 2 });
+    expect(burst.filter((e) => e.type === 'SHOT_RESOLVED').map((e) => e.coord)).toEqual([
+      { x: 3, y: 2 },
+      { x: 2, y: 3 },
+    ]);
+  });
+});
+
+describe('leurre', () => {
+  it('se pose en secret, trompe le radar, et le premier tir dessus est annoncé touché sans rien abîmer', () => {
+    const { h, ids } = game(['espion', 'amiral']);
+    const [a, j] = ids as [string, string];
+    h.expectReject(
+      player(a),
+      { type: 'USE_ABILITY', targetId: j, coord: { x: 6, y: 1 } },
+      'WRONG_STATE',
+    );
+    h.expectReject(
+      player(a),
+      { type: 'USE_ABILITY', targetId: a, coord: { x: 0, y: 0 } },
+      'CELL_NOT_FREE',
+    );
+    const events = use(h, a, a, { x: 6, y: 1 });
+    const used = events.find((e) => e.type === 'ABILITY_USED')!;
+    const placed = events.find((e) => e.type === 'DECOY_PLACED')!;
+    for (const e of [used, placed]) {
+      expect(publicEvent(e)).not.toHaveProperty('coord');
+      expect(privateRecipient(e)).toBe(a);
+    }
+    expect(publicEvent(used)).toMatchObject({
+      type: 'ABILITY_USED',
+      playerId: a,
+      ability: 'decoy',
+    });
+    expect(projectPrivate(h.state, a).me.decoys).toEqual([{ x: 6, y: 1 }]);
+    expect(projectPrivate(h.state, j).me.decoys).toEqual([]);
+    expect(JSON.stringify(projectPublic(h.state))).not.toContain('"x":6,"y":1');
+    // Le radar de Julie le prend pour un navire.
+    const radar = use(h, j, a, { x: 6, y: 1 }).find((e) => e.type === 'RADAR_RESULT')!;
+    expect(radar).toMatchObject({ contacts: [{ x: 6, y: 1 }], shipCells: 1 });
+    h.fire(a, j, { x: 7, y: 7 });
+    const shot = h.fire(j, a, { x: 6, y: 1 }).find((e) => e.type === 'SHOT_RESOLVED')!;
+    expect(shot).toMatchObject({ result: 'HIT', coord: { x: 6, y: 1 } });
+    const me = h.state.players.find((p) => p.playerId === a)!;
+    expect(cellsRemaining(me)).toBe(12);
+    expect(pub(h, a).revealed).toEqual([{ coord: { x: 6, y: 1 }, result: 'HIT' }]);
+  });
+});
+
+/** L'action d'un bot pour ce joueur, envoyée au moteur : elle doit toujours être acceptée. */
+function botTurn(h: Harness, id: string, seed = 1, useAbilities = true): GameEvent[] {
+  const action = chooseAction(
+    projectPrivate(h.state, id),
+    mulberry32(seed),
+    'normal',
+    useAbilities,
+  );
+  if (!action) throw new Error('le bot ne sait pas quoi jouer');
+  const command: Command = action.ability
+    ? { type: 'USE_ABILITY', targetId: action.targetId, coord: action.coord }
+    : { type: 'FIRE', targetId: action.targetId, coord: action.coord };
+  return h.expectOk(player(id), command);
+}
+const usedAbility = (events: GameEvent[]) => events.some((e) => e.type === 'ABILITY_USED');
+
+describe('bots et capacités', () => {
+  it('un bot ajouté tire son commandant au hasard parmi ceux de la partie', () => {
+    const h = new Harness(settings());
+    h.join('Antoine', 'red');
+    const events = h.expectOk(HOST, { type: 'ADD_BOT' });
+    const chosen = events.find((e) => e.type === 'COMMANDER_CHOSEN');
+    expect(COMMANDERS.map((c) => c.id)).toContain(
+      chosen?.type === 'COMMANDER_CHOSEN' && chosen.commanderId,
+    );
+  });
+
+  it('répare ou protège dès qu’un de ses bateaux est touché', () => {
+    for (const commander of ['ingenieur', 'capitaine']) {
+      const { h, ids } = game([commander, 'amiral']);
+      const [a, j] = ids as [string, string];
+      expect(usedAbility(botTurn(h, a))).toBe(false); // rien à réparer ni à protéger : il tire
+      h.fire(j, a, { x: 0, y: 0 });
+      const events = botTurn(h, a);
+      expect(usedAbility(events)).toBe(true);
+      expect(events.find((e) => e.type === 'ABILITY_USED')).toMatchObject({
+        targetId: a,
+        coord: { x: 0, y: 0 },
+      });
+    }
+  });
+
+  it('tire son missile sur une touche à achever', () => {
+    const { h, ids } = game(['artificier', 'amiral']);
+    const [a, j] = ids as [string, string];
+    h.fire(a, j, { x: 1, y: 0 }); // touche le croiseur de Julie
+    h.fire(j, a, { x: 7, y: 7 });
+    const events = botTurn(h, a);
+    expect(events.find((e) => e.type === 'ABILITY_USED')).toMatchObject({
+      ability: 'missile',
+      targetId: j,
+      coord: { x: 1, y: 0 },
+    });
+  });
+
+  it('passe son radar en chasse dès la deuxième manche, puis tire ce qu’il a vu', () => {
+    const { h, ids } = game(['amiral', 'ingenieur']);
+    const [a, j] = ids as [string, string];
+    expect(usedAbility(botTurn(h, a, 3))).toBe(false); // première manche : il tire
+    h.expectOk(HOST, { type: 'FORCE_ROUND' }); // Julie passe (et rien n'est touché chez elle)
+    const wounded = h.state.players
+      .find((p) => p.playerId === j)!
+      .shotsReceived.some((s) => s.result === 'HIT');
+    if (wounded) return; // le premier tir a touché : le bot achève, c'est le cas du missile
+    expect(usedAbility(botTurn(h, a, 3))).toBe(true);
+    h.expectOk(HOST, { type: 'FORCE_ROUND' });
+    const radar = h.state.players.find((p) => p.playerId === a)!.radarResults[0]!;
+    const shot = botTurn(h, a, 5).find((e) => e.type === 'SHOT_RESOLVED')!;
+    if (radar.contacts && radar.contacts.length > 0)
+      expect(radar.contacts).toContainEqual(
+        (shot as Extract<GameEvent, { type: 'SHOT_RESOLVED' }>).coord,
+      );
+  });
+
+  it('pose son leurre dès la deuxième manche, sur une case libre', () => {
+    const { h, ids } = game(['espion', 'amiral']);
+    const [a] = ids as [string, string];
+    expect(usedAbility(botTurn(h, a))).toBe(false);
+    h.expectOk(HOST, { type: 'FORCE_ROUND' });
+    const events = botTurn(h, a);
+    expect(events.find((e) => e.type === 'DECOY_PLACED')).toMatchObject({ playerId: a });
+  });
+
+  it('le relais d’un absent ne dépense jamais la capacité de celui qu’il remplace', () => {
+    const { h, ids } = game(['ingenieur', 'amiral']);
+    const [a, j] = ids as [string, string];
+    h.fire(a, j, { x: 7, y: 7 });
+    h.fire(j, a, { x: 0, y: 0 });
+    expect(usedAbility(botTurn(h, a, 1, false))).toBe(false);
+  });
+
+  it('des bots commandants jouent des parties entières, sans action refusée ni fuite', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 1, max: 1_000_000 }),
+        fc.integer({ min: 2, max: 4 }),
+        fc.constantFrom('sequential', 'simultaneous'),
+        fc.integer({ min: 0, max: COMMANDERS.length - 1 }),
+        (seed, players, variant, offset) => {
+          const s = settings({
+            maxPlayers: players,
+            variant: variant as 'sequential' | 'simultaneous',
+          });
+          const h = new Harness(s, seed);
+          const rnd = mulberry32(seed * 31);
+          const ids: string[] = [];
+          for (let i = 0; i < players; i++) {
+            const id = h.join(`J${i}`, COLORS[i]!);
+            h.expectOk(player(id), {
+              type: 'CHOOSE_COMMANDER',
+              commanderId: COMMANDERS[(offset + i) % COMMANDERS.length]!.id,
+            });
+            h.place(id, randomFleet(s, rnd));
+            h.ready(id);
+            ids.push(id);
+          }
+          h.start();
+          let state: GameState = initialState({
+            gameId: 'g1',
+            code: 'ABCD',
+            settings: s,
+            createdAt: 0,
+          });
+          for (let n = 0; h.state.status === 'PLAYING' && n < 3000; n++) {
+            const round = h.state.round!;
+            const shooter = round.expectedShooters.find((id) => !round.committed[id]);
+            const action = shooter && chooseAction(projectPrivate(h.state, shooter), rnd);
+            if (!shooter || !action) {
+              h.expectOk(HOST, { type: 'FORCE_ROUND' });
+              continue;
+            }
+            h.expectOk(
+              player(shooter),
+              action.ability
+                ? { type: 'USE_ABILITY', targetId: action.targetId, coord: action.coord }
+                : { type: 'FIRE', targetId: action.targetId, coord: action.coord },
+            );
+          }
+          expect(h.state.status).toBe('FINISHED');
+          for (const e of h.events) {
+            state = evolve(state, e);
+            assertNoLeak(state);
+          }
+          expect(state).toEqual(h.state);
+        },
+      ),
+      { numRuns: 30 },
+    );
+  });
+});

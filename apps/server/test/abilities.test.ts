@@ -99,4 +99,41 @@ describe('commandants, de bout en bout', () => {
     expect(lastView(b).me.cellsRemaining).toBe(12);
     for (const client of [board, a, b]) client.socket.disconnect();
   });
+
+  it('un bot commandant joue sa capacité tout seul, et son leurre reste secret', async () => {
+    const espion = COMMANDERS.filter((c) => c.ability.type === 'decoy');
+    const g = await createGame(baseUrl, {
+      settings: { variant: 'sequential', maxPlayers: 2, revealDelayMs: 0, commanders: espion },
+      preset: 'quick',
+    });
+    const runtime = server.registry.get(g.gameId)!;
+    const board = await open(baseUrl, { kind: 'board', code: g.code, hostToken: g.hostToken });
+    const me = await open(baseUrl, { kind: 'join', code: g.code });
+    const myId = await seat(me, 'Antoine', 'red', espion[0]!.id);
+    expect(await command(board.socket, { type: 'ADD_BOT' })).toMatchObject({ ok: true });
+    const bot = runtime.state.players.find((p) => p.kind === 'bot')!;
+    expect(bot.commanderId).toBe(espion[0]!.id);
+    expect(await command(board.socket, { type: 'START_GAME' })).toMatchObject({ ok: true });
+    // Antoine tire ; à la deuxième manche, le bot pose son leurre.
+    await until(() => lastView(me).me.canFire);
+    await command(me.socket, { type: 'FIRE', targetId: bot.playerId, coord: { x: 7, y: 7 } });
+    await until(
+      () => runtime.state.players.find((p) => p.playerId === bot.playerId)!.decoys.length === 1,
+    );
+    const used = () => board.events.find((e) => e.event.type === 'ABILITY_USED');
+    await until(() => used() !== undefined);
+    expect(used()!.event).toMatchObject({ playerId: bot.playerId, ability: 'decoy' });
+    expect(used()!.event).not.toHaveProperty('coord');
+    const decoy = runtime.state.players.find((p) => p.playerId === bot.playerId)!.decoys[0]!;
+    for (const client of [board, me])
+      expect(
+        client.messages.some(
+          (m) =>
+            JSON.stringify(m.payload).includes('DECOY_PLACED') &&
+            JSON.stringify(m.payload).includes(`"x":${decoy.x},"y":${decoy.y}`),
+        ),
+      ).toBe(false);
+    expect(lastView(me).players.find((p) => p.playerId === myId)?.abilityUsesLeft).toBe(1);
+    for (const client of [board, me]) client.socket.disconnect();
+  });
 });

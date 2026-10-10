@@ -14,6 +14,12 @@ export interface NewsItem {
 
 export const NEWS: readonly NewsItem[] = [
   {
+    n: 72,
+    day: '10 octobre',
+    title: 'Six commandants, et des bots qui s’en servent',
+    text: 'Le sonar, le bouclier et le leurre rejoignent le radar, le missile et la réparation. Les bots ont leur commandant et jouent leur capacité au bon moment.',
+  },
+  {
     n: 65,
     day: '10 octobre',
     title: 'Les commandants',
@@ -42,11 +48,5 @@ export const NEWS: readonly NewsItem[] = [
     day: '9 octobre',
     title: 'La tablette à plat',
     text: 'Pose la tablette au milieu de la table : chaque grille se tourne vers son joueur.',
-  },
-  {
-    n: 37,
-    day: '9 octobre',
-    title: 'Trois niveaux de bot',
-    text: 'Facile, normal ou difficile, au choix pour chaque bot ajouté.',
   },
 ];

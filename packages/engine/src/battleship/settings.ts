@@ -6,8 +6,11 @@ import type { Commander, GameSettings, PresetId, ShipSpec, Variant } from '@nava
  */
 export const COMMANDERS: readonly Commander[] = [
   { id: 'amiral', name: 'Amiral', ability: { type: 'radar', size: 3 }, uses: 1 },
+  { id: 'sonariste', name: 'Sonariste', ability: { type: 'sonar', size: 5 }, uses: 1 },
   { id: 'artificier', name: 'Artificier', ability: { type: 'missile', pattern: 'cross' }, uses: 1 },
   { id: 'ingenieur', name: 'Ingénieur', ability: { type: 'repair' }, uses: 1 },
+  { id: 'capitaine', name: 'Capitaine', ability: { type: 'shield', size: 3, turns: 1 }, uses: 1 },
+  { id: 'espion', name: 'Espion', ability: { type: 'decoy' }, uses: 1 },
 ];
 
 /** Présélections de grille et de flotte. Ce ne sont que des valeurs par défaut de `settings`. */

@@ -1,6 +1,14 @@
 import { useState } from 'react';
 import clsx from 'clsx';
-import { coordKey, radarZone, repairableCells, sameCoord } from '@navale/engine';
+import {
+  SELF_ABILITIES,
+  coordKey,
+  decoyCells,
+  radarZone,
+  repairableCells,
+  sameCoord,
+  shieldCovers,
+} from '@navale/engine';
 import {
   coordLabel,
   type Ability,
@@ -19,16 +27,58 @@ import { PhoneScreen } from '../../shared/ui/PhoneScreen.js';
 import { timerSuffix, useCountdown } from '../../shared/useCountdown.js';
 import { MyFleetGrid } from './MyFleetGrid.js';
 
-/** Le verbe du bouton, selon l'action. */
-function verbOf(ability: Ability | null): string {
-  if (!ability) return 'Tirer';
-  return ability.type === 'radar' ? 'Scanner' : ability.type === 'missile' ? 'Missile' : 'Réparer';
+/** Le bouton principal : ce que fait l'action, sur quelle case. */
+function actionLabel(ability: Ability | null, cell: string): string {
+  switch (ability?.type) {
+    case undefined:
+      return `Tirer en ${cell}`;
+    case 'radar':
+      return `Scanner en ${cell}`;
+    case 'sonar':
+      return `Sonder en ${cell}`;
+    case 'missile':
+      return `Missile en ${cell}`;
+    case 'repair':
+      return `Réparer ${cell}`;
+    case 'shield':
+      return `Protéger autour de ${cell}`;
+    case 'decoy':
+      return `Leurre en ${cell}`;
+  }
 }
+
+/** Le verbe du bouton de confirmation. */
+function verbOf(ability: Ability | null): string {
+  switch (ability?.type) {
+    case undefined:
+      return 'Tirer';
+    case 'radar':
+      return 'Scanner';
+    case 'sonar':
+      return 'Sonder';
+    case 'missile':
+      return 'Missile';
+    case 'repair':
+      return 'Réparer';
+    case 'shield':
+      return 'Protéger';
+    case 'decoy':
+      return 'Poser';
+  }
+}
+
+/** Ce qu'on demande de choisir, sur sa propre grille. */
+const SELF_PROMPTS: Partial<Record<Ability['type'], string>> = {
+  repair: 'choisis une case touchée à réparer.',
+  shield: 'choisis le centre de la zone à protéger.',
+  decoy: 'choisis une case vide pour ton leurre.',
+};
 
 /**
  * Mon tour : choisir une cible et une case, confirmer, tirer ; ou, avec un
- * commandant, jouer sa capacité à la place du tir. Monté à neuf à chaque manche
- * (`key`), il repart sans case choisie ni confirmation ouverte.
+ * commandant, jouer sa capacité à la place du tir, chez un adversaire (radar, sonar,
+ * missile) ou sur ma propre flotte (réparation, bouclier, leurre). Monté à neuf à
+ * chaque manche (`key`), il repart sans case choisie ni confirmation ouverte.
  */
 export function PlayAim({
   view,
@@ -50,12 +100,12 @@ export function PlayAim({
   const available = view.me.canUseAbility && commander ? commander.ability : null;
   const [mode, setMode] = useState<'fire' | 'ability'>('fire');
   const ability = mode === 'ability' ? available : null;
-  const repair = ability?.type === 'repair';
-  // Le radar vise n'importe quel vivant ; le missile, comme un tir, les cibles légales.
-  const targets =
-    ability?.type === 'radar'
-      ? view.players.filter((p) => p.status === 'ALIVE' && p.playerId !== me.playerId)
-      : legal;
+  const self = ability !== null && SELF_ABILITIES.has(ability.type);
+  const detector = ability?.type === 'radar' || ability?.type === 'sonar';
+  // Radar et sonar visent n'importe quel vivant ; le missile, comme un tir, les cibles légales.
+  const targets = detector
+    ? view.players.filter((p) => p.status === 'ALIVE' && p.playerId !== me.playerId)
+    : legal;
   const [targetId, setTargetId] = useState<string | null>(null);
   const [cell, setCell] = useState<Coord | null>(null);
   const [tab, setTab] = useState<'aim' | 'mine'>('aim');
@@ -71,16 +121,16 @@ export function PlayAim({
     targets.find((p) => p.playerId === lastTarget) ??
     targets[0];
   if (!target) return null;
-  // Mes radars sur cette cible : les navires ne bougent pas, ce qu'ils ont vu reste vrai.
+  // Mes radars et sonars sur cette cible : les navires ne bougent pas, ce qu'ils ont vu reste vrai.
   const radars = view.me.radarResults.filter((r) => r.targetId === target.playerId);
   const lastRadar = radars.at(-1);
-  const verb = verbOf(ability);
+  const label = cell ? coordLabel(cell) : '';
 
   const act = async () => {
     if (!cell) return;
     setError(null);
     const ack = ability
-      ? await onAbility(repair ? me.playerId : target.playerId, cell)
+      ? await onAbility(self ? me.playerId : target.playerId, cell)
       : await onFire(target.playerId, cell);
     setConfirming(false);
     if (!ack.ok) setError(ack.error.message);
@@ -97,11 +147,15 @@ export function PlayAim({
         <h1 className="state me">À toi</h1>
         <p className="muted">
           Manche {(view.round?.index ?? 0) + 1} ·{' '}
-          {repair ? 'choisis une case touchée à réparer.' : 'choisis une cible, puis une case.'}
+          {self && ability
+            ? SELF_PROMPTS[ability.type]
+            : detector
+              ? 'choisis une cible, puis le centre de la zone.'
+              : 'choisis une cible, puis une case.'}
           {timerSuffix(secondsLeft)}
         </p>
       </div>
-      {!repair && (
+      {!self && (
         <div className="tabs">
           <button
             type="button"
@@ -131,8 +185,8 @@ export function PlayAim({
         </button>
       )}
       {ability && <p className="hint">{abilityHint(ability)}</p>}
-      {repair ? (
-        <RepairGrid view={view} me={me} cell={cell} onCell={setCell} />
+      {self && ability ? (
+        <OwnGrid view={view} me={me} ability={ability} cell={cell} onCell={setCell} />
       ) : tab === 'mine' ? (
         <MyFleetGrid view={view} me={me} />
       ) : (
@@ -152,19 +206,25 @@ export function PlayAim({
             target={target}
             cell={cell}
             radars={radars}
-            allowRevealed={ability?.type === 'radar'}
+            allowRevealed={detector}
+            allowShielded={ability !== null}
             onCell={setCell}
           />
           {lastRadar && (
             <p className="hint">
-              Radar autour de {coordLabel(lastRadar.center)} : {count(lastRadar.shipCells, 'case')}{' '}
-              de navire
+              {lastRadar.ability === 'sonar' ? 'Sonar' : 'Radar'} autour de{' '}
+              {coordLabel(lastRadar.center)} : {count(lastRadar.shipCells, 'case')} de navire
               {lastRadar.contacts
                 ? '. Rond vert : navire détecté ; pointillés : de l’eau.'
                 : ' dans la zone en pointillés.'}
             </p>
           )}
-          {blocked && ability?.type !== 'radar' && (
+          {target.shield && (
+            <p className="hint">
+              Bouclier de {target.name} : la zone bleue est protégée jusqu’à son prochain tour.
+            </p>
+          )}
+          {blocked && !detector && (
             <p className="hint">
               {streak === 1
                 ? `Tu viens de tirer sur ${blocked.name} : vise quelqu’un d’autre cette fois.`
@@ -174,8 +234,8 @@ export function PlayAim({
           <p className="hint">
             {targets.length > 1 ? `Cible : ${target.name} · ` : ''}
             {cell
-              ? `case ${coordLabel(cell)}`
-              : ability?.type === 'radar'
+              ? `case ${label}`
+              : detector
                 ? 'tape le centre de la zone'
                 : 'tape une case non révélée'}
           </p>
@@ -185,23 +245,19 @@ export function PlayAim({
       <button
         className="btn xl me"
         type="button"
-        disabled={!cell || (tab === 'mine' && !repair)}
+        disabled={!cell || (tab === 'mine' && !self)}
         onClick={() => setConfirming(true)}
       >
-        {cell
-          ? `${verb} en ${coordLabel(cell)}`
-          : repair
-            ? 'Choisis une case touchée'
-            : 'Choisis une case'}
+        {cell ? actionLabel(ability, label) : 'Choisis une case'}
       </button>
       {confirming && cell && (
         <>
           <div className="sheet-scrim" onClick={() => setConfirming(false)} />
           <div className="sheet" role="dialog" aria-modal="true">
             <h2>
-              {repair
-                ? `Réparer ${coordLabel(cell)} ?`
-                : `${verb} en ${coordLabel(cell)} sur ${target.name} ?`}
+              {self
+                ? `${actionLabel(ability, label)} ?`
+                : `${actionLabel(ability, label)} sur ${target.name} ?`}
             </h2>
             <p className="muted">
               {ability
@@ -213,7 +269,7 @@ export function PlayAim({
                 Annuler
               </button>
               <button className="btn me" type="button" onClick={() => void act()}>
-                {verb}
+                {verbOf(ability)}
               </button>
             </div>
           </div>
@@ -251,9 +307,9 @@ function TargetPicker({
 }
 
 /**
- * La grille de la cible : ce qui est révélé, mes tirs, ce que mes radars ont vu
- * (navire détecté, ou eau) et la case choisie. Un radar d'avant les contacts ne
- * donnait qu'un total : sa zone reste en pointillés, sans détail.
+ * La grille de la cible : ce qui est révélé, mes tirs, son bouclier, ce que mes radars
+ * ont vu (navire détecté, ou eau) et la case choisie. Un sonar, ou un radar d'avant les
+ * contacts, ne donne qu'un total : sa zone reste en pointillés, sans détail.
  */
 function TargetGrid({
   view,
@@ -261,14 +317,17 @@ function TargetGrid({
   cell,
   radars,
   allowRevealed,
+  allowShielded,
   onCell,
 }: {
   view: PlayerView;
   target: PublicPlayer;
   cell: Coord | null;
   radars: RadarResult[];
-  /** Le radar peut se centrer sur une case déjà révélée ; un tir, non. */
+  /** Radar et sonar peuvent se centrer sur une case déjà révélée ; un tir, non. */
   allowRevealed: boolean;
+  /** Une capacité peut viser sous un bouclier (le moteur dit si elle y sert) ; un tir, non. */
+  allowShielded: boolean;
   onCell: (cell: Coord) => void;
 }) {
   const revealed = new Set(target.revealed.map((r) => coordKey(r.coord)));
@@ -291,7 +350,10 @@ function TargetGrid({
         : scanned.has(key)
           ? 'scan clear'
           : unknown.has(key) && 'scan';
-  const classes = publicGridClasses(target.revealed, target.sunkShips);
+  const shielded = target.shield
+    ? radarZone(view.settings, target.shield.center, target.shield.size)
+    : [];
+  const classes = publicGridClasses(target.revealed, target.sunkShips, null, shielded);
   return (
     <div className={`flex justify-center c-${target.color}`}>
       <Grid
@@ -307,42 +369,74 @@ function TargetGrid({
           )
         }
         onPointerUp={(c) => {
-          if (c && (allowRevealed || !revealed.has(coordKey(c)))) onCell(c);
+          if (!c) return;
+          if (!allowRevealed && revealed.has(coordKey(c))) return;
+          if (!allowShielded && shieldCovers(target.shield, c)) return;
+          onCell(c);
         }}
       />
     </div>
   );
 }
 
-/** Ma grille, pour choisir la case touchée à réparer : seules celles d'un bateau à flot répondent. */
-function RepairGrid({
+/**
+ * Ma grille, pour une capacité qui se joue sur ma flotte : seules les cases utiles
+ * répondent (une case touchée d'un bateau à flot pour réparer, une case vide jamais
+ * visée pour un leurre, n'importe laquelle pour centrer un bouclier, dont la zone se dessine).
+ */
+function OwnGrid({
   view,
   me,
+  ability,
   cell,
   onCell,
 }: {
   view: PlayerView;
   me: PublicPlayer;
+  ability: Ability;
   cell: Coord | null;
   onCell: (cell: Coord) => void;
 }) {
-  const classes = ownGridClasses(view.me.fleet, me.revealed);
-  const repairable = repairableCells(view.me.fleet);
+  const { settings } = view;
+  const myShield = me.shield ? radarZone(settings, me.shield.center, me.shield.size) : [];
+  const classes = ownGridClasses(view.me.fleet, me.revealed, {
+    decoys: view.me.decoys,
+    shielded: myShield,
+  });
+  const allowed =
+    ability.type === 'repair'
+      ? repairableCells(view.me.fleet)
+      : ability.type === 'decoy'
+        ? decoyCells(settings, view.me.fleet, me.revealed, view.me.decoys)
+        : null;
+  const zone = new Set(
+    ability.type === 'shield' && cell ? radarZone(settings, cell, ability.size).map(coordKey) : [],
+  );
   return (
     <>
       <div className="flex justify-center">
         <Grid
-          width={view.settings.grid.width}
-          height={view.settings.grid.height}
-          label="Ma flotte : choisis une case touchée"
-          cellClass={(x, y) => clsx(classes(x, y), cell && sameCoord(cell, { x, y }) && 'sel')}
+          width={settings.grid.width}
+          height={settings.grid.height}
+          label="Ma flotte : choisis une case"
+          cellClass={(x, y) =>
+            clsx(
+              classes(x, y),
+              zone.has(coordKey({ x, y })) && 'scan',
+              cell && sameCoord(cell, { x, y }) && 'sel',
+            )
+          }
           onPointerUp={(c) => {
-            if (c && repairable.some((r) => sameCoord(r, c))) onCell(c);
+            if (c && (!allowed || allowed.some((a) => sameCoord(a, c)))) onCell(c);
           }}
         />
       </div>
-      {repairable.length === 0 && (
-        <p className="hint">Aucune case touchée à réparer pour l’instant.</p>
+      {allowed?.length === 0 && (
+        <p className="hint">
+          {ability.type === 'repair'
+            ? 'Aucune case touchée à réparer pour l’instant.'
+            : 'Plus aucune case libre pour un leurre.'}
+        </p>
       )}
     </>
   );

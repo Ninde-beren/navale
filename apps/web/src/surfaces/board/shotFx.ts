@@ -29,6 +29,7 @@ interface Missile {
 interface Path {
   targetZone: HTMLElement | null;
   plate: HTMLElement;
+  cell: HTMLElement;
   d: string;
   x1: number;
   y1: number;
@@ -41,6 +42,10 @@ const STATES = ['show', 'draw', 'fade', 'on', 'go'];
 const RADAR_WAVE_MS = 1000;
 /** Un coup de marteau, en ms : il frappe à 70 % du mouvement, sur chaque coup de `HAMMER_TAPS`. */
 const HAMMER_SWING_MS = 320;
+/** Le bouclier qui se lève, en ms. */
+const SHIELD_MS = 900;
+/** L'éclair d'un tir arrêté par un bouclier, en ms. */
+const BLOCK_MS = 700;
 
 /** Un petit marteau : tête d'acier, manche de bois, tourné pour frapper vers le bas à gauche. */
 const HAMMER_SVG = `<svg viewBox="0 0 48 48" aria-hidden="true"><g transform="rotate(-45 24 24)">
@@ -103,21 +108,24 @@ export class ShotFx {
   }
 
   /**
-   * Une capacité qui ne tire pas, jouée sur une case : l'onde du radar sur la grille de
-   * la cible, couvrant les `span` × `span` cases de sa zone ; ou le marteau qui tape sur la
-   * case réparée. L'animation est la même quelle que soit la case : elle ne révèle rien.
-   * Rend la main quand elle est finie ; le son se joue à côté, au même instant.
+   * Une capacité qui ne tire pas, jouée sur une case : l'onde du radar ou du sonar sur
+   * la grille de la cible, couvrant les `span` × `span` cases de sa zone ; le bouclier qui
+   * se lève sur la sienne ; ou le marteau qui tape sur la case réparée. L'animation est
+   * la même quelle que soit la case : elle ne révèle rien. Rend la main quand elle est
+   * finie ; le son se joue à côté, au même instant.
    */
   async mark(
-    kind: 'radar' | 'repair',
+    kind: 'radar' | 'sonar' | 'repair' | 'shield',
     actorId: string,
     zonePlayerId: string,
     coord: Coord,
     span = 1,
   ): Promise<void> {
-    const duration =
-      kind === 'radar'
-        ? RADAR_PINGS[RADAR_PINGS.length - 1]! * 1000 + RADAR_WAVE_MS
+    const waves = kind === 'radar' || kind === 'sonar';
+    const duration = waves
+      ? RADAR_PINGS[RADAR_PINGS.length - 1]! * 1000 + RADAR_WAVE_MS
+      : kind === 'shield'
+        ? SHIELD_MS
         : HAMMER_TAPS.length * HAMMER_SWING_MS + 40;
     const plate = this.$(`.zone[data-player="${actorId}"] .nameplate .avatar`);
     if (plate) replay(plate.parentElement!, 'launching');
@@ -131,13 +139,15 @@ export class ShotFx {
     const el = document.createElement('span');
     el.className = `fx-${kind}`;
     el.setAttribute('aria-hidden', 'true');
-    if (kind === 'radar') {
-      el.style.setProperty('--span', String(span));
+    el.style.setProperty('--span', String(span));
+    if (waves) {
       for (const at of RADAR_PINGS) {
         const wave = document.createElement('i');
         wave.style.animationDelay = `${Math.round(at * 1000)}ms`;
         el.appendChild(wave);
       }
+    } else if (kind === 'shield') {
+      el.appendChild(document.createElement('i'));
     } else {
       el.innerHTML = `${HAMMER_SVG}<b></b>`;
     }
@@ -202,7 +212,7 @@ export class ShotFx {
     const cx = (x0 + x1) / 2 + (960 - (x0 + x1) / 2) * 0.5;
     const cy = (y0 + y1) / 2 + (540 - (y0 + y1) / 2) * 0.5;
     const d = `M${x0.toFixed(1)} ${y0.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${x1.toFixed(1)} ${y1.toFixed(1)}`;
-    return { targetZone, plate, d, x1, y1 };
+    return { targetZone, plate, cell, d, x1, y1 };
   }
 
   /** Départ, vol et impact d'un missile ; rend la main juste après l'impact, l'effet encore visible. */
@@ -220,8 +230,17 @@ export class ShotFx {
     els.missile.classList.remove('show');
     els.hot.classList.remove('on');
     const fx = shot.result === 'MISS' ? els.splash : els.boom;
-    fx.setAttribute('transform', `translate(${path.x1.toFixed(1)} ${path.y1.toFixed(1)})`);
-    replay(fx, 'go');
+    if (shot.result === 'BLOCKED') {
+      // Arrêté net par le bouclier : un éclair sur la case, ni explosion ni plouf.
+      const flash = document.createElement('span');
+      flash.className = 'fx-block';
+      flash.setAttribute('aria-hidden', 'true');
+      path.cell.appendChild(flash);
+      setTimeout(() => flash.remove(), BLOCK_MS);
+    } else {
+      fx.setAttribute('transform', `translate(${path.x1.toFixed(1)} ${path.y1.toFixed(1)})`);
+      replay(fx, 'go');
+    }
     const zone = path.targetZone;
     if (zone) {
       zone.classList.toggle('wet', shot.result === 'MISS');

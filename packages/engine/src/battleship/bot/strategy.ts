@@ -1,10 +1,110 @@
 import type { BotLevel, Coord, PlayerView, PublicPlayer } from '@navale/protocol';
 import { pick, randomInt } from '../../core/random.js';
+import {
+  decoyCells,
+  missileStrikes,
+  radarZone,
+  repairableCells,
+  shieldCovers,
+} from '../rules/abilities.js';
 import { coordKey, inBounds } from '../state.js';
 
 export interface BotShot {
   targetId: string;
   coord: Coord;
+}
+
+/** Ce que le bot joue : un tir, ou la capacité de son commandant (`ability`). */
+export interface BotAction extends BotShot {
+  ability: boolean;
+}
+
+/**
+ * L'action d'un bot pour son tour : sa capacité quand elle sert (voir `abilityAction`),
+ * sinon un tir. `useAbilities` est faux pour le relais d'un humain absent : il tire,
+ * mais ne dépense pas la capacité de celui qu'il remplace.
+ */
+export function chooseAction(
+  view: PlayerView,
+  random: () => number,
+  level: BotLevel = botLevel(view),
+  useAbilities = true,
+): BotAction | null {
+  if (useAbilities && view.me.canUseAbility) {
+    const action = abilityAction(view, random);
+    if (action) return { ...action, ability: true };
+  }
+  const shot = chooseShot(view, random, level);
+  return shot ? { ...shot, ability: false } : null;
+}
+
+/**
+ * Quand un bot joue sa capacité, et où. Sur sa flotte : réparer ou protéger dès qu'un
+ * de ses bateaux à flot est touché, poser son leurre dès la deuxième manche. Chez un
+ * adversaire : le missile dès qu'une touche reste à achever (centré dessus, la croix
+ * frappe ses voisines) ; le radar ou le sonar en chasse, dès la deuxième manche, sur
+ * l'adversaire qui a le plus de cases inconnues, au cœur de sa grille.
+ */
+function abilityAction(view: PlayerView, random: () => number): BotShot | null {
+  const meId = view.me.playerId;
+  const me = view.players.find((p) => p.playerId === meId);
+  const commander = view.settings.commanders.find((c) => c.id === me?.commanderId);
+  if (!me || !commander) return null;
+  const round = view.round?.index ?? 0;
+  const ability = commander.ability;
+  switch (ability.type) {
+    case 'repair':
+    case 'shield': {
+      const wounded = repairableCells(view.me.fleet);
+      return wounded.length > 0 ? { targetId: meId, coord: pick(random, wounded) } : null;
+    }
+    case 'decoy': {
+      if (round < 1) return null;
+      const free = decoyCells(view.settings, view.me.fleet, me.revealed, view.me.decoys);
+      return free.length > 0 ? { targetId: meId, coord: pick(random, free) } : null;
+    }
+    case 'missile': {
+      const targets = legalTargetPlayers(view);
+      let best: { targetId: string; coord: Coord; strikes: number } | null = null;
+      for (const p of targets)
+        for (const c of woundedCells(p)) {
+          const strikes = missileStrikes(view.settings, c, p.revealed, p.shield).length;
+          if (strikes > 0 && (!best || strikes > best.strikes))
+            best = { targetId: p.playerId, coord: c, strikes };
+        }
+      return best && { targetId: best.targetId, coord: best.coord };
+    }
+    case 'radar':
+    case 'sonar': {
+      if (round < 1) return null;
+      const opponents = view.players.filter((p) => p.status === 'ALIVE' && p.playerId !== meId);
+      // Une touche à achever passe avant : le détecteur sert à chercher, pas à finir.
+      if (opponents.some((p) => woundedCells(p).length > 0)) return null;
+      const scored = opponents
+        .map((p) => ({ p, free: unrevealed(view, p) }))
+        .filter((s) => s.free.length > 0)
+        .sort((a, b) => b.free.length - a.free.length);
+      const target = scored[0];
+      if (!target) return null;
+      // Le centre qui voit le plus de cases inconnues dans sa zone.
+      const unknown = new Set(target.free.map(coordKey));
+      const seen = (c: Coord) =>
+        radarZone(view.settings, c, ability.size).filter((z) => unknown.has(coordKey(z))).length;
+      const top = Math.max(...target.free.map(seen));
+      const centers = target.free.filter((c) => seen(c) === top);
+      return { targetId: target.p.playerId, coord: pick(random, centers) };
+    }
+  }
+}
+
+/** Les cases que mes radars ont vues comme un navire chez cette cible, encore à tirer. */
+function radarContacts(view: PlayerView, p: PublicPlayer): Coord[] {
+  const closed = closedKeys(p);
+  const out = new Map<string, Coord>();
+  for (const r of view.me.radarResults)
+    if (r.targetId === p.playerId)
+      for (const c of r.contacts ?? []) if (!closed.has(coordKey(c))) out.set(coordKey(c), c);
+  return [...out.values()];
 }
 
 /**
@@ -31,6 +131,13 @@ export function chooseShot(
 ): BotShot | null {
   const targets = legalTargetPlayers(view);
   if (targets.length === 0) return null;
+  // Un navire vu au radar se tire d'abord, sauf pour le bot facile qui tire au hasard.
+  if (level !== 'easy') {
+    const seen = targets
+      .map((p) => ({ p, cells: radarContacts(view, p) }))
+      .find((s) => s.cells.length > 0);
+    if (seen) return { targetId: seen.p.playerId, coord: pick(random, seen.cells) };
+  }
   switch (level) {
     case 'easy':
       return randomShot(view, targets, random);
@@ -124,7 +231,7 @@ function probabilityShot(
   const open = openTargets(view, targets);
   if (open.length === 0) return null;
   const target = wounded[0]?.p ?? pick(random, open).p;
-  const best = densestCells(view, target);
+  const best = densestCells(view, target).filter((c) => !shieldCovers(target.shield, c));
   if (best.length > 0) return { targetId: target.playerId, coord: pick(random, best) };
   const fallback = open.find((t) => t.p.playerId === target.playerId) ?? open[0]!;
   return { targetId: fallback.p.playerId, coord: pick(random, fallback.free) };
@@ -196,13 +303,22 @@ export function woundedCells(p: PublicPlayer): Coord[] {
     .map((r) => r.coord);
 }
 
-/** Cases déjà révélées chez un joueur, en clés `x,y`. */
-function revealedKeys(p: PublicPlayer): Set<string> {
-  return new Set(p.revealed.map((r) => coordKey(r.coord)));
+/** Cases qu'on ne peut pas tirer chez un joueur : déjà révélées, ou sous son bouclier ; en clés `x,y`. */
+function closedKeys(p: PublicPlayer): Set<string> {
+  const keys = new Set(p.revealed.map((r) => coordKey(r.coord)));
+  const shield = p.shield;
+  if (shield) {
+    const half = Math.floor(shield.size / 2);
+    for (let dy = -half; dy <= half; dy++)
+      for (let dx = -half; dx <= half; dx++)
+        keys.add(coordKey({ x: shield.center.x + dx, y: shield.center.y + dy }));
+  }
+  return keys;
 }
 
+/** Cases encore à tirer chez un joueur : ni révélées, ni protégées. */
 function unrevealed(view: PlayerView, p: PublicPlayer): Coord[] {
-  const taken = revealedKeys(p);
+  const taken = closedKeys(p);
   const out: Coord[] = [];
   for (let y = 0; y < view.settings.grid.height; y++)
     for (let x = 0; x < view.settings.grid.width; x++)
@@ -223,7 +339,7 @@ function smallestRemainingShip(view: PlayerView, p: PublicPlayer): number {
 
 /** Cases à tirer autour des touches : les bouts d'une ligne de touches d'abord, sinon les quatre voisines. */
 function aroundWounded(view: PlayerView, p: PublicPlayer, wounded: Coord[]): Coord[] {
-  const taken = revealedKeys(p);
+  const taken = closedKeys(p);
   const ok = (c: Coord) => inBounds(view.settings, c) && !taken.has(coordKey(c));
   const keys = new Set(wounded.map(coordKey));
 

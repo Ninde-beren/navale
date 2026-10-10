@@ -1,4 +1,4 @@
-import { battleship, chooseShot, type Player } from '@navale/engine';
+import { battleship, chooseAction, type Player } from '@navale/engine';
 import type { EventEnvelope, GameEventOf, Variant } from '@navale/protocol';
 import type { GameRuntime } from './game-runtime.js';
 
@@ -24,7 +24,8 @@ export interface BotDriverOptions {
  * central ait fini d'annoncer, puis un délai de réflexion, et envoie FIRE par la
  * même voie qu'un humain, à partir de la seule vue privée du bot : il ne peut pas tricher.
  * Un humain absent relayé par un bot (`substitute`) est joué de la même façon, à
- * partir de sa propre vue, jusqu'à son retour.
+ * partir de sa propre vue, jusqu'à son retour ; seul un vrai bot joue sa capacité, le
+ * relais ne dépense pas celle de l'absent.
  */
 export class BotDriver {
   /** Un tir programmé par bot, sous la clé `gameId:botId`. */
@@ -93,12 +94,15 @@ export class BotDriver {
     const round = state.round;
     if (state.status !== 'PLAYING' || round?.index !== roundIndex) return;
     if (!round.expectedShooters.includes(botId) || round.committed[botId]) return;
-    if (!botControlled(state.players.find((p) => p.playerId === botId))) return;
-    const shot = chooseShot(battleship.projectPrivate(state, botId), Math.random);
-    if (!shot) return;
+    const player = state.players.find((p) => p.playerId === botId);
+    if (!botControlled(player)) return;
+    const view = battleship.projectPrivate(state, botId);
+    const action = chooseAction(view, Math.random, undefined, player.kind === 'bot');
+    if (!action) return;
+    const { targetId, coord } = action;
     const decision = await runtime.handle(
       { kind: 'player', playerId: botId },
-      { type: 'FIRE', targetId: shot.targetId, coord: shot.coord },
+      action.ability ? { type: 'USE_ABILITY', targetId, coord } : { type: 'FIRE', targetId, coord },
     );
     if (!decision.ok) {
       // Un refus ici est une erreur de programmation de la stratégie : on le journalise et on retire une fois.

@@ -11,7 +11,7 @@ export function isFinishedAfterRound(state: GameState, eliminatedThisRound: numb
 
 export function statsOf(state: GameState, p: Player): Omit<RankEntry, 'rank'> {
   const mine = state.shotsLog.filter((s) => s.shooterId === p.playerId);
-  const hits = mine.filter((s) => s.result !== 'MISS').length;
+  const hits = mine.filter((s) => s.result === 'HIT' || s.result === 'SUNK').length;
   const fleetSize = state.settings.fleet.length;
   const sunkByTarget = new Map<string, number>();
   let playersEliminated = 0;

@@ -6,7 +6,9 @@ import { coordKey, isSunk, type GameState } from '../src/battleship/state.js';
 export function assertNoLeak(state: GameState): void {
   const view = projectPublic(state);
   for (const p of state.players) {
-    const pub = view.players.find((v) => v.playerId === p.playerId)!;
+    // Le bouclier est public par construction : sa zone est choisie par son propriétaire et
+    // annoncée à tous ; son centre peut tomber sur un navire sans rien en révéler.
+    const { shield: _shield, ...pub } = view.players.find((v) => v.playerId === p.playerId)!;
     const text = JSON.stringify(pub);
     expect(text).not.toContain('"fleet"');
     const revealed = new Set(p.shotsReceived.map((s) => coordKey(s.coord)));

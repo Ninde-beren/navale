@@ -40,6 +40,7 @@ function publicPlayer(state: GameState, p: Player, presence: Presence): PublicPl
     substitute: p.substitute,
     commanderId: p.commanderId,
     abilityUsesLeft: p.abilityUsesLeft,
+    shield: p.shield ? { center: p.shield.center, size: p.shield.size } : null,
     shipsRemaining: shipsRemaining(p),
     revealed: p.shotsReceived.map((s) => ({ coord: s.coord, result: s.result })),
     sunkShips: p.fleet.filter(isSunk).map((ship) => sunkInfo(state.settings, ship)),
@@ -109,6 +110,7 @@ export function projectPrivate(
       canFire: myTurn,
       canUseAbility: myTurn && commanderOf(state, me) !== undefined && me.abilityUsesLeft > 0,
       radarResults: me.radarResults,
+      decoys: me.decoys,
     },
   };
 }
@@ -128,6 +130,16 @@ export function publicEvent(event: GameEvent): VisibleEvent {
       const { shipCells: _shipCells, contacts: _contacts, ...radar } = event;
       return radar;
     }
+    // Un leurre se pose en secret : les autres savent qu'il existe, pas où.
+    case 'ABILITY_USED': {
+      if (event.ability !== 'decoy') return event;
+      const { targetId: _targetId, coord: _coord, ...used } = event;
+      return used;
+    }
+    case 'DECOY_PLACED': {
+      const { coord: _coord, ...placed } = event;
+      return placed;
+    }
     default:
       return event;
   }
@@ -141,7 +153,10 @@ export function privateRecipient(event: GameEvent): string | null {
     case 'SHOT_COMMITTED':
       return event.shooterId;
     case 'RADAR_RESULT':
+    case 'DECOY_PLACED':
       return event.playerId;
+    case 'ABILITY_USED':
+      return event.ability === 'decoy' ? event.playerId : null;
     default:
       return null;
   }

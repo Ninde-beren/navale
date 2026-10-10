@@ -41,7 +41,8 @@ export const ColorIdSchema = z.enum([
 export type ColorId = z.infer<typeof ColorIdSchema>;
 export const COLOR_IDS: readonly ColorId[] = ColorIdSchema.options;
 
-export const ShotResultSchema = z.enum(['MISS', 'HIT', 'SUNK']);
+/** `BLOCKED` : le tir est tombé sur un bouclier, rien n'est touché ni révélé. */
+export const ShotResultSchema = z.enum(['MISS', 'HIT', 'SUNK', 'BLOCKED']);
 export type ShotResult = z.infer<typeof ShotResultSchema>;
 
 export const GameStatusSchema = z.enum(['LOBBY', 'PLAYING', 'FINISHED', 'CANCELLED']);
@@ -62,18 +63,28 @@ export type PresetId = z.infer<typeof PresetIdSchema>;
 
 // ---- Commandants et capacités ----------------------------------------------------
 
-export const AbilityTypeSchema = z.enum(['radar', 'missile', 'repair']);
+export const AbilityTypeSchema = z.enum(['radar', 'sonar', 'missile', 'repair', 'shield', 'decoy']);
 export type AbilityType = z.infer<typeof AbilityTypeSchema>;
 
 /**
- * Une capacité, décrite par ses réglages : le radar compte les cases de navire
- * d'une zone carrée centrée sur la case visée, le missile frappe une case et ses
- * quatre voisines, la réparation remet en état une case touchée d'un bateau non coulé.
+ * Une capacité, décrite par ses réglages. Chez un adversaire : le radar montre les
+ * cases de navire d'une zone carrée centrée sur la case visée, le sonar n'en donne
+ * que le total, sur une zone plus grande, le missile frappe une case et ses quatre
+ * voisines. Sur sa propre flotte : la réparation remet en état une case touchée d'un
+ * bateau non coulé, le bouclier protège une zone jusqu'à son prochain tour (`turns`),
+ * le leurre pose un faux navire sur une case vide.
  */
 export const AbilitySchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('radar'), size: z.number().int().min(1).max(5) }),
+  z.object({ type: z.literal('sonar'), size: z.number().int().min(1).max(7) }),
   z.object({ type: z.literal('missile'), pattern: z.enum(['cross']) }),
   z.object({ type: z.literal('repair') }),
+  z.object({
+    type: z.literal('shield'),
+    size: z.number().int().min(1).max(5),
+    turns: z.number().int().min(1).max(3),
+  }),
+  z.object({ type: z.literal('decoy') }),
 ]);
 export type Ability = z.infer<typeof AbilitySchema>;
 
@@ -165,8 +176,14 @@ export const RadarResultSchema = z.object({
   size: z.number().int().min(1),
   shipCells: z.number().int().min(0),
   contacts: z.array(CoordSchema).optional(),
+  /** Le sonar ne donne que le total ; absent = radar. */
+  ability: z.enum(['radar', 'sonar']).optional(),
 });
 export type RadarResult = z.infer<typeof RadarResultSchema>;
+
+/** Un bouclier levé sur une flotte : public, la zone est connue de tous. */
+export const ShieldSchema = z.object({ center: CoordSchema, size: z.number().int().min(1) });
+export type Shield = z.infer<typeof ShieldSchema>;
 
 export const SunkInfoSchema = z.object({
   shipId: z.string(),

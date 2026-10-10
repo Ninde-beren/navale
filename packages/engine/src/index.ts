@@ -31,10 +31,14 @@ export {
   validateSettings,
 } from './battleship/settings.js';
 export {
+  SELF_ABILITIES,
   burstStaggerMs,
+  decoyCells,
   missileCells,
+  missileStrikes,
   radarZone,
   repairableCells,
+  shieldCovers,
 } from './battleship/rules/abilities.js';
 export {
   cellsOf,
@@ -46,4 +50,9 @@ export {
 export { coordKey, isSunk, sameCoord } from './battleship/state.js';
 
 // ---- Bataille navale : bot ------------------------------------------------------
-export { chooseShot, type BotShot } from './battleship/bot/strategy.js';
+export {
+  chooseAction,
+  chooseShot,
+  type BotAction,
+  type BotShot,
+} from './battleship/bot/strategy.js';

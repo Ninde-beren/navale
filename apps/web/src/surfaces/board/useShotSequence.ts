@@ -20,7 +20,7 @@ export type Callout = { word: string; where: string; cls: string };
 /** Salve en cours de résolution : la manche, le numéro du tir, son tireur. */
 export type SalvoStep = { round: number; step: number; shooterId: string };
 
-const SOUND = { MISS: 'miss', HIT: 'hit', SUNK: 'sunk' } as const;
+const SOUND = { MISS: 'miss', HIT: 'hit', SUNK: 'sunk', BLOCKED: 'blocked' } as const;
 /** Le petit air du tireur part juste après l'explosion du coulé. */
 const JINGLE_DELAY_MS = 550;
 const ELIMINATED_CALLOUT_MS = 1600;
@@ -144,29 +144,41 @@ export function useShotSequence({
       } else if (event.type === 'ABILITY_USED' && event.ability === 'missile') {
         // La rafale qui suit est l'annonce du missile.
       } else if (event.type === 'ABILITY_USED') {
-        // Radar ou réparation : l'onde ou le marteau sur la case, avec son son, puis l'annonce.
-        const repair = event.ability === 'repair';
-        const who = repair
-          ? nameOf(event.playerId)
-          : `${nameOf(event.playerId)} → ${nameOf(event.targetId)}`;
-        const where = `${coordLabel(event.coord)} · ${who}`;
-        const word = ABILITY_LABELS[event.ability].toUpperCase();
-        const commanderId = playerOf(event.playerId)?.commanderId;
-        const ability = commanders.find((c) => c.id === commanderId)?.ability;
-        const span = ability?.type === 'radar' ? ability.size : 1;
-        void fx.enqueue(async () => {
-          play(repair ? 'hammer' : 'radar');
-          await fx.mark(
-            repair ? 'repair' : 'radar',
-            event.playerId,
-            repair ? event.playerId : event.targetId,
-            event.coord,
-            span,
-          );
-          setCallout({ word, where, cls: 'ability' });
-          await sleep(ShotFx.timings(revealDelayMs).hold);
-          setCallout(null);
-        });
+        // Une capacité qui ne tire pas : son animation sur la case (rien n'y est révélé),
+        // avec son son, puis l'annonce. Un leurre se pose en secret : l'annonce seule.
+        const kind = event.ability;
+        const word = ABILITY_LABELS[kind].toUpperCase();
+        const actor = nameOf(event.playerId);
+        const hold = ShotFx.timings(revealDelayMs).hold;
+        if (kind === 'decoy' || !('coord' in event)) {
+          void fx.enqueue(async () => {
+            play('decoy');
+            setCallout({ word, where: `${actor} pose un leurre, quelque part`, cls: 'ability' });
+            await sleep(hold);
+            setCallout(null);
+          });
+        } else {
+          const own = kind === 'repair' || kind === 'shield';
+          const who = own ? actor : `${actor} → ${nameOf(event.targetId)}`;
+          const where = `${coordLabel(event.coord)} · ${who}`;
+          const commanderId = playerOf(event.playerId)?.commanderId;
+          const ability = commanders.find((c) => c.id === commanderId)?.ability;
+          const span = ability && 'size' in ability ? ability.size : 1;
+          const mark = kind === 'missile' ? 'radar' : kind;
+          void fx.enqueue(async () => {
+            play(kind === 'repair' ? 'hammer' : kind === 'missile' ? 'radar' : kind);
+            await fx.mark(
+              mark,
+              event.playerId,
+              own ? event.playerId : event.targetId,
+              event.coord,
+              span,
+            );
+            setCallout({ word, where, cls: 'ability' });
+            await sleep(hold);
+            setCallout(null);
+          });
+        }
       } else if (event.type === 'PLAYER_ELIMINATED') {
         const where = `${nameOf(event.playerId)} · ${event.rank}e`;
         void fx.enqueue(async () => {

@@ -65,9 +65,14 @@ export function PlaySealed({ view, me }: { view: PlayerView; me: PublicPlayer })
           </svg>
           <div>
             <div className="line">
-              {ability === 'repair' ? (
+              {ability === 'repair' || ability === 'shield' || ability === 'decoy' ? (
                 <>
-                  Ta réparation : <b className="mono">{coordLabel(pending.coord)}</b>
+                  {ability === 'repair'
+                    ? 'Ta réparation'
+                    : ability === 'shield'
+                      ? 'Ton bouclier'
+                      : 'Ton leurre'}{' '}
+                  : <b className="mono">{coordLabel(pending.coord)}</b>
                 </>
               ) : (
                 <>

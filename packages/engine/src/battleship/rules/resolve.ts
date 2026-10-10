@@ -1,6 +1,7 @@
 import type { Coord, ResolvedShot, Ship } from '@navale/protocol';
 import type { GameState, Player } from '../state.js';
 import { cellsRemaining, isSunk, playerById, sameCoord, sunkInfo } from '../state.js';
+import { shieldCovers } from './abilities.js';
 import { tiedRanks } from './ranks.js';
 
 export interface ShotToResolve {
@@ -42,15 +43,16 @@ export function resolveRound(state: GameState, shots: ShotToResolve[]): RoundRes
     const fleet = fleetOf(target);
     const ship = fleet.find((s) => s.cells.some((c) => sameCoord(c, shot.coord)));
     const burst = shot.burst ? { burst: shot.burst } : {};
+    const base = { round, shooterId: shot.shooterId, targetId: shot.targetId, coord: shot.coord };
+    // Bouclier levé dans la même manche (salve) : le tir, engagé avant, est arrêté.
+    if (shieldCovers(target.shield, shot.coord)) {
+      resolved.push({ ...base, result: 'BLOCKED', ...burst });
+      continue;
+    }
     if (!ship) {
-      resolved.push({
-        round,
-        shooterId: shot.shooterId,
-        targetId: shot.targetId,
-        coord: shot.coord,
-        result: 'MISS',
-        ...burst,
-      });
+      // Un leurre : annoncé touché, sans rien abîmer. C'est la fausse information qu'il donne.
+      const decoy = target.decoys.some((d) => sameCoord(d, shot.coord));
+      resolved.push({ ...base, result: decoy ? 'HIT' : 'MISS', ...burst });
       continue;
     }
     const alreadyHit = ship.hits.some((c) => sameCoord(c, shot.coord));

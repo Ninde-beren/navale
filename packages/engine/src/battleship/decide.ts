@@ -11,9 +11,17 @@ import type { DecideContext, Decision } from '../core/definition.js';
 import { ok, reject } from '../core/definition.js';
 import { botReadyEvents } from './bot/arrival.js';
 import { BOT_NAMES } from './bot/names.js';
+import { pick } from '../core/random.js';
 import { evolve } from './evolve.js';
 import { validateFleet } from './placement.js';
-import { abilityEffects, missileStrikes, repairableCells } from './rules/abilities.js';
+import {
+  SELF_ABILITIES,
+  abilityEffects,
+  decoyCells,
+  missileStrikes,
+  repairableCells,
+  shieldCovers,
+} from './rules/abilities.js';
 import { computeRanking, isFinishedAfterRound } from './rules/end.js';
 import { resolveRound, type ShotToResolve } from './rules/resolve.js';
 import { startBlocker } from './rules/start.js';
@@ -396,6 +404,8 @@ function addBot(
     return reject('GAME_FULL', 'Il faut garder une place pour un humain.');
   const name = BOT_NAMES.find((n) => !nameTaken(state, n)) ?? `Bot ${bots + 1}`;
   const playerId = ctx.newId();
+  // Partie avec commandants : le bot en tire un au hasard, et jouera sa capacité.
+  const commanders = state.settings.commanders;
   return ok([
     {
       type: 'PLAYER_JOINED',
@@ -407,6 +417,15 @@ function addBot(
       level: command.level ?? 'normal',
     },
     ...botReadyEvents(state.settings, playerId, ctx.random),
+    ...(commanders.length > 0
+      ? [
+          {
+            type: 'COMMANDER_CHOSEN',
+            playerId,
+            commanderId: pick(ctx.random, commanders).id,
+          } as const,
+        ]
+      : []),
   ]);
 }
 
@@ -475,6 +494,11 @@ function fire(
     return reject('COORD_OUT_OF_BOUNDS', 'Case hors de la grille.');
   if (target.shotsReceived.some((s) => sameCoord(s.coord, command.coord)))
     return reject('CELL_ALREADY_SHOT', 'Cette case est déjà révélée.');
+  if (shieldCovers(target.shield, command.coord))
+    return reject(
+      'CELL_SHIELDED',
+      `Case protégée par le bouclier de ${target.name} jusqu’à son prochain tour.`,
+    );
 
   const shot: ShotToResolve = {
     shooterId: me.playerId,
@@ -510,14 +534,26 @@ function useAbility(
   if (!commander || me.abilityUsesLeft <= 0)
     return reject('ABILITY_UNAVAILABLE', 'Tu n’as plus de capacité à jouer.');
   const { ability } = commander;
-  if (ability.type === 'repair') {
+  if (SELF_ABILITIES.has(ability.type)) {
     if (command.targetId !== me.playerId)
-      return reject('WRONG_STATE', 'La réparation se fait sur ta propre flotte.');
-    if (!repairableCells(me.fleet).some((c) => sameCoord(c, command.coord)))
+      return reject('WRONG_STATE', 'Cette capacité se joue sur ta propre flotte.');
+    if (!inBounds(state.settings, command.coord))
+      return reject('COORD_OUT_OF_BOUNDS', 'Case hors de la grille.');
+    if (
+      ability.type === 'repair' &&
+      !repairableCells(me.fleet).some((c) => sameCoord(c, command.coord))
+    )
       return reject(
         'CELL_NOT_REPAIRABLE',
         'Seule une case touchée d’un bateau encore à flot se répare.',
       );
+    if (
+      ability.type === 'decoy' &&
+      !decoyCells(state.settings, me.fleet, me.shotsReceived, me.decoys).some((c) =>
+        sameCoord(c, command.coord),
+      )
+    )
+      return reject('CELL_NOT_FREE', 'Le leurre se pose sur une case vide, encore jamais visée.');
   } else {
     if (command.targetId === me.playerId)
       return reject('TARGET_IS_SELF', 'On ne se vise pas soi-même.');
@@ -530,9 +566,13 @@ function useAbility(
       return reject('COORD_OUT_OF_BOUNDS', 'Case hors de la grille.');
     if (
       ability.type === 'missile' &&
-      missileStrikes(state.settings, command.coord, target.shotsReceived).length === 0
+      missileStrikes(state.settings, command.coord, target.shotsReceived, target.shield).length ===
+        0
     )
-      return reject('CELL_ALREADY_SHOT', 'Toutes les cases de la rafale sont déjà révélées.');
+      return reject(
+        'CELL_ALREADY_SHOT',
+        'Toutes les cases de la rafale sont déjà révélées ou protégées.',
+      );
   }
   const pending: PendingShot = {
     targetId: command.targetId,

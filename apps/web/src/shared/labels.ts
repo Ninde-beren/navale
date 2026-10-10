@@ -48,6 +48,7 @@ export const RESULT_LABELS: Record<ShotResult, string> = {
   MISS: 'RATÉ',
   HIT: 'TOUCHÉ',
   SUNK: 'COULÉ',
+  BLOCKED: 'BLOQUÉ',
 };
 
 /** Les types de bateaux des presets ; un type inconnu s'affiche tel quel. */
@@ -77,8 +78,11 @@ export function antiFocusLabel(max: number | null): string {
 
 export const ABILITY_LABELS: Record<AbilityType, string> = {
   radar: 'Radar',
+  sonar: 'Sonar',
   missile: 'Missile',
   repair: 'Réparation',
+  shield: 'Bouclier',
+  decoy: 'Leurre',
 };
 
 /** Ce que fait la capacité, en une phrase. */
@@ -86,10 +90,18 @@ export function abilityHint(ability: Ability): string {
   switch (ability.type) {
     case 'radar':
       return `Révèle, pour toi seul et sans tirer, les cases de navire d’une zone de ${ability.size} × ${ability.size}.`;
+    case 'sonar':
+      return `Dit, pour toi seul et sans tirer, combien de cases de navire se cachent dans une zone de ${ability.size} × ${ability.size}, mais pas lesquelles.`;
     case 'missile':
       return 'Frappe une case et ses quatre voisines d’un coup.';
     case 'repair':
       return 'Remet en état une case touchée d’un bateau encore à flot.';
+    case 'shield':
+      return ability.turns > 1
+        ? `Protège une zone de ${ability.size} × ${ability.size} de ta flotte pendant tes ${ability.turns} prochains tours : les tirs y sont bloqués.`
+        : `Protège une zone de ${ability.size} × ${ability.size} de ta flotte jusqu’à ton prochain tour : les tirs y sont bloqués.`;
+    case 'decoy':
+      return 'Pose en secret un faux navire sur une case vide : le premier tir dessus est annoncé « touché », sans rien abîmer.';
   }
 }
 
