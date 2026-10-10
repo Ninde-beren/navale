@@ -1,11 +1,4 @@
-import {
-  battleship,
-  burstStaggerMs,
-  ghostLeadMs,
-  privateRecipient,
-  publicEvent,
-  sameCoord,
-} from '@navale/engine';
+import { battleship, pacing, privateRecipient, publicEvent } from '@navale/engine';
 import type { EventEnvelope, GameView } from '@navale/protocol';
 import type { PresenceTracker } from '../realtime/presence.js';
 import { gameRoom, playerRoom, socketsInGame } from '../realtime/rooms.js';
@@ -41,10 +34,15 @@ export class Publisher {
     const gameId = runtime.gameId;
     const now = Date.now();
     let releaseAt = this.settledAt(gameId, now);
-    const delay = runtime.state.settings.revealDelayMs;
+    // Chaque tir, chaque capacité jouée, chaque carte de fantôme a son temps d'annonce sur
+    // l'écran central : le moteur en donne la cadence (`pacing`), le replay la reprend.
+    const { offsets, total } = pacing(
+      envelopes.map((e) => e.event),
+      runtime.state.settings.revealDelayMs,
+    );
     envelopes.forEach((envelope, i) => {
       this.schedule(
-        releaseAt - now,
+        releaseAt + offsets[i]! - now,
         {
           gameId,
           during: 'publication d’un événement',
@@ -53,30 +51,8 @@ export class Publisher {
         },
         () => this.emitEvent(gameId, envelope),
       );
-      const event = envelope.event;
-      // Chaque tir, et chaque capacité jouée, a droit à son temps d'annonce sur l'écran central.
-      // Les tirs d'une rafale de missile partent ensemble : l'écran central les fait décoller à
-      // la suite et ne les annonce qu'une fois ; le délai suit le dernier, allongé des départs décalés.
-      // Le barrage d'un fantôme aussi : ses tirs partent ensemble, vers chaque survivant.
-      // Les cases qu'un fantôme éclaire ont leur annonce.
-      if (event.type === 'SHOT_RESOLVED') {
-        const next = envelopes[i + 1]?.event;
-        const continues =
-          next?.type === 'SHOT_RESOLVED' &&
-          next.shooterId === event.shooterId &&
-          ((event.burst !== undefined &&
-            next.burst !== undefined &&
-            sameCoord(next.burst.center, event.burst.center)) ||
-            (event.barrage !== undefined && next.barrage !== undefined));
-        const volley = event.burst?.size ?? event.barrage?.size ?? 1;
-        const lead = event.barrage ? ghostLeadMs(delay) : 0;
-        if (!continues) releaseAt += delay + lead + (volley - 1) * burstStaggerMs(delay);
-      } else if (event.type === 'ABILITY_USED' && event.ability !== 'missile') {
-        releaseAt += delay;
-      } else if (event.type === 'CELLS_LIT') {
-        releaseAt += delay + ghostLeadMs(delay);
-      }
     });
+    releaseAt += total;
     this.releaseAt.set(gameId, releaseAt);
     this.schedule(releaseAt - now, { gameId, during: 'envoi des instantanés' }, () =>
       this.sendSnapshots(runtime),

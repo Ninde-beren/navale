@@ -162,6 +162,11 @@ export function choices<T extends string>(labels: Record<T, string>): Array<[T, 
   return Object.entries(labels) as Array<[T, string]>;
 }
 
+/** « de Julie », « d’Antoine » : la préposition devant un prénom, élidée devant une voyelle. */
+export function ofName(name: string): string {
+  return /^[aeiouyàâäéèêëîïôöùûüœæ]/i.test(name) ? `d’${name}` : `de ${name}`;
+}
+
 /** « 1er », « 2e », « 3e »… */
 export function ordinal(n: number): string {
   return n === 1 ? '1er' : `${n}e`;

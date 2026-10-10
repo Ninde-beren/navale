@@ -11,7 +11,13 @@ import {
 } from '@navale/protocol';
 import { play, playSunkJingle } from '../../shared/audio.js';
 import { burstResult, sameBurst } from '../../shared/bursts.js';
-import { ABILITY_LABELS, GHOST_CARD_LABELS, RESULT_LABELS, count } from '../../shared/labels.js';
+import {
+  ABILITY_LABELS,
+  GHOST_CARD_LABELS,
+  RESULT_LABELS,
+  count,
+  ofName,
+} from '../../shared/labels.js';
 import { ShotFx, sleep, type Sweep } from './shotFx.js';
 
 /** Une case révélée par l'animation, en attendant l'instantané qui la confirmera. */
@@ -166,7 +172,7 @@ export function useShotSequence({
           });
           void fx.playBurst(shots, revealDelayMs, burstStaggerMs(revealDelayMs));
           const result = burstResult(shots);
-          const where = `Barrage du fantôme de ${nameOf(event.shooterId)}`;
+          const where = `Barrage du fantôme ${ofName(nameOf(event.shooterId))}`;
           void fx.enqueue(async () => {
             setCallout({ word: RESULT_LABELS[result], where, cls: result.toLowerCase() });
             await sleep(ShotFx.timings(revealDelayMs).hold);
@@ -207,10 +213,14 @@ export function useShotSequence({
                     where: `${GHOST_CARD_LABELS.wisp} ${coordLabel(first.coord)} · ${ghost} → ${nameOf(first.targetId)}`,
                     cls: 'ghost',
                   }
-                : { word: 'FEU FOLLET', where: `Le feu follet de ${ghost} s’éteint`, cls: 'ghost' }
+                : {
+                    word: 'FEU FOLLET',
+                    where: `Le feu follet ${ofName(ghost)} s’éteint`,
+                    cls: 'ghost',
+                  }
               : {
                   word: 'MARÉE BASSE',
-                  where: `Le fantôme de ${ghost} découvre ${count(event.cells.length, 'navire')}`,
+                  where: `Le fantôme ${ofName(ghost)} découvre ${count(event.cells.length, 'navire')}`,
                   cls: 'ghost',
                 },
           );

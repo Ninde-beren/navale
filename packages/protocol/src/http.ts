@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ColorIdSchema, GameSettingsSchema, GameStatusSchema, PresetIdSchema } from './common.js';
+import { EventEnvelopeSchema } from './events.js';
 
 /**
  * `POST /api/games`. Seuls la variante et le nombre de joueurs sont obligatoires :
@@ -44,3 +45,14 @@ export type ShareSource = z.infer<typeof ShareSourceSchema>;
  */
 export const GameSharedRequestSchema = z.object({ from: ShareSourceSchema });
 export type GameSharedRequest = z.infer<typeof GameSharedRequestSchema>;
+
+/**
+ * `GET /api/games/:gameId/replay` : le journal complet d'une partie terminée, pour la revoir.
+ * Une fois la partie finie, plus rien n'y est secret : flottes, détections et pronostics compris.
+ */
+export const ReplaySchema = z.object({
+  gameId: z.string(),
+  code: z.string(),
+  events: z.array(EventEnvelopeSchema),
+});
+export type Replay = z.infer<typeof ReplaySchema>;

@@ -79,9 +79,15 @@ export function PlayFinished({
         </p>
       )}
       {record && <p className="muted">Ton bilan sur ce téléphone : {record}.</p>}
-      <a className="btn ghost" href={`/board/${view.code}`} target="_blank" rel="noreferrer">
-        Regarder l'écran central
-      </a>
+      {finished ? (
+        <a className="btn ghost" href={`/replay/${view.gameId}`} target="_blank" rel="noreferrer">
+          Revoir la partie
+        </a>
+      ) : (
+        <a className="btn ghost" href={`/board/${view.code}`} target="_blank" rel="noreferrer">
+          Regarder l'écran central
+        </a>
+      )}
       <button
         className="btn sm ghost"
         type="button"

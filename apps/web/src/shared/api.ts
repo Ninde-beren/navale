@@ -1,4 +1,4 @@
-import type { CreateGameRequest, CreateGameResponse, Feedback } from '@navale/protocol';
+import type { CreateGameRequest, CreateGameResponse, Feedback, Replay } from '@navale/protocol';
 
 export class ApiError extends Error {
   constructor(
@@ -26,6 +26,8 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   createGame: (body: CreateGameRequest) =>
     call<CreateGameResponse>('/api/games', { method: 'POST', body: JSON.stringify(body) }),
+  /** Le journal d'une partie terminée, pour la revoir. */
+  replay: (gameId: string) => call<Replay>(`/api/games/${encodeURIComponent(gameId)}/replay`),
   sendFeedback: (body: Feedback) =>
     call<{ ok: true; id: number }>('/api/feedback', { method: 'POST', body: JSON.stringify(body) }),
 };

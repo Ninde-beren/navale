@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import clsx from 'clsx';
-import type { GameView, PublicPlayer } from '@navale/protocol';
+import type { GameView, PublicPlayer, Ship } from '@navale/protocol';
 import { END_LABELS, VARIANT_LABELS, commanderOf, commandersOf } from '../../shared/labels.js';
 import { playerLookup } from '../../shared/players.js';
 import { useShotHistory } from '../../shared/shotHistory.js';
@@ -27,12 +27,15 @@ export function BoardPlaying({
   socket,
   layout,
   flat = false,
+  fleets,
 }: {
   view: GameView;
   socket: SocketRef;
   layout: 'p2' | 'p3' | '';
   /** Tablette à plat : chaque zone dans un cadre tourné vers son joueur, centre lisible dans les deux sens. */
   flat?: boolean;
+  /** Replay d'une partie finie : la flotte de chacun, dessinée sous sa grille publique. */
+  fleets?: Record<string, Ship[]>;
 }) {
   const { settings, players, round, code } = view;
   const { byId, nameOf } = playerLookup(players);
@@ -140,6 +143,7 @@ export function BoardPlaying({
               p.ghostReadyAt !== null && view.round !== null && view.round.index >= p.ghostReadyAt
             }
             lights={lit[p.playerId] ?? []}
+            fleet={fleets?.[p.playerId]}
           />
         );
         // À plat, chaque zone est dans un cadre tourné vers le côté de la table où son joueur est assis.

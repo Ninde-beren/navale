@@ -1,0 +1,261 @@
+import clsx from 'clsx';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useParams } from 'react-router';
+import { pacing } from '@navale/engine';
+import type { Ship } from '@navale/protocol';
+import { api, ApiError } from '../../shared/api.js';
+import { useBoardPrefs } from '../../shared/boardPrefs.js';
+import {
+  replayScript,
+  roundCount,
+  roundStart,
+  viewBefore,
+  type ReplayScript,
+} from '../../shared/replay.js';
+import { useGame } from '../../shared/store.js';
+import { Notice } from '../../shared/ui/Notice.js';
+import { useWakeLock } from '../../shared/useWakeLock.js';
+import { BoardFinished } from '../board/BoardFinished.js';
+import { BoardPlaying } from '../board/BoardPlaying.js';
+import { boardLayout } from '../board/layout.js';
+
+/** Le replay ne commande rien : pas de connexion, pas de boutons d'hôte. */
+const NO_SOCKET = { current: null };
+/** La pause entre deux coups, à vitesse normale : le temps de lire l'écran. */
+const BETWEEN_STEPS_MS = 700;
+const SPEEDS = [1, 2] as const;
+type Speed = (typeof SPEEDS)[number];
+
+/** Le temps d'annonce d'un tir à cette vitesse ; l'animation d'un tir ne descend pas sous 1,2 s. */
+function announceMs(revealDelayMs: number, speed: Speed): number {
+  return Math.max(1200, Math.round(revealDelayMs / speed));
+}
+
+/**
+ * Le lecteur : il rejoue les pas de la partie dans le magasin de l'écran central, au rythme
+ * qu'avait le serveur (`pacing`), comme si la partie se jouait. Un pas commencé va jusqu'au
+ * bout ; la pause arrête avant le suivant. Se déplacer remet l'écran juste avant un pas.
+ */
+function useReplayPlayer(script: ReplayScript | null) {
+  const [next, setNext] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [speed, setSpeedState] = useState<Speed>(1);
+  // Change à chaque déplacement : l'écran repart de zéro, sans rejouer les animations passées.
+  const [generation, setGeneration] = useState(0);
+  const timers = useRef<number[]>([]);
+  const nextRef = useRef(0);
+  const playingRef = useRef(false);
+  const busyRef = useRef(false);
+  const speedRef = useRef<Speed>(1);
+
+  const later = (fn: () => void, ms: number) => {
+    timers.current.push(window.setTimeout(fn, ms));
+  };
+  const clear = () => {
+    for (const t of timers.current) clearTimeout(t);
+    timers.current = [];
+    busyRef.current = false;
+  };
+
+  const playStep = useCallback(
+    (k: number) => {
+      if (!script) return;
+      const step = script.steps[k];
+      if (!step) {
+        playingRef.current = false;
+        setPlaying(false);
+        return;
+      }
+      busyRef.current = true;
+      const delay = announceMs(script.start.view.settings.revealDelayMs, speedRef.current);
+      const { offsets, total } = pacing(
+        step.envelopes.map((e) => e.event),
+        delay,
+      );
+      step.envelopes.forEach((envelope, i) =>
+        later(() => useGame.getState().pushEvent(envelope), offsets[i]!),
+      );
+      later(() => {
+        useGame.getState().setView(step.view);
+        nextRef.current = k + 1;
+        setNext(k + 1);
+        busyRef.current = false;
+        if (playingRef.current) later(() => playStep(k + 1), BETWEEN_STEPS_MS / speedRef.current);
+      }, total);
+    },
+    [script],
+  );
+
+  const seek = useCallback(
+    (k: number) => {
+      if (!script) return;
+      clear();
+      const target = Math.max(0, Math.min(k, script.steps.length));
+      useGame.setState({ view: viewBefore(script, target).view, events: [] });
+      nextRef.current = target;
+      setNext(target);
+      setGeneration((g) => g + 1);
+      if (playingRef.current) later(() => playStep(target), BETWEEN_STEPS_MS);
+    },
+    [script, playStep],
+  );
+
+  useEffect(() => {
+    if (!script) return;
+    useGame.setState({ conn: 'connected', error: null });
+    seek(0);
+    return clear;
+  }, [script, seek]);
+
+  const play = () => {
+    if (!script) return;
+    if (nextRef.current >= script.steps.length) seek(0);
+    playingRef.current = true;
+    setPlaying(true);
+    if (!busyRef.current) playStep(nextRef.current);
+  };
+  const pause = () => {
+    playingRef.current = false;
+    setPlaying(false);
+  };
+  const setSpeed = (s: Speed) => {
+    speedRef.current = s;
+    setSpeedState(s);
+  };
+  return { next, playing, speed, generation, play, pause, seek, setSpeed };
+}
+
+/** Revoir une partie terminée sur l'écran central, coup par coup, avec ses animations. */
+export function Replay() {
+  const gameId = useParams().gameId ?? '';
+  const [script, setScript] = useState<ReplayScript | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [showFleets, setShowFleets] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    setScript(null);
+    api
+      .replay(gameId)
+      .then((replay) => alive && setScript(replayScript(replay.events)))
+      .catch((e: unknown) => {
+        if (alive) setError(e instanceof ApiError ? e.message : 'Le serveur ne répond pas.');
+      });
+    return () => {
+      alive = false;
+    };
+  }, [gameId]);
+  const player = useReplayPlayer(script);
+  const view = useGame((s) => s.view);
+  const flat = useBoardPrefs((s) => s.flat);
+  useWakeLock(player.playing);
+
+  if (error)
+    return (
+      <Notice
+        title="Pas de replay"
+        text={error}
+        action={{ to: '/', label: 'Retour à l’accueil' }}
+      />
+    );
+  if (!script || !view || view.gameId !== script.start.view.gameId)
+    return <Notice title="Chargement du replay…" />;
+
+  const ended = view.status === 'FINISHED';
+  const layout = boardLayout(view);
+  const revealDelayMs = announceMs(script.start.view.settings.revealDelayMs, player.speed);
+  const shown = { ...view, settings: { ...view.settings, revealDelayMs } };
+  const fleets: Record<string, Ship[]> | undefined = showFleets
+    ? Object.fromEntries(script.start.state.players.map((p) => [p.playerId, p.fleet]))
+    : undefined;
+  const round = (view.round?.index ?? 0) + 1;
+  const rounds = roundCount(script);
+
+  return (
+    <div className="stage">
+      <main className={clsx('screen tv v2 replay', layout, flat && !ended && 'flat')}>
+        {ended ? (
+          <BoardFinished
+            key={`${view.gameId}:${player.generation}`}
+            view={view}
+            socket={NO_SOCKET}
+            onRestart={() => {
+              player.seek(0);
+              player.play();
+            }}
+          />
+        ) : (
+          <BoardPlaying
+            key={`${view.gameId}:${player.generation}`}
+            view={shown}
+            socket={NO_SOCKET}
+            layout={layout}
+            flat={flat}
+            {...(fleets ? { fleets } : {})}
+          />
+        )}
+        {!ended && (
+          <div className="replay-bar" role="toolbar" aria-label="Lecture du replay">
+            <span className="tag">Replay</span>
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label="Manche précédente"
+              title="Manche précédente"
+              onClick={() => player.seek(roundStart(script, round - 2))}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 5v14M19 5 9 12l10 7z" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className="btn primary"
+              onClick={player.playing ? player.pause : player.play}
+            >
+              {player.playing ? 'Pause' : player.next === 0 ? 'Lancer' : 'Reprendre'}
+            </button>
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label="Manche suivante"
+              title="Manche suivante"
+              onClick={() => player.seek(roundStart(script, round))}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M18 5v14M5 5l10 7-10 7z" />
+              </svg>
+            </button>
+            <span className="where">
+              Manche {round} / {rounds}
+            </span>
+            <div className="seg" role="radiogroup" aria-label="Vitesse">
+              {SPEEDS.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  role="radio"
+                  aria-checked={player.speed === s}
+                  className={player.speed === s ? 'on' : ''}
+                  onClick={() => player.setSpeed(s)}
+                >
+                  ×{s}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className={clsx('btn ghost', showFleets && 'on')}
+              aria-pressed={showFleets}
+              onClick={() => setShowFleets((v) => !v)}
+            >
+              {showFleets ? 'Cacher les flottes' : 'Montrer les flottes'}
+            </button>
+            <Link className="btn ghost" to="/">
+              Quitter
+            </Link>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}

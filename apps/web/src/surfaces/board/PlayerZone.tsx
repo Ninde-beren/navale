@@ -1,5 +1,6 @@
 import clsx from 'clsx';
-import type { Commander, Coord, LitCell, PublicPlayer } from '@navale/protocol';
+import { coordKey } from '@navale/engine';
+import type { Commander, Coord, LitCell, PublicPlayer, Ship } from '@navale/protocol';
 import { publicGridClasses } from '../../shared/cells.js';
 import { abilityHint, betsLabel, ordinal } from '../../shared/labels.js';
 import { PlayerAvatar } from '../../shared/ui/Avatar.js';
@@ -21,6 +22,7 @@ export function PlayerZone({
   ghost = false,
   ghostReady = false,
   lights = [],
+  fleet,
 }: {
   player: PublicPlayer;
   seat: number;
@@ -41,8 +43,18 @@ export function PlayerZone({
   ghostReady?: boolean;
   /** Cases éclairées par l'animation d'un fantôme, pas encore dans l'instantané. */
   lights?: LitCell[];
+  /** Replay d'une partie finie : sa flotte, cernée sur la grille là où elle n'est pas révélée. */
+  fleet?: Ship[] | undefined;
 }) {
   const eliminated = player.status === 'ELIMINATED';
+  const hull = new Set((fleet ?? []).flatMap((s) => s.cells.map(coordKey)));
+  const classes = publicGridClasses(
+    [...player.revealed, ...reveals],
+    player.sunkShips,
+    fresh,
+    player.pierced,
+    [...player.lit, ...lights],
+  );
   return (
     <section
       className={clsx(
@@ -82,13 +94,7 @@ export function PlayerZone({
       <Grid
         width={grid.width}
         height={grid.height}
-        cellClass={publicGridClasses(
-          [...player.revealed, ...reveals],
-          player.sunkShips,
-          fresh,
-          player.pierced,
-          [...player.lit, ...lights],
-        )}
+        cellClass={(x, y) => clsx(classes(x, y), hull.has(coordKey({ x, y })) && 'hull')}
         className={clsx(eliminated && 'dim')}
         label={`Grille de ${player.name}`}
       >

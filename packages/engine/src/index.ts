@@ -41,6 +41,7 @@ export {
   shieldCovers,
 } from './battleship/rules/abilities.js';
 export { ghostLeadMs } from './battleship/rules/ghosts.js';
+export { pacing, type Pacing } from './battleship/rules/pacing.js';
 export {
   cellsOf,
   randomFleet,

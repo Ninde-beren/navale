@@ -8,6 +8,7 @@ import { registerAdmin } from './http/admin.js';
 import { registerFeedback } from './http/feedback.js';
 import { registerGameRoutes } from './http/games.js';
 import { registerRateLimit } from './http/rate-limit.js';
+import { registerReplayRoutes } from './http/replay.js';
 import { registerStatic } from './http/static.js';
 import { registerUsageRoutes } from './http/usage.js';
 import { mailerFromConfig, type Mailer } from './mail/mailer.js';
@@ -135,6 +136,7 @@ export async function createApp(
   registerFeedback(app, { store: feedback, mailer, version }, config);
   registerAdmin(app, { registry, presence, io, history, feedback, marks, mailer }, config);
   registerUsageRoutes(app, registry, marks);
+  registerReplayRoutes(app, store);
   registerSockets(io, registry, publisher, presence, report);
   // Après les sockets du jeu : la connexion y est authentifiée, ou déjà refusée.
   trackRemoteBoards(io, marks);

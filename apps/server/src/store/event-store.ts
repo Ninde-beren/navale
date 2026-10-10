@@ -84,6 +84,13 @@ export class EventStore {
     return games.map((g) => ({ gameId: g.game_id, code: g.code, status: g.status }));
   }
 
+  /** Le statut d'une partie et son code ; `null` pour une partie inconnue. */
+  game(gameId: string): { code: string; status: string } | null {
+    const row = this.db.prepare('SELECT code, status FROM games WHERE game_id = ?').get(gameId) as
+      { code: string; status: string } | undefined;
+    return row ?? null;
+  }
+
   /** Le journal complet d'une partie, dans l'ordre. Lève si un événement est illisible. */
   events(gameId: string): EventEnvelope[] {
     const rows = this.db

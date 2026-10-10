@@ -14,6 +14,7 @@ import { useWakeLock } from '../../shared/useWakeLock.js';
 import { BoardFinished } from './BoardFinished.js';
 import { BoardLobby } from './BoardLobby.js';
 import { BoardPlaying } from './BoardPlaying.js';
+import { boardLayout } from './layout.js';
 
 const SPLASH_MS = 2800;
 
@@ -59,15 +60,7 @@ export function Board() {
   }
   if (!view) return <Notice title="Connexion…" />;
 
-  const n = view.players.length;
-  const layout: 'p2' | 'p3' | '' =
-    view.status === 'PLAYING' || view.status === 'FINISHED'
-      ? n <= 2
-        ? 'p2'
-        : n === 3
-          ? 'p3'
-          : ''
-      : '';
+  const layout = boardLayout(view);
 
   const screen =
     view.status === 'LOBBY' ? (

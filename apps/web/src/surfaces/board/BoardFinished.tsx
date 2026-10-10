@@ -2,15 +2,27 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import type { GameView } from '@navale/protocol';
 import { play } from '../../shared/audio.js';
-import { STATS, betsLabel } from '../../shared/labels.js';
+import { STATS, betsLabel, ofName } from '../../shared/labels.js';
 import { bestGhosts, playerLookup } from '../../shared/players.js';
 import { sendCommand, type SocketRef } from '../../shared/socket.js';
 import { PlayerAvatar } from '../../shared/ui/Avatar.js';
 import { FeedbackButton } from '../../shared/ui/Feedback.js';
 import { SoundButton } from '../../shared/ui/SoundButton.js';
 
-/** Fin de partie : vainqueur, classement, et la revanche pour l'hôte (mêmes joueurs, même code). */
-export function BoardFinished({ view, socket }: { view: GameView; socket: SocketRef }) {
+/**
+ * Fin de partie : vainqueur, classement, la revanche pour l'hôte (mêmes joueurs, même code) et
+ * le replay. À la fin d'un replay, pas de revanche : revoir depuis le début, ou partir.
+ */
+export function BoardFinished({
+  view,
+  socket,
+  onRestart,
+}: {
+  view: GameView;
+  socket: SocketRef;
+  /** Fin d'un replay : le bouton qui le relance depuis le début. */
+  onRestart?: () => void;
+}) {
   const ranking = view.ranking ?? [];
   const { byId, nameOf } = playerLookup(view.players);
   const winner = ranking.find((r) => r.rank === 1);
@@ -35,7 +47,7 @@ export function BoardFinished({ view, socket }: { view: GameView; socket: Socket
   return (
     <div className="finish">
       <h1 className={`c-${(winner && byId.get(winner.playerId)?.color) ?? 'blue'} pc`}>
-        {winner ? `Victoire de ${nameOf(winner.playerId)}` : 'Égalité'}
+        {winner ? `Victoire ${ofName(nameOf(winner.playerId))}` : 'Égalité'}
       </h1>
       <table>
         <thead>
@@ -80,7 +92,11 @@ export function BoardFinished({ view, socket }: { view: GameView; socket: Socket
         </p>
       )}
       <div className="actions">
-        {view.isHost ? (
+        {onRestart ? (
+          <button className="btn primary xl" type="button" onClick={onRestart}>
+            Revoir depuis le début
+          </button>
+        ) : view.isHost ? (
           <>
             <button className="btn primary xl" disabled={busy} onClick={() => void rematch()}>
               {busy ? 'Revanche…' : 'Revanche'}
@@ -91,6 +107,11 @@ export function BoardFinished({ view, socket }: { view: GameView; socket: Socket
           </>
         ) : (
           <p className="muted">L’hôte peut lancer une revanche : mêmes joueurs, même code.</p>
+        )}
+        {!onRestart && (
+          <Link className="btn ghost" to={`/replay/${view.gameId}`}>
+            Revoir la partie
+          </Link>
         )}
         <Link className="btn ghost" to="/">
           Quitter

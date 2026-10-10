@@ -2394,3 +2394,63 @@ body {
   color: var(--text);
   box-shadow: inset 0 0 0 2px var(--text-2);
 }
+
+/* ---------- Replay : la barre de lecture, posée en bas de l'écran central ---------- */
+.tv.v2.replay .replay-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  translate: -50% 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px 10px 22px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--surface-1) 94%, transparent);
+  box-shadow:
+    0 0 0 1px var(--line-strong),
+    0 24px 60px -24px #000;
+  font: 600 24px/1 var(--font-body);
+  white-space: nowrap;
+}
+.replay-bar .tag {
+  font: 800 22px/1 var(--font-display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ghost);
+}
+.replay-bar .btn {
+  height: 52px;
+  padding: 0 22px;
+  font-size: 22px;
+}
+.replay-bar .btn.primary {
+  min-width: 150px;
+}
+.replay-bar .btn.on {
+  box-shadow: inset 0 0 0 2px var(--text-2);
+}
+.replay-bar .icon-btn svg {
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.replay-bar .where {
+  font: 600 22px/1 var(--font-mono);
+  color: var(--text-2);
+  min-width: 190px;
+  text-align: center;
+}
+.replay-bar .seg > button {
+  height: 44px;
+  padding: 0 14px;
+  font-size: 20px;
+}
+/* Replay, « Montrer les flottes » : chaque navire cerné sur sa grille, là où il n'est pas révélé. */
+.grid .cell.hull:not(.hit):not(.sunk) {
+  box-shadow:
+    inset 0 0 0 2px color-mix(in oklab, var(--pc, var(--text-2)) 70%, transparent),
+    inset 0 0 14px color-mix(in oklab, var(--pc, var(--text-2)) 25%, transparent);
+}
