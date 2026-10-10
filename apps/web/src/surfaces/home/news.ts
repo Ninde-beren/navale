@@ -14,6 +14,12 @@ export interface NewsItem {
 
 export const NEWS: readonly NewsItem[] = [
   {
+    n: 97,
+    day: '10 octobre',
+    title: 'Passe la main',
+    text: 'L’hôte n’est plus coincé sur l’appareil qui a créé la partie : « Changer d’appareil » affiche un QR qui donne ses boutons à la télé ou à ton téléphone. Lancer, ajouter un bot, revanche : tout suit.',
+  },
+  {
     n: 95,
     day: '10 octobre',
     title: 'Garde ta partie',
