@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { coordLabel, type Coord, type PublicPlayer, type VisibleEnvelope } from '@navale/protocol';
+import { burstStepMs } from '@navale/engine';
+import {
+  coordLabel,
+  type Coord,
+  type PublicPlayer,
+  type ResolvedShot,
+  type VisibleEnvelope,
+} from '@navale/protocol';
 import { play, playSunkJingle } from '../../shared/audio.js';
+import { burstResult, sameBurst } from '../../shared/bursts.js';
 import { ABILITY_LABELS, RESULT_LABELS } from '../../shared/labels.js';
 import { ShotFx, sleep } from './shotFx.js';
 
@@ -40,6 +48,10 @@ export function useShotSequence({
   const playersRef = useRef(players);
   playersRef.current = players;
   const lastSeq = useRef(0);
+  // Rafale en cours de réception : ses tirs, jusqu'au dernier, puis une seule annonce.
+  const burst = useRef<ResolvedShot[]>([]);
+  // Dernier tir parti : un tir de la même rafale ne compte pas comme un tir de plus de la salve.
+  const lastLaunch = useRef<ResolvedShot | null>(null);
   const [reveals, setReveals] = useState<Record<string, Reveal[]>>({});
   const [fresh, setFresh] = useState<{ targetId: string; coord: Coord } | null>(null);
   const [callout, setCallout] = useState<Callout | null>(null);
@@ -59,6 +71,9 @@ export function useShotSequence({
       {
         onLaunch: (shot) => {
           play('launch');
+          const continues = sameBurst(lastLaunch.current ?? undefined, shot);
+          lastLaunch.current = shot;
+          if (continues) return;
           setSalvoStep((current) => ({
             round: shot.round,
             step: current?.round === shot.round ? current.step + 1 : 1,
@@ -102,8 +117,28 @@ export function useShotSequence({
     for (const { seq: eventSeq, event } of events) {
       if (eventSeq <= lastSeq.current) continue;
       lastSeq.current = eventSeq;
-      if (event.type === 'SHOT_RESOLVED') {
+      if (event.type === 'SHOT_RESOLVED' && event.burst) {
+        // Rafale de missile : paf paf paf, puis une seule annonce avec son verdict.
+        const { type: _type, ...shot } = event;
+        if (!sameBurst(burst.current.at(-1), shot)) burst.current = [];
+        burst.current.push(shot);
+        void fx.playQuick(shot, burstStepMs(revealDelayMs));
+        if (burst.current.length >= event.burst.size) {
+          const shots = burst.current;
+          burst.current = [];
+          const result = burstResult(shots);
+          const where = `Missile ${coordLabel(event.burst.center)} · ${nameOf(event.shooterId)} → ${nameOf(event.targetId)}`;
+          void fx.enqueue(async () => {
+            setCallout({ word: RESULT_LABELS[result], where, cls: result.toLowerCase() });
+            await sleep(ShotFx.timings(revealDelayMs).hold);
+            setCallout(null);
+            fx.finish();
+          });
+        }
+      } else if (event.type === 'SHOT_RESOLVED') {
         void fx.play(event, revealDelayMs);
+      } else if (event.type === 'ABILITY_USED' && event.ability === 'missile') {
+        // La rafale qui suit est l'annonce du missile.
       } else if (event.type === 'ABILITY_USED') {
         // La capacité s'annonce avant ses effets (radar, réparation, tirs du missile).
         const who =

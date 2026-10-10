@@ -7,6 +7,8 @@ export interface ShotToResolve {
   shooterId: string;
   targetId: string;
   coord: Coord;
+  /** Tir d'une rafale de missile. */
+  burst?: { center: Coord; size: number };
 }
 
 export interface RoundResolution {
@@ -39,6 +41,7 @@ export function resolveRound(state: GameState, shots: ShotToResolve[]): RoundRes
     if (!target) continue;
     const fleet = fleetOf(target);
     const ship = fleet.find((s) => s.cells.some((c) => sameCoord(c, shot.coord)));
+    const burst = shot.burst ? { burst: shot.burst } : {};
     if (!ship) {
       resolved.push({
         round,
@@ -46,6 +49,7 @@ export function resolveRound(state: GameState, shots: ShotToResolve[]): RoundRes
         targetId: shot.targetId,
         coord: shot.coord,
         result: 'MISS',
+        ...burst,
       });
       continue;
     }
@@ -58,6 +62,7 @@ export function resolveRound(state: GameState, shots: ShotToResolve[]): RoundRes
       targetId: shot.targetId,
       coord: shot.coord,
       result: completes ? 'SUNK' : 'HIT',
+      ...burst,
     };
     if (completes) entry.sunk = sunkInfo(state.settings, ship);
     resolved.push(entry);

@@ -45,7 +45,8 @@ export function BoardPlaying({
   const committed = useCommittedShooters(round);
   const secondsLeft = useCountdown(round?.deadline ?? null);
   // À plat, et dans la bande à trois, le journal a la place d'un petit historique, au-delà de la dernière manche.
-  const history = useShotHistory(view.lastShots, view.gameId, 3);
+  // Assez de tirs pour trois lignes même avec des rafales de missile (cinq tirs chacune).
+  const history = useShotHistory(view.lastShots, view.gameId, 15);
   const showHistory = flat || layout === 'p3';
   const { rootRef, reveals, fresh, callout, salvoStep } = useShotSequence({
     events: useGame((s) => s.events),
@@ -165,7 +166,11 @@ export function BoardPlaying({
           centreMain
         )}
         {callouts}
-        <ShotLog shots={showHistory ? history : view.lastShots} playerOf={(id) => byId.get(id)} />
+        <ShotLog
+          shots={showHistory ? history : view.lastShots}
+          limit={showHistory ? 3 : undefined}
+          playerOf={(id) => byId.get(id)}
+        />
         <div className="controls">
           {view.isHost && (
             <>

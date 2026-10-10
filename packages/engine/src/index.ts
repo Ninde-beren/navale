@@ -30,7 +30,12 @@ export {
   normalizeSettings,
   validateSettings,
 } from './battleship/settings.js';
-export { radarZone, missileCells, repairableCells } from './battleship/rules/abilities.js';
+export {
+  burstStepMs,
+  missileCells,
+  radarZone,
+  repairableCells,
+} from './battleship/rules/abilities.js';
 export {
   cellsOf,
   randomFleet,

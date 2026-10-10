@@ -13,7 +13,7 @@ import { botReadyEvents } from './bot/arrival.js';
 import { BOT_NAMES } from './bot/names.js';
 import { evolve } from './evolve.js';
 import { validateFleet } from './placement.js';
-import { abilityEffects, repairableCells } from './rules/abilities.js';
+import { abilityEffects, missileStrikes, repairableCells } from './rules/abilities.js';
 import { computeRanking, isFinishedAfterRound } from './rules/end.js';
 import { resolveRound, type ShotToResolve } from './rules/resolve.js';
 import { startBlocker } from './rules/start.js';
@@ -528,6 +528,11 @@ function useAbility(
       return reject('TARGET_NOT_LEGAL', 'Cette cible n’est pas autorisée.');
     if (!inBounds(state.settings, command.coord))
       return reject('COORD_OUT_OF_BOUNDS', 'Case hors de la grille.');
+    if (
+      ability.type === 'missile' &&
+      missileStrikes(state.settings, command.coord, target.shotsReceived).length === 0
+    )
+      return reject('CELL_ALREADY_SHOT', 'Toutes les cases de la rafale sont déjà révélées.');
   }
   const pending: PendingShot = {
     targetId: command.targetId,

@@ -10,6 +10,7 @@ import {
 } from '../src/battleship/project.js';
 import { rematchEvents } from '../src/battleship/rematch.js';
 import { radarZone, missileCells, repairableCells } from '../src/battleship/rules/abilities.js';
+import { antiFocusBlocked } from '../src/battleship/rules/targets.js';
 import { COMMANDERS, makeSettings } from '../src/battleship/settings.js';
 import { cellsRemaining } from '../src/battleship/state.js';
 import { FIXED_QUICK, HOST, Harness, player } from './helpers.js';
@@ -191,6 +192,10 @@ describe('capacités, en tour par tour', () => {
     expect(results.filter((r) => r === 'HIT')).toHaveLength(3);
     expect(results.filter((r) => r === 'MISS')).toHaveLength(1);
     expect(h.state.shotsLog.every((s) => s.shooterId === a)).toBe(true);
+    // Les quatre tirs forment une rafale : même centre, même taille, pour l'annoncer en une fois.
+    expect(h.state.shotsLog.map((s) => s.burst)).toEqual(
+      Array(4).fill({ center: { x: 1, y: 0 }, size: 4 }),
+    );
     miss(h, j, a);
     // Second missile autour de B2 : B2 et B1 déjà révélées sont sautées ; A2, C2 ratent, B3 touche.
     const again = h.expectOk(player(a), {
@@ -199,6 +204,7 @@ describe('capacités, en tour par tour', () => {
       coord: { x: 1, y: 1 },
     });
     expect(h.types(again).filter((t) => t === 'SHOT_RESOLVED')).toHaveLength(3);
+    expect(h.state.shotsLog.slice(-3).every((s) => s.burst?.size === 3)).toBe(true);
     miss(h, j, a, { x: 6, y: 7 });
     // Le croiseur (A1–D1) a trois touches : un tir ordinaire en D1 le coule, au crédit d'Antoine.
     const sunk = h.fire(a, j, { x: 3, y: 0 });
@@ -206,6 +212,41 @@ describe('capacités, en tour par tour', () => {
       result: 'SUNK',
       shooterId: a,
     });
+  });
+
+  it('refuse une rafale dont toutes les cases sont déjà révélées', () => {
+    const { h, ids } = game(['artificier', 'amiral']);
+    const [a, j] = ids as [string, string];
+    // Le coin H8 chez Julie : H8, G8 et H7, les trois cases de la croix, révélées une à une.
+    const corner = [
+      { x: 7, y: 7 },
+      { x: 6, y: 7 },
+      { x: 7, y: 6 },
+    ];
+    corner.forEach((c, i) => {
+      h.fire(a, j, c);
+      miss(h, j, a, { x: 7 - i, y: 7 });
+    });
+    h.expectReject(
+      player(a),
+      { type: 'USE_ABILITY', targetId: j, coord: { x: 7, y: 7 } },
+      'CELL_ALREADY_SHOT',
+    );
+    expect(projectPrivate(h.state, a).me.canUseAbility).toBe(true); // l'usage n'est pas perdu
+  });
+
+  it('une rafale compte pour une seule action dans l’anti-acharnement', () => {
+    const { h, ids } = game(['artificier', 'amiral', 'ingenieur'], {
+      maxPlayers: 3,
+      antiFocusMaxStreak: 2,
+    });
+    const [a, j, m] = ids as [string, string, string];
+    h.expectOk(player(a), { type: 'USE_ABILITY', targetId: j, coord: { x: 5, y: 5 } });
+    expect(antiFocusBlocked(h.state, a)).toBeNull(); // cinq tirs, mais une action
+    miss(h, j, m);
+    miss(h, m, j);
+    miss(h, a, j, { x: 6, y: 7 }); // deuxième action de suite sur Julie : encore permise
+    expect(antiFocusBlocked(h.state, a)).toBe(j);
   });
 
   it('la réparation remet une case en état, seulement sur un bateau à flot', () => {

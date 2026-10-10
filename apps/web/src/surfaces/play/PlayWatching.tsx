@@ -1,4 +1,5 @@
 import { coordLabel, type PlayerView, type PublicPlayer } from '@navale/protocol';
+import { groupBursts } from '../../shared/bursts.js';
 import { RESULT_LABELS, count } from '../../shared/labels.js';
 import { playerLookup } from '../../shared/players.js';
 import { PhoneScreen } from '../../shared/ui/PhoneScreen.js';
@@ -31,7 +32,7 @@ export function PlayWatching({
       ? 'Résolution de la salve en cours'
       : 'Résolution du tir'
     : `Manche ${(view.round?.index ?? 0) + 1} · ${view.me.cellsRemaining} cases intactes${timerSuffix(secondsLeft)}`;
-  const lastShots = [...view.me.shotsFired].reverse().slice(0, 5);
+  const lastShots = groupBursts(view.me.shotsFired).reverse().slice(0, 5);
   const radars = [...view.me.radarResults].reverse().slice(0, 3);
 
   return (
@@ -59,7 +60,8 @@ export function PlayWatching({
         {lastShots.map((s) => (
           <div key={`${s.round}-${coordLabel(s.coord)}-${s.targetId}`} className="kv">
             <span>
-              {nameOf(s.targetId)} · {coordLabel(s.coord)}
+              {nameOf(s.targetId)} · {s.burstSize ? 'missile ' : ''}
+              {coordLabel(s.coord)}
             </span>
             <b className={`res ${s.result.toLowerCase()}`}>{RESULT_LABELS[s.result]}</b>
           </div>

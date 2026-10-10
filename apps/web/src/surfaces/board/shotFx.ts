@@ -44,6 +44,25 @@ export class ShotFx {
     return this.enqueue(() => this.run(shot, revealDelayMs));
   }
 
+  /**
+   * Un tir de rafale : même vol et même impact, en `stepMs`, sans annonce ni retour
+   * à la normale du centre ; `finish` les fait après le dernier tir.
+   */
+  playQuick(shot: ShotFxShot, stepMs: number): Promise<void> {
+    return this.enqueue(() => this.run(shot, stepMs, true));
+  }
+
+  /** Fin d'une rafale : l'explosion et le plouf s'effacent, le centre se rallume. */
+  finish(): void {
+    this.$('.fx .boom')?.classList.remove('go');
+    this.$('.fx .splash')?.classList.remove('go');
+    this.$('.fx .trail')?.classList.add('fade');
+    this.$('.fx .trail-glow')?.classList.add('fade');
+    this.root()
+      ?.querySelectorAll('.centre .dimmable')
+      .forEach((el) => el.classList.remove('dim'));
+  }
+
   /** Place une annonce (élimination…) dans la file, après les tirs déjà en attente. */
   enqueue(step: () => Promise<void>): Promise<void> {
     const run = this.queue.then(() => (this.disposed ? undefined : step()));
@@ -67,10 +86,16 @@ export class ShotFx {
     return [(r.left + r.width / 2 - s.left) / k, (r.top + r.height / 2 - s.top) / k];
   }
 
-  private async run(shot: ShotFxShot, revealDelayMs: number): Promise<void> {
+  private async run(shot: ShotFxShot, revealDelayMs: number, quick = false): Promise<void> {
     const root = this.root();
     if (!root || this.disposed) return;
-    const { flight, impact, hold } = ShotFx.timings(revealDelayMs);
+    const { flight, impact, hold } = quick
+      ? {
+          flight: Math.max(200, Math.round(revealDelayMs * 0.55)),
+          impact: Math.max(120, Math.round(revealDelayMs * 0.45)),
+          hold: 0,
+        }
+      : ShotFx.timings(revealDelayMs);
     const shooterZone = this.$(`.zone[data-player="${shot.shooterId}"]`);
     const targetZone = this.$(`.zone[data-player="${shot.targetId}"]`);
     const plate = shooterZone?.querySelector<HTMLElement>('.nameplate .avatar');
@@ -87,6 +112,7 @@ export class ShotFx {
     if (!plate || !cell || !missile || !trail || !glow || !hot || !boom || !splash) {
       // Écran pas encore prêt : on révèle et on annonce sans animer.
       this.hooks.onImpact(shot);
+      if (quick) return;
       this.hooks.onCallout(shot);
       await sleep(hold);
       this.hooks.onCallout(null);
@@ -123,6 +149,11 @@ export class ShotFx {
     await sleep(Math.round(impact * 0.3));
     this.hooks.onImpact(shot);
     await sleep(Math.round(impact * 0.7));
+    if (quick) {
+      // Rafale : paf, et le suivant part tout de suite ; l'annonce viendra après le dernier.
+      targetZone?.classList.remove('impact', 'wet');
+      return;
+    }
 
     // 3. Callout, toujours au centre de l'écran
     this.hooks.onCallout(shot);

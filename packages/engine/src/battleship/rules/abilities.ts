@@ -33,6 +33,23 @@ export function missileCells(settings: GameSettings, center: Coord): Coord[] {
   return around.filter((c) => inBounds(settings, c));
 }
 
+/** Les cases qu'une rafale de missile frappe vraiment : la croix, sans les cases déjà révélées. */
+export function missileStrikes(
+  settings: GameSettings,
+  center: Coord,
+  revealed: ReadonlyArray<{ coord: Coord }>,
+): Coord[] {
+  return missileCells(settings, center).filter((c) => !revealed.some((r) => sameCoord(r.coord, c)));
+}
+
+/**
+ * Cadence d'une rafale : les tirs partent à ce rythme, puis une seule annonce suit,
+ * avec le délai d'annonce ordinaire. Dérivée de `settings.revealDelayMs`.
+ */
+export function burstStepMs(revealDelayMs: number): number {
+  return Math.round(revealDelayMs / 4);
+}
+
 /** Les cases touchées d'une flotte qu'une réparation peut remettre en état : sur un bateau non coulé. */
 export function repairableCells(fleet: Ship[]): Coord[] {
   return fleet.filter((ship) => !isSunk(ship)).flatMap((ship) => ship.hits);
@@ -101,10 +118,14 @@ export function abilityEffects(
       };
     case 'missile': {
       const target = playerById(state, pending.targetId);
-      const revealed = target?.shotsReceived ?? [];
-      const shots = missileCells(state.settings, pending.coord)
-        .filter((c) => !revealed.some((s) => sameCoord(s.coord, c)))
-        .map((coord) => ({ shooterId: playerId, targetId: pending.targetId, coord }));
+      const cells = missileStrikes(state.settings, pending.coord, target?.shotsReceived ?? []);
+      const burst = { center: pending.coord, size: cells.length };
+      const shots = cells.map((coord) => ({
+        shooterId: playerId,
+        targetId: pending.targetId,
+        coord,
+        burst,
+      }));
       return { events: [used], shots };
     }
   }

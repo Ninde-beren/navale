@@ -183,6 +183,8 @@ export const ResolvedShotSchema = z.object({
   coord: CoordSchema,
   result: ShotResultSchema,
   sunk: SunkInfoSchema.optional(),
+  /** Missile : la rafale dont ce tir fait partie, son centre et son nombre de tirs. */
+  burst: z.object({ center: CoordSchema, size: z.number().int().min(1) }).optional(),
 });
 export type ResolvedShot = z.infer<typeof ResolvedShotSchema>;
 

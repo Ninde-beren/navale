@@ -1,4 +1,4 @@
-import { battleship, privateRecipient, publicEvent } from '@navale/engine';
+import { battleship, burstStepMs, privateRecipient, publicEvent, sameCoord } from '@navale/engine';
 import type { EventEnvelope, GameView } from '@navale/protocol';
 import type { PresenceTracker } from '../realtime/presence.js';
 import { gameRoom, playerRoom, socketsInGame } from '../realtime/rooms.js';
@@ -30,12 +30,25 @@ export class Publisher {
     const gameId = runtime.gameId;
     const now = Date.now();
     let releaseAt = this.settledAt(gameId, now);
-    for (const envelope of envelopes) {
+    const delay = runtime.state.settings.revealDelayMs;
+    envelopes.forEach((envelope, i) => {
       this.schedule(releaseAt - now, () => this.emitEvent(gameId, envelope));
-      // Chaque tir, et chaque capacité jouée, a droit à son temps d'annonce sur l'écran central.
-      if (envelope.event.type === 'SHOT_RESOLVED' || envelope.event.type === 'ABILITY_USED')
-        releaseAt += runtime.state.settings.revealDelayMs;
-    }
+      const event = envelope.event;
+      // Chaque tir, et chaque capacité jouée, a droit à son temps d'annonce sur l'écran central ;
+      // les tirs d'une rafale de missile partent à la suite et ne sont annoncés qu'une fois, au dernier.
+      if (event.type === 'SHOT_RESOLVED') {
+        const next = envelopes[i + 1]?.event;
+        const continues =
+          event.burst !== undefined &&
+          next?.type === 'SHOT_RESOLVED' &&
+          next.burst !== undefined &&
+          next.shooterId === event.shooterId &&
+          sameCoord(next.burst.center, event.burst.center);
+        releaseAt += continues ? burstStepMs(delay) : delay;
+      } else if (event.type === 'ABILITY_USED' && event.ability !== 'missile') {
+        releaseAt += delay;
+      }
+    });
     this.releaseAt.set(gameId, releaseAt);
     this.schedule(releaseAt - now, () => this.sendSnapshots(runtime));
   }
