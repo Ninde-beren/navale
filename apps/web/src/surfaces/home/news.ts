@@ -14,6 +14,12 @@ export interface NewsItem {
 
 export const NEWS: readonly NewsItem[] = [
   {
+    n: 79,
+    day: '10 octobre',
+    title: 'Le bouclier tient bon',
+    text: 'Le bouclier du Capitaine reste levé toute la partie. Chaque case protégée arrête le premier tir qui la vise. Pour passer, il faut viser deux fois au même endroit.',
+  },
+  {
     n: 75,
     day: '10 octobre',
     title: 'Le radar balaie',
