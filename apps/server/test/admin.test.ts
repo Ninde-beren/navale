@@ -280,7 +280,7 @@ describe('statistiques d’utilisation', () => {
   it('donne le lien d’hôte à l’hôte seul, et note son affichage puis son ouverture ailleurs', async () => {
     const g = await createGame(baseUrl);
     const other = await createGame(baseUrl);
-    const post = (path: string, payload: unknown, code = g.code) =>
+    const post = (path: string, payload: object, code = g.code) =>
       app.app.inject({ method: 'POST', url: `/api/games/${code}/${path}`, payload });
     expect((await post('host-link', {})).statusCode).toBe(400);
     expect((await post('host-link', { hostToken: 'faux' })).statusCode).toBe(403);
