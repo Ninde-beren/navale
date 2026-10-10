@@ -14,6 +14,12 @@ export interface NewsItem {
 
 export const NEWS: readonly NewsItem[] = [
   {
+    n: 95,
+    day: '10 octobre',
+    title: 'Garde ta partie',
+    text: 'Le replay se revoit pendant 24 h. Pour la garder plus longtemps, « Exporter » la met dans un fichier, que « Revoir une partie exportée » rouvre quand tu veux.',
+  },
+  {
     n: 93,
     day: '10 octobre',
     title: 'Revoir la partie',
