@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { COMMANDERS } from '@navale/engine';
-import type { ShipPlacement } from '@navale/protocol';
+import type { Coord, ShipPlacement } from '@navale/protocol';
 import {
   command,
   createGame,
@@ -45,7 +45,65 @@ async function seat(client: Client, name: string, color: 'red' | 'blue', command
   return (joined.data as { playerId: string }).playerId;
 }
 
+/**
+ * Une détection jouée par Antoine chez Julie, dans une partie neuve : ce qu'il en apprend,
+ * et les événements qui en parviennent à l'écran central et à Julie, la case visée effacée.
+ */
+async function detection(commanderId: string, coord: Coord) {
+  const g = await createGame(baseUrl, {
+    settings: {
+      variant: 'sequential',
+      maxPlayers: 2,
+      revealDelayMs: 0,
+      commanders: [...COMMANDERS],
+    },
+    preset: 'quick',
+  });
+  const board = await open(baseUrl, { kind: 'board', code: g.code, hostToken: g.hostToken });
+  const a = await open(baseUrl, { kind: 'join', code: g.code });
+  const b = await open(baseUrl, { kind: 'join', code: g.code });
+  const aId = await seat(a, 'Antoine', 'red', commanderId);
+  const bId = await seat(b, 'Julie', 'blue', 'ingenieur');
+  expect(await command(board.socket, { type: 'START_GAME' })).toMatchObject({ ok: true });
+  await until(() => lastView(a).me.canUseAbility);
+  const from = new Map([board, b].map((client) => [client, client.events.length]));
+  expect(await command(a.socket, { type: 'USE_ABILITY', targetId: bId, coord })).toMatchObject({
+    ok: true,
+  });
+  await until(() => lastView(a).me.radarResults.length === 1);
+  // Jusqu'à la manche suivante : tout ce que la détection a fait partir est arrivé.
+  for (const client of [board, b])
+    await until(() =>
+      client.events.some((e) => e.event.type === 'ROUND_STARTED' && e.event.round === 1),
+    );
+  // Seuls diffèrent d'une partie à l'autre les identifiants, l'heure et la case visée.
+  const seen = (client: Client) =>
+    client.events.slice(from.get(client)).map((e) =>
+      JSON.stringify(e.event)
+        .replaceAll(aId, 'Antoine')
+        .replaceAll(bId, 'Julie')
+        .replace(/"startedAt":\d+/, '"startedAt":0')
+        .replaceAll(`"x":${coord.x},"y":${coord.y}`, '"x":0,"y":0'),
+    );
+  const result = { learnt: lastView(a).me.radarResults[0]!, board: seen(board), target: seen(b) };
+  for (const client of [board, a, b]) client.socket.disconnect();
+  return result;
+}
+
 describe('commandants, de bout en bout', () => {
+  it('radar et sonar : l’écran central et la cible reçoivent les mêmes messages, avec ou sans navire', async () => {
+    for (const commanderId of ['amiral', 'sonariste']) {
+      // B2 : le croiseur et un contre-torpilleur dans la zone ; G7 : rien que de l'eau.
+      const ships = await detection(commanderId, { x: 1, y: 1 });
+      const water = await detection(commanderId, { x: 6, y: 6 });
+      expect(ships.learnt.shipCells).toBeGreaterThan(0);
+      expect(water.learnt.shipCells).toBe(0);
+      expect(ships.board.join(), commanderId).toContain('RADAR_RESULT');
+      expect(water.board, commanderId).toEqual(ships.board);
+      expect(water.target, commanderId).toEqual(ships.target);
+    }
+  });
+
   it('le radar renseigne son auteur seulement ; la réparation se voit sur l’écran central', async () => {
     const g = await createGame(baseUrl, {
       settings: {

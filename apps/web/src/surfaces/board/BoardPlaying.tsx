@@ -48,7 +48,7 @@ export function BoardPlaying({
   // Assez de tirs pour trois lignes même avec des rafales de missile (cinq tirs chacune).
   const history = useShotHistory(view.lastShots, view.gameId, 15);
   const showHistory = flat || layout === 'p3';
-  const { rootRef, reveals, fresh, callout, salvoStep } = useShotSequence({
+  const { rootRef, reveals, fresh, callout, salvoStep, sweep } = useShotSequence({
     events: useGame((s) => s.events),
     players,
     commanders: commandersOf(settings),
@@ -133,6 +133,7 @@ export function BoardPlaying({
             active={isActive(p)}
             reveals={reveals[p.playerId] ?? []}
             fresh={fresh?.targetId === p.playerId ? fresh.coord : null}
+            sweep={sweep?.playerId === p.playerId ? sweep : null}
             commander={commanderOf(settings, p.commanderId)}
           />
         );

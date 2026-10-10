@@ -52,6 +52,16 @@ body {
     --cell: min(41px, calc((100vw - 32px - var(--lbl) - var(--cols) * var(--gap)) / var(--cols)));
   }
 }
+/* Petite grille de rappel, dans un panneau : la cible de mes dernières détections. */
+.app-phone .grid.mini {
+  --cell: min(22px, calc((100vw - 64px - var(--lbl) - var(--cols) * var(--gap)) / var(--cols)));
+  --rad: 4px;
+  margin: 4px 0;
+}
+.grid.mini .cell.blip::before,
+.grid.mini .sweep-echo.ship::before {
+  border-width: 2px;
+}
 .app-phone .chip {
   height: 32px;
   padding: 0 12px;
@@ -868,10 +878,10 @@ body {
   letter-spacing: 0;
   color: var(--text-2);
 }
-/* Écran central : l'onde du radar part de la case visée et couvre sa zone (--span cases de
-   côté), la même partout, elle ne révèle rien ; le marteau tape trois fois sur la case réparée,
-   une étincelle à chaque coup. Calés sur RADAR_PINGS et HAMMER_TAPS (audio.ts). */
-.cell .fx-radar,
+/* Écran central : les ondes bleues du sonar partent de la case visée et couvrent sa zone
+   (--span cases de côté), les mêmes partout, elles ne révèlent rien ; le marteau tape trois
+   fois sur la case réparée, une étincelle à chaque coup. Calés sur SONAR_PINGS et HAMMER_TAPS
+   (audio.ts). Le radar, lui, balaie (`.sweep`, plus bas). */
 .cell .fx-sonar,
 .cell .fx-shield,
 .cell .fx-repair {
@@ -880,30 +890,21 @@ body {
   z-index: 4;
   pointer-events: none;
 }
-.cell .fx-radar i,
 .cell .fx-sonar i {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: calc(var(--span, 3) * (var(--cell) + var(--gap)));
+  width: calc(var(--span, 5) * (var(--cell) + var(--gap)));
   aspect-ratio: 1;
   border-radius: 50%;
-  border: 3px solid var(--ok);
-  box-shadow:
-    0 0 18px color-mix(in oklab, var(--ok) 70%, transparent),
-    inset 0 0 22px color-mix(in oklab, var(--ok) 35%, transparent);
-  translate: -50% -50%;
-  scale: 0.1;
-  opacity: 0;
-  animation: radar-wave 1000ms ease-out forwards;
-}
-/* Le sonar : la même onde, en bleu, plus large et plus diffuse. */
-.cell .fx-sonar i {
-  border-width: 2px;
-  border-color: var(--miss);
+  border: 2px solid var(--miss);
   box-shadow:
     0 0 26px color-mix(in oklab, var(--miss) 70%, transparent),
     inset 0 0 30px color-mix(in oklab, var(--miss) 35%, transparent);
+  translate: -50% -50%;
+  scale: 0.1;
+  opacity: 0;
+  animation: sonar-wave 1000ms ease-out forwards;
 }
 /* Le bouclier qui se lève : un panneau de verre bleu qui s'étend sur la zone. */
 .cell .fx-shield i {
@@ -955,7 +956,7 @@ body {
     opacity: 0;
   }
 }
-@keyframes radar-wave {
+@keyframes sonar-wave {
   0% {
     scale: 0.1;
     opacity: 1;
@@ -1022,13 +1023,153 @@ body {
 .grid .cell.scan.clear {
   background: color-mix(in oklab, var(--sea) 70%, var(--bg));
 }
-.grid .cell.blip::before {
+.grid .cell.blip::before,
+.sweep-echo.ship::before {
   content: '';
   position: absolute;
   inset: 20%;
   border-radius: 50%;
   border: 3px solid var(--ok);
   box-shadow: 0 0 10px -2px var(--ok);
+}
+
+/* ---------- Balayage du radar (`ui/RadarSweep.tsx`) ----------
+   Posé sur la grille, il en couvre toutes les cases et s'arrête à leur bord : la zone est
+   rognée par la grille, comme la règle. Le carré de la zone reste net, puisque la règle porte
+   sur un carré ; le disque qui le couvre porte le rayon, qui fait ses tours (`RADAR_SWEEP`,
+   audio.ts) en laissant une traînée qui s'estompe. Sur l'écran central, rien d'autre, avec ou
+   sans navire ; sur le téléphone de l'auteur, les échos s'allument au passage du rayon. */
+.grid {
+  position: relative;
+}
+.grid > .sweep {
+  --pitch: calc(var(--cell) + var(--gap));
+  position: absolute;
+  grid-column: 2 / -1;
+  grid-row: 2 / -1;
+  inset: 0;
+  z-index: 5;
+  overflow: hidden;
+  pointer-events: none;
+}
+.sweep-zone,
+.sweep-disc,
+.sweep-echo {
+  position: absolute;
+}
+.sweep-zone,
+.sweep-disc {
+  animation: sweep-life var(--life) linear forwards;
+}
+.sweep-zone {
+  left: calc(var(--zx) * var(--pitch));
+  top: calc(var(--zy) * var(--pitch));
+  width: calc(var(--zw) * var(--pitch) - var(--gap));
+  height: calc(var(--zh) * var(--pitch) - var(--gap));
+  border: 2px solid var(--ok);
+  border-radius: var(--rad);
+  background: color-mix(in oklab, var(--ok) 8%, transparent);
+  box-shadow:
+    0 0 16px color-mix(in oklab, var(--ok) 55%, transparent),
+    inset 0 0 14px color-mix(in oklab, var(--ok) 28%, transparent);
+}
+/* Le disque passe par les coins du carré ; deux anneaux de portée et une croix, discrets. */
+.sweep-disc {
+  --ring: color-mix(in oklab, var(--ok) 24%, transparent);
+  left: calc(var(--x) * var(--pitch) + var(--cell) / 2);
+  top: calc(var(--y) * var(--pitch) + var(--cell) / 2);
+  width: calc(var(--size) * var(--pitch) * 1.4142);
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  border: 1px solid color-mix(in oklab, var(--ok) 60%, transparent);
+  background:
+    radial-gradient(
+      circle closest-side,
+      transparent calc(33% - 1px),
+      var(--ring) 33%,
+      transparent calc(33% + 1px) calc(67% - 1px),
+      var(--ring) 67%,
+      transparent calc(67% + 1px)
+    ),
+    linear-gradient(transparent calc(50% - 0.5px), var(--ring) 50%, transparent calc(50% + 0.5px)),
+    linear-gradient(
+      90deg,
+      transparent calc(50% - 0.5px),
+      var(--ring) 50%,
+      transparent calc(50% + 0.5px)
+    );
+}
+/* Le rayon part du nord : son bord brillant mène, la traînée le suit et s'efface. */
+.sweep-disc i {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    transparent 0deg 230deg,
+    color-mix(in oklab, var(--ok) 6%, transparent) 265deg,
+    color-mix(in oklab, var(--ok) 48%, transparent) 354deg,
+    #d4ffe6 358.5deg 360deg
+  );
+  animation: sweep-turn var(--turn) linear var(--turns) both;
+}
+@keyframes sweep-turn {
+  to {
+    rotate: 360deg;
+  }
+}
+@keyframes sweep-life {
+  0% {
+    opacity: 0;
+  }
+  8%,
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+/* Les échos, sur le téléphone de l'auteur : le dessin que la grille garde ensuite
+   (`.cell.blip`, `.cell.scan.clear`), posé quand le rayon passe ; un navire se rallume
+   à chaque tour. */
+.sweep-echo {
+  left: calc(var(--ex) * var(--pitch));
+  top: calc(var(--ey) * var(--pitch));
+  width: var(--cell);
+  height: var(--cell);
+  border-radius: var(--rad);
+  opacity: 0;
+}
+.sweep-echo.water {
+  outline: 2px dashed var(--text-3);
+  outline-offset: -3px;
+  background: color-mix(in oklab, var(--sea) 70%, var(--bg));
+  box-shadow: inset 0 0 0 1px var(--sea-line);
+  animation: echo-water 240ms ease-out var(--at) forwards;
+}
+.sweep-echo.ship {
+  animation: echo-ship var(--turn) ease-out var(--at) var(--turns) forwards;
+}
+@keyframes echo-water {
+  to {
+    opacity: 1;
+  }
+}
+@keyframes echo-ship {
+  0% {
+    opacity: 1;
+    scale: 1.6;
+    filter: brightness(1.8) drop-shadow(0 0 8px var(--ok));
+  }
+  40% {
+    scale: 1;
+  }
+  100% {
+    opacity: 1;
+    scale: 1;
+    filter: none;
+  }
 }
 
 /* Le retour après un relais : un vrai message, en bas, qui ne cache pas le rappel d'écran allumé. */

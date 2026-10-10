@@ -26,10 +26,12 @@ export type SfxName =
 
 /**
  * Rythme des sons de capacité, en secondes : l'écran central cale ses animations
- * dessus (les ondes du radar et du sonar partent sur chaque ping, le marteau frappe
- * sur chaque coup).
+ * dessus. Le rayon du radar fait `turns` tours de `turnSeconds`, un bip à chaque
+ * passage au nord ; les ondes du sonar partent sur chaque ping ; le marteau frappe
+ * sur chaque coup.
  */
-export const RADAR_PINGS = [0, 0.3, 0.6] as const;
+export const RADAR_SWEEP = { turns: 2, turnSeconds: 0.7 } as const;
+export const SONAR_PINGS = [0, 0.3, 0.6] as const;
 export const HAMMER_TAPS = [0.22, 0.54, 0.86] as const;
 
 interface SfxState {
@@ -258,25 +260,29 @@ const SYNTH: Record<SfxName, (c: AudioContext, out: Out, t: number) => void> = {
     tone(c, out, t, { type: 'sine', from: 880, dur: 0.16, peak: 0.3 });
     tone(c, out, t + 0.1, { type: 'sine', from: 1320, dur: 0.22, peak: 0.22 });
   },
-  // Radar : trois pings de sonar, chacun suivi de son écho, sur un léger souffle de balayage.
+  // Radar : un souffle qui balaie à chaque tour du rayon, et un bip électronique bref,
+  // carré et adouci, chaque fois qu'il repasse au nord ; le dernier, plus aigu, clôt le balayage.
   radar: (c, out, t) => {
-    for (const at of RADAR_PINGS) {
-      tone(c, out, t + at, { type: 'sine', from: 1480, to: 1320, dur: 0.42, peak: 0.26 });
-      tone(c, out, t + at + 0.12, { type: 'sine', from: 1480, to: 1320, dur: 0.3, peak: 0.07 });
+    const { turns, turnSeconds } = RADAR_SWEEP;
+    const low = lowpass(c, out, 3800);
+    for (let k = 0; k <= turns; k++) {
+      const at = t + k * turnSeconds;
+      tone(c, low, at, { type: 'square', from: k === turns ? 2350 : 1760, dur: 0.05, peak: 0.1 });
+      if (k < turns)
+        burst(c, out, at, {
+          filter: 'bandpass',
+          from: 500,
+          to: 2600,
+          q: 1.6,
+          dur: turnSeconds,
+          peak: 0.09,
+          attack: turnSeconds * 0.55,
+        });
     }
-    burst(c, out, t, {
-      filter: 'bandpass',
-      from: 600,
-      to: 1800,
-      q: 3,
-      dur: 0.9,
-      peak: 0.05,
-      attack: 0.2,
-    });
   },
-  // Sonar : trois pings plus graves et plus longs que le radar, chacun suivi de son écho, sur un grondement d'eau.
+  // Sonar : trois pings graves et longs, chacun suivi de son écho, sur un grondement d'eau.
   sonar: (c, out, t) => {
-    for (const at of RADAR_PINGS) {
+    for (const at of SONAR_PINGS) {
       tone(c, out, t + at, { type: 'sine', from: 760, to: 690, dur: 0.7, peak: 0.3 });
       tone(c, out, t + at + 0.18, { type: 'sine', from: 760, to: 690, dur: 0.45, peak: 0.08 });
     }

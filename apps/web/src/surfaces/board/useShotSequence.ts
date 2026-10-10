@@ -11,7 +11,7 @@ import {
 import { play, playSunkJingle } from '../../shared/audio.js';
 import { burstResult, sameBurst } from '../../shared/bursts.js';
 import { ABILITY_LABELS, RESULT_LABELS } from '../../shared/labels.js';
-import { ShotFx, sleep } from './shotFx.js';
+import { ShotFx, sleep, type Sweep } from './shotFx.js';
 
 /** Une case révélée par l'animation, en attendant l'instantané qui la confirmera. */
 export type Reveal = { coord: Coord; result: 'MISS' | 'HIT' };
@@ -59,6 +59,7 @@ export function useShotSequence({
   const [fresh, setFresh] = useState<{ targetId: string; coord: Coord } | null>(null);
   const [callout, setCallout] = useState<Callout | null>(null);
   const [salvoStep, setSalvoStep] = useState<SalvoStep | null>(null);
+  const [sweep, setSweep] = useState<Sweep | null>(null);
 
   const playerOf = (playerId: string) => playersRef.current.find((p) => p.playerId === playerId);
   const nameOf = (playerId: string) => playerOf(playerId)?.name ?? '?';
@@ -105,6 +106,7 @@ export function useShotSequence({
               cls: shot.result.toLowerCase(),
             },
           ),
+        onSweep: setSweep,
       },
     );
     fxRef.current = fx;
@@ -191,5 +193,5 @@ export function useShotSequence({
     }
   }, [events]);
 
-  return { rootRef, reveals, fresh, callout, salvoStep };
+  return { rootRef, reveals, fresh, callout, salvoStep, sweep };
 }

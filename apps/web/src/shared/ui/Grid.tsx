@@ -1,5 +1,5 @@
 import type { Coord } from '@navale/protocol';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import type { ReactNode, PointerEvent as ReactPointerEvent } from 'react';
 
 export interface GridProps {
   width: number;
@@ -11,6 +11,8 @@ export interface GridProps {
   onPointerMove?: (c: Coord | null, e: ReactPointerEvent<HTMLElement>) => void;
   onPointerUp?: (c: Coord | null, e: ReactPointerEvent<HTMLElement>) => void;
   label?: string;
+  /** Un calque posé sur les cases, comme le balayage d'un radar (`RadarSweep`). */
+  children?: ReactNode;
 }
 
 /** Vraie grille CSS, avec les libellés A–H / 1–8. Une case non révélée est toujours identique aux autres. */
@@ -23,6 +25,7 @@ export function Grid({
   onPointerMove,
   onPointerUp,
   label,
+  children,
 }: GridProps) {
   const cols = Array.from({ length: width }, (_, i) => String.fromCharCode(65 + i));
   const rows = Array.from({ length: height }, (_, i) => i + 1);
@@ -59,6 +62,7 @@ export function Grid({
       {rows.map((r, y) => (
         <FragmentRow key={r} r={r} y={y} width={width} cellClass={cellClass} />
       ))}
+      {children}
     </div>
   );
 }

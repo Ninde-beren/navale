@@ -1,20 +1,29 @@
-import { coordLabel, type PlayerView, type PublicPlayer } from '@navale/protocol';
+import { useEffect, useRef } from 'react';
+import { coordLabel, type PlayerView, type PublicPlayer, type RadarResult } from '@navale/protocol';
 import { groupBursts } from '../../shared/bursts.js';
 import { RESULT_LABELS, count } from '../../shared/labels.js';
 import { playerLookup } from '../../shared/players.js';
 import { PhoneScreen } from '../../shared/ui/PhoneScreen.js';
 import { timerSuffix, useCountdown } from '../../shared/useCountdown.js';
 import { MyFleetGrid } from './MyFleetGrid.js';
+import { TargetGrid } from './TargetGrid.js';
 
-/** Ce n'est pas mon tour, ou mon tir est parti : ma flotte, mes derniers tirs, et l'écran central à regarder. */
+/**
+ * Ce n'est pas mon tour, ou mon tir est parti : ma flotte, ce que mes détections ont vu
+ * (la grille de leur dernière cible, où balaie le radar que je viens de jouer), mes
+ * derniers tirs, et l'écran central à regarder.
+ */
 export function PlayWatching({
   view,
   me,
+  sweeping,
   shotSent,
   resolving,
 }: {
   view: PlayerView;
   me: PublicPlayer;
+  /** Mon radar qui vient d'arriver et balaie encore (`useRadarSweep`). */
+  sweeping: RadarResult | null;
   /** Mon tir de la manche est parti : le résultat se joue sur l'écran central. */
   shotSent: boolean;
   /** L'écran central a commencé à résoudre la manche. */
@@ -34,6 +43,12 @@ export function PlayWatching({
     : `Manche ${(view.round?.index ?? 0) + 1} · ${view.me.cellsRemaining} cases intactes${timerSuffix(secondsLeft)}`;
   const lastShots = groupBursts(view.me.shotsFired).reverse().slice(0, 5);
   const radars = [...view.me.radarResults].reverse().slice(0, 3);
+  const scanned = radars[0] && byId.get(radars[0].targetId);
+  // Le balayage se joue sous ma flotte : on le fait venir à l'écran quand il commence.
+  const detections = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (sweeping) detections.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [sweeping]);
 
   return (
     <PhoneScreen code={view.code} color={me.color} gap={16}>
@@ -43,8 +58,17 @@ export function PlayWatching({
       </div>
       <MyFleetGrid view={view} me={me} />
       {radars.length > 0 && (
-        <div className="panel flex flex-col gap-2">
+        <div ref={detections} className="panel flex flex-col gap-2">
           <span className="label">Mes détections</span>
+          {scanned && (
+            <TargetGrid
+              view={view}
+              target={scanned}
+              radars={view.me.radarResults.filter((r) => r.targetId === scanned.playerId)}
+              sweeping={sweeping}
+              className="mini"
+            />
+          )}
           {radars.map((r) => (
             <div key={`${r.round}-${r.targetId}`} className="kv">
               <span>

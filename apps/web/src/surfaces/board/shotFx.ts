@@ -1,8 +1,16 @@
 import type { Coord, ResolvedShot } from '@navale/protocol';
-import { HAMMER_TAPS, RADAR_PINGS } from '../../shared/audio.js';
+import { HAMMER_TAPS, SONAR_PINGS } from '../../shared/audio.js';
+import { RADAR_SWEEP_MS } from '../../shared/radarSweep.js';
 
 /** Un tir résolu, tel que la séquence l'anime. */
 export type ShotFxShot = Omit<ResolvedShot, 'sunk'>;
+
+/** Un radar en train de balayer la grille d'un joueur : centre et taille de sa zone. */
+export interface Sweep {
+  playerId: string;
+  center: Coord;
+  size: number;
+}
 
 export interface ShotFxHooks {
   /** Au départ du missile : son, compteur de résolution en salve. */
@@ -11,6 +19,8 @@ export interface ShotFxHooks {
   onImpact: (shot: ShotFxShot) => void;
   /** Afficher / masquer le callout central. */
   onCallout: (shot: ShotFxShot | null) => void;
+  /** Poser / retirer le balayage d'un radar, que la grille dessine (`RadarSweep`). */
+  onSweep?: (sweep: Sweep | null) => void;
 }
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -38,8 +48,8 @@ interface Path {
 /** Les classes d'état qu'une copie du calque ne doit pas hériter de l'original. */
 const STATES = ['show', 'draw', 'fade', 'on', 'go'];
 
-/** Durée d'une onde de radar, en ms ; la dernière part au dernier ping (`RADAR_PINGS`). */
-const RADAR_WAVE_MS = 1000;
+/** Durée d'une onde de sonar, en ms ; la dernière part au dernier ping (`SONAR_PINGS`). */
+const SONAR_WAVE_MS = 1000;
 /** Un coup de marteau, en ms : il frappe à 70 % du mouvement, sur chaque coup de `HAMMER_TAPS`. */
 const HAMMER_SWING_MS = 320;
 /** Le bouclier qui se lève, en ms. */
@@ -108,11 +118,11 @@ export class ShotFx {
   }
 
   /**
-   * Une capacité qui ne tire pas, jouée sur une case : l'onde du radar ou du sonar sur
-   * la grille de la cible, couvrant les `span` × `span` cases de sa zone ; le bouclier qui
-   * se lève sur la sienne ; ou le marteau qui tape sur la case réparée. L'animation est
-   * la même quelle que soit la case : elle ne révèle rien. Rend la main quand elle est
-   * finie ; le son se joue à côté, au même instant.
+   * Une capacité qui ne tire pas, jouée sur une case : le balayage du radar ou les ondes du
+   * sonar sur la grille de la cible, couvrant les `span` × `span` cases de sa zone ; le
+   * bouclier qui se lève sur la sienne ; ou le marteau qui tape sur la case réparée.
+   * L'animation est la même quelle que soit la case : elle ne révèle rien. Rend la main
+   * quand elle est finie ; le son se joue à côté, au même instant.
    */
   async mark(
     kind: 'radar' | 'sonar' | 'repair' | 'shield',
@@ -121,14 +131,21 @@ export class ShotFx {
     coord: Coord,
     span = 1,
   ): Promise<void> {
-    const waves = kind === 'radar' || kind === 'sonar';
-    const duration = waves
-      ? RADAR_PINGS[RADAR_PINGS.length - 1]! * 1000 + RADAR_WAVE_MS
-      : kind === 'shield'
-        ? SHIELD_MS
-        : HAMMER_TAPS.length * HAMMER_SWING_MS + 40;
     const plate = this.$(`.zone[data-player="${actorId}"] .nameplate .avatar`);
     if (plate) replay(plate.parentElement!, 'launching');
+    if (kind === 'radar') {
+      // Le balayage est dessiné par la grille elle-même, en React : on le pose, puis on le retire.
+      this.hooks.onSweep?.({ playerId: zonePlayerId, center: coord, size: span });
+      await sleep(RADAR_SWEEP_MS);
+      this.hooks.onSweep?.(null);
+      return;
+    }
+    const duration =
+      kind === 'sonar'
+        ? SONAR_PINGS[SONAR_PINGS.length - 1]! * 1000 + SONAR_WAVE_MS
+        : kind === 'shield'
+          ? SHIELD_MS
+          : HAMMER_TAPS.length * HAMMER_SWING_MS + 40;
     const cell = this.$(
       `.zone[data-player="${zonePlayerId}"] .cell[data-x="${coord.x}"][data-y="${coord.y}"]`,
     );
@@ -140,8 +157,8 @@ export class ShotFx {
     el.className = `fx-${kind}`;
     el.setAttribute('aria-hidden', 'true');
     el.style.setProperty('--span', String(span));
-    if (waves) {
-      for (const at of RADAR_PINGS) {
+    if (kind === 'sonar') {
+      for (const at of SONAR_PINGS) {
         const wave = document.createElement('i');
         wave.style.animationDelay = `${Math.round(at * 1000)}ms`;
         el.appendChild(wave);

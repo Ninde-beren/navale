@@ -7,7 +7,6 @@ import {
   radarZone,
   repairableCells,
   sameCoord,
-  shieldCovers,
 } from '@navale/engine';
 import {
   coordLabel,
@@ -18,7 +17,7 @@ import {
   type PublicPlayer,
   type RadarResult,
 } from '@navale/protocol';
-import { ownGridClasses, publicGridClasses } from '../../shared/cells.js';
+import { ownGridClasses } from '../../shared/cells.js';
 import { ABILITY_LABELS, abilityHint, commanderOf, count } from '../../shared/labels.js';
 import { playerLookup } from '../../shared/players.js';
 import { PlayerAvatar } from '../../shared/ui/Avatar.js';
@@ -26,6 +25,7 @@ import { Grid } from '../../shared/ui/Grid.js';
 import { PhoneScreen } from '../../shared/ui/PhoneScreen.js';
 import { timerSuffix, useCountdown } from '../../shared/useCountdown.js';
 import { MyFleetGrid } from './MyFleetGrid.js';
+import { TargetGrid } from './TargetGrid.js';
 
 /** Le bouton principal : ce que fait l'action, sur quelle case. */
 function actionLabel(ability: Ability | null, cell: string): string {
@@ -83,11 +83,14 @@ const SELF_PROMPTS: Partial<Record<Ability['type'], string>> = {
 export function PlayAim({
   view,
   me,
+  sweeping,
   onFire,
   onAbility,
 }: {
   view: PlayerView;
   me: PublicPlayer;
+  /** Mon radar qui vient d'arriver et balaie encore (`useRadarSweep`). */
+  sweeping: RadarResult | null;
   onFire: (targetId: string, coord: Coord) => Promise<Ack>;
   onAbility: (targetId: string, coord: Coord) => Promise<Ack>;
 }) {
@@ -206,6 +209,7 @@ export function PlayAim({
             target={target}
             cell={cell}
             radars={radars}
+            sweeping={sweeping}
             allowRevealed={detector}
             allowShielded={ability !== null}
             onCell={setCell}
@@ -302,79 +306,6 @@ function TargetPicker({
           <small>{count(p.shipsRemaining, 'bateau', 'bateaux')}</small>
         </button>
       ))}
-    </div>
-  );
-}
-
-/**
- * La grille de la cible : ce qui est révélé, mes tirs, son bouclier, ce que mes radars
- * ont vu (navire détecté, ou eau) et la case choisie. Un sonar, ou un radar d'avant les
- * contacts, ne donne qu'un total : sa zone reste en pointillés, sans détail.
- */
-function TargetGrid({
-  view,
-  target,
-  cell,
-  radars,
-  allowRevealed,
-  allowShielded,
-  onCell,
-}: {
-  view: PlayerView;
-  target: PublicPlayer;
-  cell: Coord | null;
-  radars: RadarResult[];
-  /** Radar et sonar peuvent se centrer sur une case déjà révélée ; un tir, non. */
-  allowRevealed: boolean;
-  /** Une capacité peut viser sous un bouclier (le moteur dit si elle y sert) ; un tir, non. */
-  allowShielded: boolean;
-  onCell: (cell: Coord) => void;
-}) {
-  const revealed = new Set(target.revealed.map((r) => coordKey(r.coord)));
-  const mine = new Set(
-    view.me.shotsFired.filter((s) => s.targetId === target.playerId).map((s) => coordKey(s.coord)),
-  );
-  const scanned = new Set<string>();
-  const contacts = new Set<string>();
-  const unknown = new Set<string>();
-  for (const r of radars) {
-    for (const c of radarZone(view.settings, r.center, r.size))
-      (r.contacts ? scanned : unknown).add(coordKey(c));
-    for (const c of r.contacts ?? []) contacts.add(coordKey(c));
-  }
-  const radarClass = (key: string) =>
-    revealed.has(key)
-      ? null
-      : contacts.has(key)
-        ? 'blip'
-        : scanned.has(key)
-          ? 'scan clear'
-          : unknown.has(key) && 'scan';
-  const shielded = target.shield
-    ? radarZone(view.settings, target.shield.center, target.shield.size)
-    : [];
-  const classes = publicGridClasses(target.revealed, target.sunkShips, null, shielded);
-  return (
-    <div className={`flex justify-center c-${target.color}`}>
-      <Grid
-        width={view.settings.grid.width}
-        height={view.settings.grid.height}
-        label={`Grille de ${target.name}`}
-        cellClass={(x, y) =>
-          clsx(
-            classes(x, y),
-            mine.has(coordKey({ x, y })) && 'mine',
-            radarClass(coordKey({ x, y })),
-            cell && sameCoord(cell, { x, y }) && 'sel',
-          )
-        }
-        onPointerUp={(c) => {
-          if (!c) return;
-          if (!allowRevealed && revealed.has(coordKey(c))) return;
-          if (!allowShielded && shieldCovers(target.shield, c)) return;
-          onCell(c);
-        }}
-      />
     </div>
   );
 }

@@ -5,6 +5,8 @@ import { publicGridClasses } from '../../shared/cells.js';
 import { abilityHint, ordinal } from '../../shared/labels.js';
 import { PlayerAvatar } from '../../shared/ui/Avatar.js';
 import { Grid } from '../../shared/ui/Grid.js';
+import { RadarSweep } from '../../shared/ui/RadarSweep.js';
+import type { Sweep } from './shotFx.js';
 import type { Reveal } from './useShotSequence.js';
 
 /** La zone d'un joueur sur l'écran central : sa plaque et sa grille publique. */
@@ -15,6 +17,7 @@ export function PlayerZone({
   grid,
   reveals,
   fresh,
+  sweep,
   commander,
 }: {
   player: PublicPlayer;
@@ -28,6 +31,8 @@ export function PlayerZone({
   reveals: Reveal[];
   /** La case qui vient d'être touchée, mise en valeur. */
   fresh: Coord | null;
+  /** Un radar qui balaie sa grille : la zone seule, sans écho, qu'il y ait des navires ou non. */
+  sweep: Sweep | null;
 }) {
   const eliminated = player.status === 'ELIMINATED';
   return (
@@ -62,7 +67,9 @@ export function PlayerZone({
         )}
         className={clsx(eliminated && 'dim')}
         label={`Grille de ${player.name}`}
-      />
+      >
+        {sweep && <RadarSweep grid={grid} center={sweep.center} size={sweep.size} />}
+      </Grid>
       {eliminated && <div className="stamp">{player.rank ? ordinal(player.rank) : 'Éliminé'}</div>}
     </section>
   );

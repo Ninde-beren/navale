@@ -7,6 +7,7 @@ import { PlayAim } from './PlayAim.js';
 import { PlayFinished } from './PlayFinished.js';
 import { PlaySealed } from './PlaySealed.js';
 import { PlayWatching } from './PlayWatching.js';
+import { useRadarSweep } from './useRadarSweep.js';
 
 /** Vibration et deux notes quand mon tour arrive. */
 function useTurnAlert(myTurn: boolean): void {
@@ -68,6 +69,8 @@ export function PlayPlaying({
   const resolving = useRoundResolving(roundIndex);
   useTurnAlert(view.me.canFire);
   useSunkJingle(view, me);
+  // Ici et pas dans les écrans : le balayage d'un radar survit au passage de l'un à l'autre.
+  const sweeping = useRadarSweep(view.me.radarResults);
   const resumed = useResumedNotice(me.playerId);
   const notice = resumed && (
     <div className="wake-toast resumed" role="status">
@@ -92,7 +95,14 @@ export function PlayPlaying({
     };
     return (
       <>
-        <PlayAim key={roundIndex} view={view} me={me} onFire={fire} onAbility={useAbility} />
+        <PlayAim
+          key={roundIndex}
+          view={view}
+          me={me}
+          sweeping={sweeping}
+          onFire={fire}
+          onAbility={useAbility}
+        />
         {notice}
       </>
     );
@@ -103,7 +113,13 @@ export function PlayPlaying({
     view.settings.variant === 'simultaneous' && shotSent && !resolving ? (
       <PlaySealed view={view} me={me} />
     ) : (
-      <PlayWatching view={view} me={me} shotSent={shotSent} resolving={resolving} />
+      <PlayWatching
+        view={view}
+        me={me}
+        sweeping={sweeping}
+        shotSent={shotSent}
+        resolving={resolving}
+      />
     );
   return (
     <>
