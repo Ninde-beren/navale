@@ -14,6 +14,12 @@ export interface NewsItem {
 
 export const NEWS: readonly NewsItem[] = [
   {
+    n: 75,
+    day: '10 octobre',
+    title: 'Le radar balaie',
+    text: 'Sur l’écran central, le radar balaie maintenant sa zone. Les navires qu’il repère s’allument sur ton téléphone au passage du rayon.',
+  },
+  {
     n: 72,
     day: '10 octobre',
     title: 'Six commandants, et des bots qui s’en servent',
