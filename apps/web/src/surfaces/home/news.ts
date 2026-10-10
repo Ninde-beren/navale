@@ -14,6 +14,12 @@ export interface NewsItem {
 
 export const NEWS: readonly NewsItem[] = [
   {
+    n: 83,
+    day: '10 octobre',
+    title: 'Le sonar écoute',
+    text: 'Le sonar ne compte plus les cases une par une. Il te renvoie un écho faible, moyen ou fort. À toi de deviner où se cachent les navires.',
+  },
+  {
     n: 81,
     day: '10 octobre',
     title: 'Le bouclier tient bon',
