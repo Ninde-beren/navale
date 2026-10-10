@@ -18,7 +18,13 @@ import {
   type RadarResult,
 } from '@navale/protocol';
 import { ownGridClasses, shieldMarks } from '../../shared/cells.js';
-import { ABILITY_LABELS, abilityHint, commanderOf, count } from '../../shared/labels.js';
+import {
+  ABILITY_LABELS,
+  abilityHint,
+  commanderOf,
+  count,
+  detectionFound,
+} from '../../shared/labels.js';
 import { playerLookup } from '../../shared/players.js';
 import { PlayerAvatar } from '../../shared/ui/Avatar.js';
 import { Grid } from '../../shared/ui/Grid.js';
@@ -216,7 +222,7 @@ export function PlayAim({
           {lastRadar && (
             <p className="hint">
               {lastRadar.ability === 'sonar' ? 'Sonar' : 'Radar'} autour de{' '}
-              {coordLabel(lastRadar.center)} : {count(lastRadar.shipCells, 'case')} de navire
+              {coordLabel(lastRadar.center)} : {detectionFound(lastRadar)}
               {lastRadar.contacts
                 ? '. Rond vert : navire détecté ; pointillés : de l’eau.'
                 : ' dans la zone en pointillés.'}

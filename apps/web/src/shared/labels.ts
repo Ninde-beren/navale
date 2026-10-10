@@ -3,8 +3,10 @@ import type {
   AbilityType,
   BotLevel,
   Commander,
+  Echo,
   EndCondition,
   GameSettings,
+  RadarResult,
   RankEntry,
   SalvoOrder,
   ShipSpec,
@@ -91,7 +93,7 @@ export function abilityHint(ability: Ability): string {
     case 'radar':
       return `Révèle, pour toi seul et sans tirer, les cases de navire d’une zone de ${ability.size} × ${ability.size}.`;
     case 'sonar':
-      return `Dit, pour toi seul et sans tirer, combien de cases de navire se cachent dans une zone de ${ability.size} × ${ability.size}, mais pas lesquelles.`;
+      return `Écoute, pour toi seul et sans tirer, une zone de ${ability.size} × ${ability.size} : un écho faible, moyen ou fort dit à peu près combien de cases de navire s’y cachent, mais pas lesquelles.`;
     case 'missile':
       return 'Frappe une case et ses quatre voisines d’un coup.';
     case 'repair':
@@ -135,6 +137,33 @@ export function ordinal(n: number): string {
 /** « 1 bateau », « 3 bateaux ». */
 export function count(n: number, singular: string, plural = `${singular}s`): string {
   return `${n} ${n > 1 ? plural : singular}`;
+}
+
+const ECHO_LABELS: Record<Echo['level'], string> = {
+  weak: 'faible',
+  medium: 'moyen',
+  strong: 'fort',
+};
+
+/**
+ * Ce qu'une détection a trouvé : « 3 cases de navire » pour un radar (ou un sonar d'avant
+ * l'écho), « écho moyen : 2 à 4 cases de navire » pour un sonar.
+ */
+export function detectionFound(result: RadarResult): string {
+  if (!result.echo) return `${count(result.shipCells ?? 0, 'case')} de navire`;
+  const { level, min, max } = result.echo;
+  const found =
+    max === null
+      ? `${min} cases de navire ou plus`
+      : `${min} ${max === min + 1 ? 'ou' : 'à'} ${count(max, 'case')} de navire`;
+  return `écho ${ECHO_LABELS[level]} : ${found}`;
+}
+
+/** La même chose en court, pour une ligne de liste : « 3 cases de navire », « écho moyen (2–4) ». */
+export function detectionBrief(result: RadarResult): string {
+  if (!result.echo) return detectionFound(result);
+  const { level, min, max } = result.echo;
+  return `écho ${ECHO_LABELS[level]} (${max === null ? `${min}+` : `${min}–${max}`})`;
 }
 
 /** Les statistiques de fin de partie, dans l'ordre où on les montre. */

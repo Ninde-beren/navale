@@ -2,6 +2,7 @@ import type {
   Ability,
   AbilityType,
   Coord,
+  Echo,
   GameEvent,
   GameSettings,
   PendingShot,
@@ -22,7 +23,7 @@ import type { ShotToResolve } from './resolve.js';
 /*
  * Les capacités des commandants, décrites par `settings.commanders`. Chacune
  * remplace le tir de la manche. Chez un adversaire : le radar apprend, en privé,
- * quelles cases d'une zone portent un navire ; le sonar n'en apprend que le total ;
+ * quelles cases d'une zone portent un navire ; le sonar, une intensité d'écho ;
  * le missile tire sur une case et ses voisines. Sur sa propre flotte : la réparation
  * remet en état une case touchée, le bouclier protège une zone pour toute la partie,
  * le leurre pose un faux navire sur une case vide. Ce module calcule les zones et les
@@ -124,6 +125,25 @@ export function decoyCells(
   return out;
 }
 
+/**
+ * Les intensités de l'écho d'un sonar, en cases de navire dans sa zone : moyen à partir
+ * de 2, fort à partir de 5, faible en dessous. Elles sont fixes, par décision d'Antoine
+ * (2026-10-10) : ce n'est pas un réglage de la partie, contrairement aux autres règles.
+ */
+const ECHO = { medium: 2, strong: 5 } as const;
+
+/**
+ * L'écho d'un sonar qui compte `shipCells` cases de navire dans sa zone : faible, moyen
+ * ou fort, avec la fourchette qu'il couvre. C'est tout ce que son auteur apprend : un
+ * écho faible ne lui garantit jamais une zone vide.
+ */
+export function echoOf(shipCells: number): Echo {
+  const { medium, strong } = ECHO;
+  if (shipCells >= strong) return { level: 'strong', min: strong, max: null };
+  if (shipCells >= medium) return { level: 'medium', min: medium, max: strong - 1 };
+  return { level: 'weak', min: 0, max: medium - 1 };
+}
+
 /** Les cases de la liste qu'un détecteur voit comme un navire chez ce joueur : ses navires, et ses leurres. */
 function contactsAmong(player: Player | undefined, cells: Coord[]): Coord[] {
   if (!player) return [];
@@ -168,6 +188,11 @@ export function abilityEffects(
     case 'sonar': {
       const cells = radarZone(state.settings, pending.coord, ability.size);
       const contacts = contactsAmong(playerById(state, pending.targetId), cells);
+      // Le radar dit où ; le sonar, seulement une intensité d'écho.
+      const found =
+        ability.type === 'radar'
+          ? { contacts, shipCells: contacts.length }
+          : { echo: echoOf(contacts.length) };
       return {
         events: [
           used,
@@ -178,9 +203,7 @@ export function abilityEffects(
             targetId: pending.targetId,
             center: pending.coord,
             size: ability.size,
-            shipCells: contacts.length,
-            // Le sonar ne dit que combien, pas où.
-            ...(ability.type === 'radar' ? { contacts } : {}),
+            ...found,
             ability: ability.type,
           },
         ],

@@ -57,7 +57,7 @@ const DecoyPlacedSchema = z.object({
   coord: CoordSchema,
 });
 
-/** Privé : seul l'auteur du radar reçoit `shipCells` et `contacts`. */
+/** Privé : seul l'auteur de la détection reçoit `shipCells`, `contacts` et `echo`. */
 const RadarResultEventSchema = RadarResultSchema.extend({
   type: z.literal('RADAR_RESULT'),
   playerId: z.string(),
@@ -166,7 +166,7 @@ export const VisibleEventSchema = z.union([
   GameEventSchema,
   FleetPlacedSchema.omit({ ships: true }),
   ShotCommittedSchema.omit({ targetId: true, coord: true }),
-  RadarResultEventSchema.omit({ shipCells: true, contacts: true }),
+  RadarResultEventSchema.omit({ shipCells: true, contacts: true, echo: true }),
   AbilityUsedSchema.omit({ targetId: true, coord: true }),
   ShieldRaisedSchema.omit({ center: true, size: true }),
   DecoyPlacedSchema.omit({ coord: true }),

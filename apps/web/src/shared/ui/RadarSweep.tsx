@@ -5,7 +5,7 @@ import { RADAR_SWEEP } from '../audio.js';
 import { RADAR_SWEEP_MS, beamDelay, sweepZone } from '../radarSweep.js';
 
 /** Une case de la zone telle que le radar l'a vue : un navire, ou de l'eau. */
-export interface Echo {
+export interface SweepEcho {
   coord: Coord;
   ship: boolean;
 }
@@ -29,7 +29,7 @@ export function RadarSweep({
   grid: { width: number; height: number };
   center: Coord;
   size: number;
-  echoes?: Echo[];
+  echoes?: SweepEcho[];
 }) {
   const { box } = sweepZone(grid, center, size);
   return (

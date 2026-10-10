@@ -69,7 +69,7 @@ export type AbilityType = z.infer<typeof AbilityTypeSchema>;
 /**
  * Une capacité, décrite par ses réglages. Chez un adversaire : le radar montre les
  * cases de navire d'une zone carrée centrée sur la case visée, le sonar n'en donne
- * que le total, sur une zone plus grande, le missile frappe une case et ses quatre
+ * qu'une intensité d'écho, sur une zone plus grande, le missile frappe une case et ses quatre
  * voisines. Sur sa propre flotte : la réparation remet en état une case touchée d'un
  * bateau non coulé, le bouclier protège une zone pour toute la partie (chaque case
  * arrête un tir), le leurre pose un faux navire sur une case vide.
@@ -164,18 +164,33 @@ export const PendingShotSchema = z.object({
 export type PendingShot = z.infer<typeof PendingShotSchema>;
 
 /**
- * Ce qu'un radar a appris, privé : seul son auteur reçoit `shipCells` et `contacts`.
- * `contacts` = les cases de la zone qui portent un navire ; absent des radars joués
- * avant le 2026-10-10 au soir, qui ne donnaient que le total.
+ * L'écho d'un sonar : son intensité, et la fourchette de cases de navire qu'elle couvre.
+ * Les intensités sont fixes, ce n'est pas un réglage : faible de 0 à 1, moyen de 2 à 4,
+ * fort à partir de 5 (`echoOf` dans le moteur).
+ */
+export const EchoSchema = z.object({
+  level: z.enum(['weak', 'medium', 'strong']),
+  min: z.number().int().min(0),
+  /** `null` : pas de plafond (écho fort). */
+  max: z.number().int().min(0).nullable(),
+});
+export type Echo = z.infer<typeof EchoSchema>;
+
+/**
+ * Ce qu'une détection a appris, privé : seul son auteur reçoit `shipCells`, `contacts`
+ * et `echo`. Le radar donne `contacts`, les cases de la zone qui portent un navire, et
+ * leur total `shipCells` (les radars joués avant le 2026-10-10 au soir n'ont que le total).
+ * Le sonar donne `echo` ; ceux d'avant l'intensité d'écho donnaient le total exact.
  */
 export const RadarResultSchema = z.object({
   round: z.number().int().min(0),
   targetId: z.string(),
   center: CoordSchema,
   size: z.number().int().min(1),
-  shipCells: z.number().int().min(0),
+  shipCells: z.number().int().min(0).optional(),
   contacts: z.array(CoordSchema).optional(),
-  /** Le sonar ne donne que le total ; absent = radar. */
+  echo: EchoSchema.optional(),
+  /** Absent = radar. */
   ability: z.enum(['radar', 'sonar']).optional(),
 });
 export type RadarResult = z.infer<typeof RadarResultSchema>;

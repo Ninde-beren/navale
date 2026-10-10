@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { coordLabel, type PlayerView, type PublicPlayer, type RadarResult } from '@navale/protocol';
 import { groupBursts } from '../../shared/bursts.js';
-import { RESULT_LABELS, count } from '../../shared/labels.js';
+import { RESULT_LABELS, detectionBrief } from '../../shared/labels.js';
 import { playerLookup } from '../../shared/players.js';
 import { PhoneScreen } from '../../shared/ui/PhoneScreen.js';
 import { timerSuffix, useCountdown } from '../../shared/useCountdown.js';
@@ -75,7 +75,7 @@ export function PlayWatching({
                 {nameOf(r.targetId)} · {r.ability === 'sonar' ? 'sonar' : 'radar'} autour de{' '}
                 {coordLabel(r.center)}
               </span>
-              <b>{count(r.shipCells, 'case')} de navire</b>
+              <b>{detectionBrief(r)}</b>
             </div>
           ))}
         </div>

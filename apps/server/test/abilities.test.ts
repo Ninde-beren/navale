@@ -92,13 +92,18 @@ async function detection(commanderId: string, coord: Coord) {
 
 describe('commandants, de bout en bout', () => {
   it('radar et sonar : l’écran central et la cible reçoivent les mêmes messages, avec ou sans navire', async () => {
-    for (const commanderId of ['amiral', 'sonariste']) {
-      // B2 : le croiseur et un contre-torpilleur dans la zone ; G7 : rien que de l'eau.
+    // B2 : le croiseur et un contre-torpilleur dans la zone ; G7 : rien que de l'eau.
+    const learnt = {
+      amiral: [{ shipCells: 6 }, { shipCells: 0 }],
+      sonariste: [{ echo: { level: 'strong' } }, { echo: { level: 'weak' } }],
+    };
+    for (const [commanderId, [onShips, onWater]] of Object.entries(learnt)) {
       const ships = await detection(commanderId, { x: 1, y: 1 });
       const water = await detection(commanderId, { x: 6, y: 6 });
-      expect(ships.learnt.shipCells).toBeGreaterThan(0);
-      expect(water.learnt.shipCells).toBe(0);
+      expect(ships.learnt, commanderId).toMatchObject(onShips!);
+      expect(water.learnt, commanderId).toMatchObject(onWater!);
       expect(ships.board.join(), commanderId).toContain('RADAR_RESULT');
+      expect(ships.board.join(), commanderId).not.toMatch(/shipCells|contacts|"echo"/);
       expect(water.board, commanderId).toEqual(ships.board);
       expect(water.target, commanderId).toEqual(ships.target);
     }

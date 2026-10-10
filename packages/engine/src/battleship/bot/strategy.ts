@@ -299,18 +299,22 @@ function placements(
         }
 }
 
-/** Un sonar chez ce joueur : ses cases encore inconnues, et combien de cases de navire il y reste. */
+/**
+ * Un sonar chez ce joueur : ses cases encore inconnues, et la fourchette des cases de
+ * navire qui peuvent encore s'y cacher.
+ */
 interface SonarCount {
   cells: Set<string>;
-  left: number;
+  min: number;
+  max: number;
 }
 
 /**
  * Ce que mes radars et mes sonars ont appris chez ce joueur. `water` : les cases sûres
  * d'être de l'eau, la zone d'un radar hors de ses contacts, et toute la zone d'un sonar
- * dont le total est déjà trouvé. `sonars` : pour les autres sonars, les cases inconnues
- * de la zone et le nombre de cases de navire qui y restent, le total moins les touches
- * déjà révélées dedans (un leurre compte comme un navire, pour le sonar comme au tir).
+ * dont tout ce qu'il a pu entendre est déjà trouvé. `sonars` : pour les autres sonars,
+ * les cases inconnues de la zone et la fourchette de leur écho, moins les touches déjà
+ * révélées dedans (un leurre compte comme un navire, pour le sonar comme au tir).
  */
 function detections(
   view: PlayerView,
@@ -327,22 +331,32 @@ function detections(
       const ships = new Set(r.contacts.map(coordKey));
       for (const key of zone) if (!ships.has(key)) water.add(key);
     } else {
+      // Le total exact d'un sonar d'avant l'écho : une fourchette d'une seule valeur.
+      const [min, max] = r.echo
+        ? [r.echo.min, r.echo.max ?? Infinity]
+        : [r.shipCells ?? 0, r.shipCells ?? 0];
+      const inside = zone.filter((key) => hits.has(key)).length;
+      const cells = new Set(zone.filter((key) => !revealed.has(key)));
       // Un leurre posé après le sondage et tiré dans la zone peut faire passer le reste sous zéro.
-      const left = Math.max(0, r.shipCells - zone.filter((key) => hits.has(key)).length);
-      counts.push({ cells: new Set(zone.filter((key) => !revealed.has(key))), left });
+      counts.push({
+        cells,
+        min: Math.max(0, min - inside),
+        max: Math.min(max - inside, cells.size),
+      });
     }
   }
-  for (const count of counts) if (count.left === 0) for (const key of count.cells) water.add(key);
-  return { water, sonars: counts.filter((count) => count.left > 0) };
+  for (const count of counts) if (count.max <= 0) for (const key of count.cells) water.add(key);
+  return { water, sonars: counts.filter((count) => count.max > 0) };
 }
 
 /**
- * Le poids d'un placement d'après le total de mes sonars. Un bateau qui couvrirait plus
- * de cases inconnues d'une zone qu'il n'y reste de cases de navire est impossible (0).
- * Sinon, s'il en couvre `k`, les autres bateaux doivent fournir `left - k` cases dans la
- * zone : en approchant leur apport par une loi de Poisson de moyenne `λ`, les cases qu'on
- * y attendait sans le sonar, le poids vaut left × (left - 1) × … (k facteurs) / λ^k.
- * Une zone qui compte plus que prévu attire les placements, une zone pauvre les repousse.
+ * Le poids d'un placement d'après mes sonars. S'il couvre `k` cases inconnues d'une zone,
+ * les autres bateaux doivent y ajouter de quoi tomber dans la fourchette de l'écho. En
+ * approchant leur apport par une loi de Poisson de moyenne `λ`, les cases qu'on y attendait
+ * sans le sonar, le poids est la chance de cet apport : la somme des λ^m / m! pour m de
+ * `min - k` à `max - k` (au facteur e^-λ près, le même pour tous les placements). Un bateau
+ * qui couvrirait plus de cases que l'écho n'en permet est impossible (0). Une zone qui sonne
+ * plus fort que prévu attire les placements, une zone qui sonne faible les repousse.
  */
 function sonarFit(
   view: PlayerView,
@@ -374,7 +388,13 @@ function sonarFit(
     let weight = 1;
     sonars.forEach((count, i) => {
       const k = cells.filter((c) => count.cells.has(coordKey(c))).length;
-      for (let j = 0; j < k; j++) weight *= Math.max(0, count.left - j) / expected[i]!;
+      let chance = 0;
+      let term = 1; // λ^m / m!
+      for (let m = 0; k + m <= count.max; m++) {
+        if (k + m >= count.min) chance += term;
+        term *= expected[i]! / (m + 1);
+      }
+      weight *= chance;
     });
     return weight;
   };
