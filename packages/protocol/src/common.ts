@@ -74,9 +74,25 @@ export type AbilityType = z.infer<typeof AbilityTypeSchema>;
  * bateau non coulé, le bouclier protège une zone pour toute la partie (chaque case
  * arrête un tir), le leurre pose un faux navire sur une case vide.
  */
+/**
+ * Les seuils de l'écho d'un sonar, en cases de navire dans la zone : moyen à partir de
+ * `medium`, fort à partir de `strong`, faible en dessous. Un écho faible ne garantit donc
+ * jamais une zone vide. Une donnée du commandant, pas un choix proposé aux joueurs.
+ */
+export const EchoThresholdsSchema = z.object({
+  medium: z.number().int().min(1).max(48),
+  strong: z.number().int().min(2).max(49),
+});
+export type EchoThresholds = z.infer<typeof EchoThresholdsSchema>;
+
 export const AbilitySchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('radar'), size: z.number().int().min(1).max(5) }),
-  z.object({ type: z.literal('sonar'), size: z.number().int().min(1).max(7) }),
+  z.object({
+    type: z.literal('sonar'),
+    size: z.number().int().min(1).max(7),
+    /** Absent (parties créées avant le 2026-10-10 au soir) : le sonar donne le total exact. */
+    echo: EchoThresholdsSchema.optional(),
+  }),
   z.object({ type: z.literal('missile'), pattern: z.enum(['cross']) }),
   z.object({ type: z.literal('repair') }),
   z.object({
@@ -163,11 +179,7 @@ export const PendingShotSchema = z.object({
 });
 export type PendingShot = z.infer<typeof PendingShotSchema>;
 
-/**
- * L'écho d'un sonar : son intensité, et la fourchette de cases de navire qu'elle couvre.
- * Les intensités sont fixes, ce n'est pas un réglage : faible de 0 à 1, moyen de 2 à 4,
- * fort à partir de 5 (`echoOf` dans le moteur).
- */
+/** L'écho d'un sonar : son intensité, et la fourchette de cases de navire qu'elle couvre. */
 export const EchoSchema = z.object({
   level: z.enum(['weak', 'medium', 'strong']),
   min: z.number().int().min(0),

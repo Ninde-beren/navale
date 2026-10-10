@@ -93,7 +93,9 @@ export function abilityHint(ability: Ability): string {
     case 'radar':
       return `Révèle, pour toi seul et sans tirer, les cases de navire d’une zone de ${ability.size} × ${ability.size}.`;
     case 'sonar':
-      return `Écoute, pour toi seul et sans tirer, une zone de ${ability.size} × ${ability.size} : un écho faible, moyen ou fort dit à peu près combien de cases de navire s’y cachent, mais pas lesquelles.`;
+      return ability.echo
+        ? `Écoute, pour toi seul et sans tirer, une zone de ${ability.size} × ${ability.size} : un écho faible, moyen ou fort dit à peu près combien de cases de navire s’y cachent, mais pas lesquelles.`
+        : `Dit, pour toi seul et sans tirer, combien de cases de navire se cachent dans une zone de ${ability.size} × ${ability.size}, mais pas lesquelles.`;
     case 'missile':
       return 'Frappe une case et ses quatre voisines d’un coup.';
     case 'repair':

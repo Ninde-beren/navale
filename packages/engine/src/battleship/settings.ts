@@ -6,7 +6,13 @@ import type { Commander, GameSettings, PresetId, ShipSpec, Variant } from '@nava
  */
 export const COMMANDERS: readonly Commander[] = [
   { id: 'amiral', name: 'Amiral', ability: { type: 'radar', size: 3 }, uses: 1 },
-  { id: 'sonariste', name: 'Sonariste', ability: { type: 'sonar', size: 5 }, uses: 1 },
+  {
+    id: 'sonariste',
+    name: 'Sonariste',
+    // Écho faible de 0 à 1 case de navire, moyen de 2 à 4, fort à partir de 5.
+    ability: { type: 'sonar', size: 5, echo: { medium: 2, strong: 5 } },
+    uses: 1,
+  },
   { id: 'artificier', name: 'Artificier', ability: { type: 'missile', pattern: 'cross' }, uses: 1 },
   { id: 'ingenieur', name: 'Ingénieur', ability: { type: 'repair' }, uses: 1 },
   { id: 'capitaine', name: 'Capitaine', ability: { type: 'shield', size: 3 }, uses: 1 },
@@ -93,5 +99,8 @@ export function validateSettings(s: GameSettings): string[] {
     errors.push(`flotte trop grande : ${total} cases pour une grille de ${width * height}`);
   const ids = s.commanders.map((c) => c.id);
   if (new Set(ids).size !== ids.length) errors.push('commandants : identifiants en double');
+  for (const { id, ability } of s.commanders)
+    if (ability.type === 'sonar' && ability.echo && ability.echo.medium >= ability.echo.strong)
+      errors.push(`commandant ${id} : l'écho moyen doit commencer avant l'écho fort`);
   return errors;
 }

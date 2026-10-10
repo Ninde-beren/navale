@@ -13,7 +13,7 @@ import {
 import { echoOf } from '../src/battleship/rules/abilities.js';
 import { statsOf } from '../src/battleship/rules/end.js';
 import { antiFocusBlocked } from '../src/battleship/rules/targets.js';
-import { COMMANDERS, makeSettings } from '../src/battleship/settings.js';
+import { COMMANDERS, makeSettings, validateSettings } from '../src/battleship/settings.js';
 import { cellsRemaining, coordKey, type GameState } from '../src/battleship/state.js';
 import { mulberry32 } from '../src/core/random.js';
 import { randomFleet } from '../src/battleship/placement.js';
@@ -54,6 +54,11 @@ const densest = (h: Harness, me: string, target: string) => {
 const pub = (h: Harness, id: string) =>
   projectPublic(h.state).players.find((p) => p.playerId === id)!;
 
+/** Le catalogue avec un sonar sans seuils, comme dans les parties d'avant l'écho : le total exact. */
+const EXACT_SONAR = COMMANDERS.map((c) =>
+  c.ability.type === 'sonar' ? { ...c, ability: { type: 'sonar' as const, size: 5 } } : c,
+);
+
 describe('sonar', () => {
   it('ne donne qu’une intensité d’écho, sur une zone plus grande, et à son auteur seulement', () => {
     const { h, ids } = game(['sonariste', 'amiral']);
@@ -70,18 +75,40 @@ describe('sonar', () => {
     expect(projectPrivate(h.state, j).me.radarResults).toEqual([]);
   });
 
-  it('écho faible de 0 à 1 case, moyen de 2 à 4, fort à partir de 5 : des seuils fixes', () => {
-    expect(echoOf(0)).toEqual({ level: 'weak', min: 0, max: 1 });
-    expect(echoOf(1)).toEqual({ level: 'weak', min: 0, max: 1 });
-    expect(echoOf(2)).toEqual({ level: 'medium', min: 2, max: 4 });
-    expect(echoOf(4)).toEqual({ level: 'medium', min: 2, max: 4 });
-    expect(echoOf(5)).toEqual({ level: 'strong', min: 5, max: null });
+  it('écho faible, moyen ou fort selon les seuils du commandant', () => {
+    const thresholds = { medium: 2, strong: 5 };
+    expect(echoOf(0, thresholds)).toEqual({ level: 'weak', min: 0, max: 1 });
+    expect(echoOf(1, thresholds)).toEqual({ level: 'weak', min: 0, max: 1 });
+    expect(echoOf(2, thresholds)).toEqual({ level: 'medium', min: 2, max: 4 });
+    expect(echoOf(4, thresholds)).toEqual({ level: 'medium', min: 2, max: 4 });
+    expect(echoOf(5, thresholds)).toEqual({ level: 'strong', min: 5, max: null });
     // Zone vide, G7 : un écho faible, comme pour une seule case de navire.
     const { h, ids } = game(['sonariste', 'amiral']);
     const [a, j] = ids as [string, string];
     expect(use(h, a, j, { x: 6, y: 6 }).find((e) => e.type === 'RADAR_RESULT')).toMatchObject({
       echo: { level: 'weak' },
     });
+    const broken = settings();
+    broken.commanders = [
+      {
+        id: 's',
+        name: 'S',
+        ability: { type: 'sonar', size: 5, echo: { medium: 3, strong: 3 } },
+        uses: 1,
+      },
+    ];
+    expect(validateSettings(broken)).toEqual([
+      "commandant s : l'écho moyen doit commencer avant l'écho fort",
+    ]);
+  });
+
+  it('sans seuils, comme dans les parties d’avant l’écho, il donne le total exact', () => {
+    const { h, ids } = game(['sonariste', 'amiral'], { commanders: EXACT_SONAR });
+    const [a, j] = ids as [string, string];
+    const radar = use(h, a, j, { x: 2, y: 2 }).find((e) => e.type === 'RADAR_RESULT')!;
+    expect(radar).toMatchObject({ ability: 'sonar', shipCells: 10 });
+    expect(radar).not.toHaveProperty('echo');
+    expect(publicEvent(radar)).not.toHaveProperty('shipCells');
   });
 });
 
@@ -390,24 +417,13 @@ describe('bots et capacités', () => {
     expect(densest(h, a, j)).toEqual(['2,0']);
   });
 
-  it('difficile : un sonar d’avant l’écho, total exact à zéro, rend toute sa zone à l’eau', () => {
-    // Un ancien journal : le sonar y donnait le total exact, ici zéro dans D4 à H8.
-    const { h, ids } = game(['sonariste', 'ingenieur']);
+  it('difficile : sans seuils, un sonar à zéro rend toute sa zone à l’eau', () => {
+    const { h, ids } = game(['sonariste', 'ingenieur'], { commanders: EXACT_SONAR });
     const [a, j] = ids as [string, string];
-    const inZone = (key: string) => key.split(',').every((n) => Number(n) >= 3);
-    const legacy: GameEvent = {
-      type: 'RADAR_RESULT',
-      round: 0,
-      playerId: a,
-      targetId: j,
-      center: { x: 5, y: 5 },
-      size: 5,
-      shipCells: 0,
-      ability: 'sonar',
-    };
-    h.state = evolve(h.state, legacy);
+    use(h, a, j, { x: 5, y: 5 });
+    expect(projectPrivate(h.state, a).me.radarResults[0]).toMatchObject({ shipCells: 0 });
     expect(densest(h, a, j).length).toBeGreaterThan(0);
-    expect(densest(h, a, j).some(inZone)).toBe(false);
+    expect(densest(h, a, j).some((key) => key.split(',').every((n) => Number(n) >= 3))).toBe(false);
   });
 
   it('difficile : vise la zone d’un sonar qui sonne fort', () => {

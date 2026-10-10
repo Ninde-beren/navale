@@ -3,6 +3,7 @@ import type {
   AbilityType,
   Coord,
   Echo,
+  EchoThresholds,
   GameEvent,
   GameSettings,
   PendingShot,
@@ -126,19 +127,11 @@ export function decoyCells(
 }
 
 /**
- * Les intensités de l'écho d'un sonar, en cases de navire dans sa zone : moyen à partir
- * de 2, fort à partir de 5, faible en dessous. Elles sont fixes, par décision d'Antoine
- * (2026-10-10) : ce n'est pas un réglage de la partie, contrairement aux autres règles.
- */
-const ECHO = { medium: 2, strong: 5 } as const;
-
-/**
  * L'écho d'un sonar qui compte `shipCells` cases de navire dans sa zone : faible, moyen
- * ou fort, avec la fourchette qu'il couvre. C'est tout ce que son auteur apprend : un
- * écho faible ne lui garantit jamais une zone vide.
+ * ou fort selon les seuils du commandant, avec la fourchette qu'il couvre. C'est tout ce
+ * que son auteur apprend : un écho faible ne lui garantit jamais une zone vide.
  */
-export function echoOf(shipCells: number): Echo {
-  const { medium, strong } = ECHO;
+export function echoOf(shipCells: number, { medium, strong }: EchoThresholds): Echo {
   if (shipCells >= strong) return { level: 'strong', min: strong, max: null };
   if (shipCells >= medium) return { level: 'medium', min: medium, max: strong - 1 };
   return { level: 'weak', min: 0, max: medium - 1 };
@@ -188,11 +181,13 @@ export function abilityEffects(
     case 'sonar': {
       const cells = radarZone(state.settings, pending.coord, ability.size);
       const contacts = contactsAmong(playerById(state, pending.targetId), cells);
-      // Le radar dit où ; le sonar, seulement une intensité d'écho.
+      // Le radar dit où ; le sonar, seulement une intensité d'écho (le total exact sans seuils).
       const found =
         ability.type === 'radar'
           ? { contacts, shipCells: contacts.length }
-          : { echo: echoOf(contacts.length) };
+          : ability.echo
+            ? { echo: echoOf(contacts.length, ability.echo) }
+            : { shipCells: contacts.length };
       return {
         events: [
           used,
