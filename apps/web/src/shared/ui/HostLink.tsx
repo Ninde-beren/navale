@@ -106,8 +106,7 @@ function HostLinkSheet({
       >
         <h2 id="host-title">{LABEL}</h2>
         <p className="muted">
-          Scanne ce QR avec l’appareil qui doit prendre la main, ou envoie-lui le lien. Il aura les
-          boutons de l’hôte : lancer, ajouter un bot, exclure, passer le tour, annuler, revanche.
+          Scanne ce QR avec l’appareil qui doit devenir hôte, ou envoie-lui le lien.
         </p>
         <div className="host-qr">
           {link ? (
