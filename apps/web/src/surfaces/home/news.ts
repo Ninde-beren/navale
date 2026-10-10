@@ -14,6 +14,12 @@ export interface NewsItem {
 
 export const NEWS: readonly NewsItem[] = [
   {
+    n: 87,
+    day: '10 octobre',
+    title: 'Les éliminés deviennent des fantômes',
+    text: 'Éliminé, tu restes en jeu : tu paries sur chaque tir, touché ou raté, pour le titre de meilleur fantôme. Tous les deux tours, tu joues aussi une carte qui rapproche la fin : feu follet, barrage ou marée basse, selon ton commandant.',
+  },
+  {
     n: 83,
     day: '10 octobre',
     title: 'Le sonar écoute',
