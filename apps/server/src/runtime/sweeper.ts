@@ -1,5 +1,7 @@
 import { battleship } from '@navale/engine';
 import type { GameRegistry } from '../store/registry.js';
+import type { ReportFailure } from './failure.js';
+import type { GameRuntime } from './game-runtime.js';
 
 export interface ExpiryPolicy {
   /** Lobby sans activité. */
@@ -27,6 +29,7 @@ export class Sweeper {
     private readonly registry: GameRegistry,
     private readonly policy: ExpiryPolicy = DEFAULT_EXPIRY,
     private readonly log: (msg: string) => void = () => undefined,
+    private readonly report: ReportFailure = () => undefined,
   ) {}
 
   start(): void {
@@ -35,29 +38,40 @@ export class Sweeper {
     this.timer.unref();
   }
 
+  /** Une ronde : chaque partie à part, une panne dans l'une n'empêche pas d'expirer les autres. */
   async sweep(now: number = Date.now()): Promise<{ cancelled: string[]; forgotten: string[] }> {
     const cancelled: string[] = [];
     const forgotten: string[] = [];
     for (const runtime of this.registry.all()) {
-      const idle = now - runtime.lastActivityAt;
-      const { status } = runtime.state;
-      if (battleship.isFinished(runtime.state)) {
-        if (idle > this.policy.finishedMs) {
-          this.registry.forget(runtime.gameId);
-          forgotten.push(runtime.code);
-        }
-        continue;
-      }
-      if (idle <= (status === 'LOBBY' ? this.policy.lobbyMs : this.policy.playingMs)) continue;
-      const decision = await runtime.handle({ kind: 'system' }, { type: 'CANCEL_GAME' });
-      if (decision.ok) {
-        cancelled.push(runtime.code);
-        this.log(
-          `partie ${runtime.code} expirée (${status}, ${Math.round(idle / 60000)} min d'inactivité)`,
-        );
+      try {
+        const outcome = await this.sweepOne(runtime, now);
+        if (outcome === 'cancelled') cancelled.push(runtime.code);
+        if (outcome === 'forgotten') forgotten.push(runtime.code);
+      } catch (err) {
+        this.report(err, { gameId: runtime.gameId, during: 'expiration', code: runtime.code });
       }
     }
     return { cancelled, forgotten };
+  }
+
+  private async sweepOne(
+    runtime: GameRuntime,
+    now: number,
+  ): Promise<'cancelled' | 'forgotten' | null> {
+    const idle = now - runtime.lastActivityAt;
+    const { status } = runtime.state;
+    if (battleship.isFinished(runtime.state)) {
+      if (idle <= this.policy.finishedMs) return null;
+      this.registry.forget(runtime.gameId);
+      return 'forgotten';
+    }
+    if (idle <= (status === 'LOBBY' ? this.policy.lobbyMs : this.policy.playingMs)) return null;
+    const decision = await runtime.handle({ kind: 'system' }, { type: 'CANCEL_GAME' });
+    if (!decision.ok) return null;
+    this.log(
+      `partie ${runtime.code} expirée (${status}, ${Math.round(idle / 60000)} min d'inactivité)`,
+    );
+    return 'cancelled';
   }
 
   close(): void {

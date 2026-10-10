@@ -58,3 +58,23 @@ describe('chrono de manche', () => {
     timers.close();
   });
 });
+
+describe('chrono de manche : un FORCE_ROUND qui échoue', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('est signalé avec sa partie, sans promesse orpheline', async () => {
+    const report = vi.fn();
+    const timers = new RoundTimers(() => Date.now(), report);
+    const { runtime, handle } = fakeRuntime(Date.now() + 1_000);
+    handle.mockRejectedValue(new Error('panne simulée'));
+    timers.reschedule(runtime);
+    await vi.advanceTimersByTimeAsync(1_100);
+    expect(handle).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ gameId: 'g1' }),
+    );
+    timers.close();
+  });
+});

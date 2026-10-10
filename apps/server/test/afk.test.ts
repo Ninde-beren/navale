@@ -95,3 +95,31 @@ describe('joueur absent relayé par un bot', () => {
     afk.close();
   });
 });
+
+describe('joueur absent : une commande du relais qui échoue', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('est signalée avec sa partie et son joueur, sans promesse orpheline', async () => {
+    const report = vi.fn();
+    const afk = new AfkSubstitution(tracker({ h1: false }), report);
+    const { runtime, handle, state } = fakeRuntime();
+    handle.mockRejectedValue(new Error('panne simulée'));
+    afk.onEvents(runtime, []);
+    await vi.advanceTimersByTimeAsync(46_000);
+    expect(report).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ gameId: 'g1', playerId: 'h1' }),
+    );
+
+    report.mockClear();
+    (state.players[0] as { substitute: string | null }).substitute = 'normal';
+    afk.onPresence(runtime, 'h1', true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(report).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ gameId: 'g1', playerId: 'h1' }),
+    );
+    afk.close();
+  });
+});

@@ -9,6 +9,7 @@ import type { EventEnvelope, GameView } from '@navale/protocol';
 import type { PresenceTracker } from '../realtime/presence.js';
 import { gameRoom, playerRoom, socketsInGame } from '../realtime/rooms.js';
 import type { GameServer, GameSocket } from '../realtime/types.js';
+import { contain, type FailureContext, type ReportFailure } from './failure.js';
 import type { GameRuntime } from './game-runtime.js';
 
 /**
@@ -16,6 +17,8 @@ import type { GameRuntime } from './game-runtime.js';
  * tout ce qui suit un SHOT_RESOLVED est retardé de `revealDelayMs`, puis un
  * instantané à jour part vers chaque socket de la partie. Ce que chacun a le droit
  * de voir d'un événement, c'est le moteur qui le dit (`publicEvent`, `privateRecipient`).
+ * Chaque envoi est isolé : une projection qui lève est signalée, sans arrêter le serveur
+ * ni priver les autres connexions de la partie de leur instantané.
  */
 export class Publisher {
   /** Par partie : l'heure de la dernière publication programmée. */
@@ -25,6 +28,7 @@ export class Publisher {
   constructor(
     private readonly io: GameServer,
     private readonly presence: PresenceTracker,
+    private readonly report: ReportFailure = () => undefined,
   ) {}
 
   /** Quand l'écran central aura fini d'annoncer ce qui est déjà publié ; `now` si rien n'attend. */
@@ -38,7 +42,16 @@ export class Publisher {
     let releaseAt = this.settledAt(gameId, now);
     const delay = runtime.state.settings.revealDelayMs;
     envelopes.forEach((envelope, i) => {
-      this.schedule(releaseAt - now, () => this.emitEvent(gameId, envelope));
+      this.schedule(
+        releaseAt - now,
+        {
+          gameId,
+          during: 'publication d’un événement',
+          seq: envelope.seq,
+          event: envelope.event.type,
+        },
+        () => this.emitEvent(gameId, envelope),
+      );
       const event = envelope.event;
       // Chaque tir, et chaque capacité jouée, a droit à son temps d'annonce sur l'écran central.
       // Les tirs d'une rafale de missile partent ensemble : l'écran central les fait décoller à
@@ -58,17 +71,19 @@ export class Publisher {
       }
     });
     this.releaseAt.set(gameId, releaseAt);
-    this.schedule(releaseAt - now, () => this.sendSnapshots(runtime));
+    this.schedule(releaseAt - now, { gameId, during: 'envoi des instantanés' }, () =>
+      this.sendSnapshots(runtime),
+    );
   }
 
-  private schedule(delay: number, fn: () => void): void {
+  private schedule(delay: number, context: FailureContext, fn: () => void): void {
     if (delay <= 0) {
-      fn();
+      contain(this.report, context, fn);
       return;
     }
     const timer = setTimeout(() => {
       this.timers.delete(timer);
-      fn();
+      contain(this.report, context, fn);
     }, delay);
     this.timers.add(timer);
   }
@@ -102,7 +117,12 @@ export class Publisher {
   }
 
   sendSnapshots(runtime: GameRuntime): void {
-    for (const socket of socketsInGame(this.io, runtime.gameId)) this.sendSnapshot(socket, runtime);
+    for (const socket of socketsInGame(this.io, runtime.gameId))
+      contain(
+        this.report,
+        { gameId: runtime.gameId, during: 'instantané', playerId: socket.data.playerId },
+        () => this.sendSnapshot(socket, runtime),
+      );
   }
 
   close(): void {

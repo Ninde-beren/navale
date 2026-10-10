@@ -1,4 +1,5 @@
 import { battleship } from '@navale/engine';
+import { contain, type ReportFailure } from './failure.js';
 import type { GameRuntime } from './game-runtime.js';
 
 /**
@@ -8,7 +9,10 @@ import type { GameRuntime } from './game-runtime.js';
 export class RoundTimers {
   private readonly timers = new Map<string, NodeJS.Timeout>();
 
-  constructor(private readonly now: () => number = () => Date.now()) {}
+  constructor(
+    private readonly now: () => number = () => Date.now(),
+    private readonly report: ReportFailure = () => undefined,
+  ) {}
 
   reschedule(runtime: GameRuntime): void {
     const existing = this.timers.get(runtime.gameId);
@@ -19,7 +23,9 @@ export class RoundTimers {
     const timer = setTimeout(
       () => {
         this.timers.delete(runtime.gameId);
-        void this.fire(runtime, at);
+        contain(this.report, { gameId: runtime.gameId, during: 'chrono de manche' }, () =>
+          this.fire(runtime, at),
+        );
       },
       Math.max(0, at - this.now()),
     );

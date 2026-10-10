@@ -5,8 +5,13 @@ export interface StoredGame {
   gameId: string;
   code: string;
   status: GameStatus;
-  events: EventEnvelope[];
 }
+
+/**
+ * Statut d'une partie dont le journal ne se rejoue plus : elle n'est plus rechargée au
+ * démarrage, son journal est gardé. Propre au serveur, ce n'est pas un `GameStatus`.
+ */
+const BROKEN = 'BROKEN';
 
 /**
  * Journal des parties : une ligne par événement, en ajout seul. L'état d'une
@@ -42,14 +47,17 @@ export class EventStore {
       .run(gameId, code, status, now, now);
   }
 
-  updateGame(gameId: string, status: GameStatus, now: number): void {
+  private setStatus(gameId: string, status: string, now: number): void {
     this.db
       .prepare('UPDATE games SET status = ?, updated_at = ? WHERE game_id = ?')
       .run(status, now, gameId);
   }
 
-  /** Ajoute un lot d'événements d'un coup : tout ou rien. */
-  append(gameId: string, envelopes: EventEnvelope[]): void {
+  /**
+   * Ajoute un lot d'événements d'un coup, et le statut de la partie qui en résulte
+   * s'il est donné : tout ou rien.
+   */
+  append(gameId: string, envelopes: EventEnvelope[], status?: GameStatus): void {
     const insert = this.db.prepare(
       'INSERT INTO events (game_id, seq, at, type, payload) VALUES (?, ?, ?, ?, ?)',
     );
@@ -57,6 +65,8 @@ export class EventStore {
     try {
       for (const e of envelopes)
         insert.run(gameId, e.seq, e.at, e.event.type, JSON.stringify(e.event));
+      const last = envelopes.at(-1);
+      if (status && last) this.setStatus(gameId, status, last.at);
       this.db.exec('COMMIT');
     } catch (err) {
       this.db.exec('ROLLBACK');
@@ -64,27 +74,26 @@ export class EventStore {
     }
   }
 
-  /** Parties non terminées, avec leur journal complet, pour la reprise au démarrage. */
-  loadActiveGames(): StoredGame[] {
+  /** Parties non terminées, pour la reprise au démarrage ; leurs journaux se lisent un par un. */
+  activeGames(): StoredGame[] {
     const games = this.db
       .prepare(
         "SELECT game_id, code, status FROM games WHERE status IN ('LOBBY', 'PLAYING') ORDER BY created_at",
       )
       .all() as Array<{ game_id: string; code: string; status: GameStatus }>;
-    const select = this.db.prepare(
-      'SELECT seq, at, payload FROM events WHERE game_id = ? ORDER BY seq',
-    );
-    return games.map((g) => ({
-      gameId: g.game_id,
-      code: g.code,
-      status: g.status,
-      events: (select.all(g.game_id) as Array<{ seq: number; at: number; payload: string }>).map(
-        (r) => ({
-          seq: r.seq,
-          at: r.at,
-          event: JSON.parse(r.payload) as GameEvent,
-        }),
-      ),
-    }));
+    return games.map((g) => ({ gameId: g.game_id, code: g.code, status: g.status }));
+  }
+
+  /** Le journal complet d'une partie, dans l'ordre. Lève si un événement est illisible. */
+  events(gameId: string): EventEnvelope[] {
+    const rows = this.db
+      .prepare('SELECT seq, at, payload FROM events WHERE game_id = ? ORDER BY seq')
+      .all(gameId) as Array<{ seq: number; at: number; payload: string }>;
+    return rows.map((r) => ({ seq: r.seq, at: r.at, event: JSON.parse(r.payload) as GameEvent }));
+  }
+
+  /** Écarte de la reprise une partie dont le journal ne se rejoue plus (`BROKEN`). */
+  markBroken(gameId: string, now: number): void {
+    this.setStatus(gameId, BROKEN, now);
   }
 }

@@ -1,5 +1,6 @@
 import { battleship, chooseAction, type Player } from '@navale/engine';
 import type { EventEnvelope, GameEventOf, Variant } from '@navale/protocol';
+import { contain, type ReportFailure } from './failure.js';
 import type { GameRuntime } from './game-runtime.js';
 
 /** Le pilote joue pour les bots et pour les humains absents relayés par un bot. */
@@ -17,6 +18,8 @@ export interface BotDriverOptions {
   settledAt: (gameId: string) => number;
   thinkMs?: (variant: Variant) => number;
   log?: (message: string) => void;
+  /** Un tir qui lève, hors de toute requête : signalé, la partie suivante continue. */
+  report?: ReportFailure;
 }
 
 /**
@@ -33,11 +36,13 @@ export class BotDriver {
   private readonly settledAt: (gameId: string) => number;
   private readonly thinkMs: (variant: Variant) => number;
   private readonly log: (message: string) => void;
+  private readonly report: ReportFailure;
 
   constructor(options: BotDriverOptions) {
     this.settledAt = options.settledAt;
     this.thinkMs = options.thinkMs ?? defaultThinkMs;
     this.log = options.log ?? (() => undefined);
+    this.report = options.report ?? (() => undefined);
   }
 
   onEvents(runtime: GameRuntime, envelopes: EventEnvelope[]): void {
@@ -76,7 +81,9 @@ export class BotDriver {
       const timer = setTimeout(
         () => {
           this.timers.delete(key);
-          void this.fire(runtime, botId, roundIndex);
+          contain(this.report, { gameId, during: 'tir du bot', playerId: botId }, () =>
+            this.fire(runtime, botId, roundIndex),
+          );
         },
         announced + this.thinkMs(state.settings.variant),
       );

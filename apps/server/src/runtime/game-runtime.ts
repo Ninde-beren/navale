@@ -15,12 +15,15 @@ export function decideContext(actor: Actor, now: number): DecideContext {
 }
 
 export interface RuntimeHooks {
-  /** Appelé après chaque lot d'événements journalisés et appliqués. */
+  /**
+   * Appelé après chaque lot d'événements journalisés et appliqués. Ne doit pas lever :
+   * la commande est déjà passée (`app.ts` isole chacune de ses suites).
+   */
   onEvents(runtime: GameRuntime, envelopes: EventEnvelope[]): void;
 }
 
 /**
- * Une partie vivante : decide → append → evolve → publish, une commande à la
+ * Une partie vivante : decide → evolve → append → publish, une commande à la
  * fois par partie. L'état en mémoire n'est modifié qu'ici.
  */
 export class GameRuntime {
@@ -58,10 +61,12 @@ export class GameRuntime {
       at: now,
       event,
     }));
-    this.store.append(this.gameId, envelopes);
-    for (const e of decision.events) this.state = battleship.evolve(this.state, e);
+    // L'état suivant est calculé en entier avant d'écrire quoi que ce soit : si `evolve` lève,
+    // le journal et l'état en mémoire restent tels quels, et le journal reste rejouable.
+    const next = decision.events.reduce((state, e) => battleship.evolve(state, e), this.state);
+    this.store.append(this.gameId, envelopes, next.status);
+    this.state = next;
     this.lastActivityAt = now;
-    this.store.updateGame(this.gameId, this.state.status, now);
     this.hooks.onEvents(this, envelopes);
     return decision;
   }

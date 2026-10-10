@@ -6,7 +6,9 @@ import {
   type GameEvent,
   type GameEventOf,
   type Joined,
+  type Rejection,
 } from '@navale/protocol';
+import type { FailureContext, ReportFailure } from '../runtime/failure.js';
 import type { Publisher } from '../runtime/publisher.js';
 import type { GameRegistry } from '../store/registry.js';
 import { AuthError, resolveAuth } from './auth.js';
@@ -15,6 +17,12 @@ import { gameRoom, playerRoom } from './rooms.js';
 import type { GameServer, GameSocket, SocketData } from './types.js';
 
 type AckFn = (ack: Ack) => void;
+
+/** Ce que reçoit le client quand le serveur lève : le détail reste dans le journal du serveur. */
+const INTERNAL_ERROR: Rejection = {
+  code: 'INTERNAL_ERROR',
+  message: 'Erreur du serveur, réessaie dans un instant.',
+};
 
 /**
  * Qui envoie la commande, d'après la connexion seulement : un client ne peut pas se
@@ -39,6 +47,7 @@ export function registerSockets(
   registry: GameRegistry,
   publisher: Publisher,
   presence: PresenceTracker,
+  report: ReportFailure,
 ): void {
   io.on('connection', (socket) => {
     let resolved: ReturnType<typeof resolveAuth>;
@@ -56,20 +65,41 @@ export function registerSockets(
     socket.data = data;
     void socket.join(gameRoom(data.gameId));
     if (data.playerId) bindPlayer(socket, data.playerId);
-    publisher.sendSnapshot(socket, runtime);
 
     // Le type annonce une `Command`, mais rien ne garantit ce que le client envoie
     // réellement : la commande est validée par Zod, et l'accusé peut manquer.
+    // Une exception en la traitant est journalisée et renvoyée en accusé d'erreur.
     socket.on('command', (raw: unknown, ack?: AckFn) => {
-      void handleCommand(socket, raw, typeof ack === 'function' ? ack : () => undefined);
+      const reply = typeof ack === 'function' ? ack : () => undefined;
+      const context: FailureContext = { gameId: socket.data.gameId, during: 'commande' };
+      handleCommand(socket, raw, reply, context).catch((err: unknown) => {
+        report(err, context);
+        reply({ ok: false, error: INTERNAL_ERROR });
+      });
     });
 
     socket.on('disconnect', () => {
       if (socket.data.playerId) presence.remove(socket.data.gameId, socket.data.playerId);
     });
+
+    // Le premier instantané part une fois la connexion prête à se fermer proprement :
+    // si sa projection lève, la connexion est refusée, la présence se défait.
+    try {
+      publisher.sendSnapshot(socket, runtime);
+    } catch (err) {
+      report(err, { gameId: data.gameId, during: 'connexion', playerId: data.playerId });
+      socket.emit('rejected', INTERNAL_ERROR);
+      socket.disconnect(true);
+    }
   });
 
-  async function handleCommand(socket: GameSocket, raw: unknown, ack: AckFn): Promise<void> {
+  /** `context` reçoit la commande et son acteur dès qu'ils sont connus, pour le journal. */
+  async function handleCommand(
+    socket: GameSocket,
+    raw: unknown,
+    ack: AckFn,
+    context: FailureContext,
+  ): Promise<void> {
     const data = socket.data;
     const runtime = registry.get(data.gameId);
     if (!runtime)
@@ -87,13 +117,15 @@ export function registerSockets(
       });
     }
     const command = parsed.data;
+    const actor = actorFor(command, data);
+    Object.assign(context, { command: command.type, actor });
 
     if (command.type === 'REQUEST_SNAPSHOT') {
       publisher.sendSnapshot(socket, runtime);
       return ack({ ok: true });
     }
 
-    const decision = await runtime.handle(actorFor(command, data), command);
+    const decision = await runtime.handle(actor, command);
     if (!decision.ok) return ack({ ok: false, error: decision.rejection });
 
     // Effets sur les connexions, que le moteur ne connaît pas : rooms, présence, jetons.

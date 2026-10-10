@@ -1,5 +1,6 @@
 import type { Presence } from '@navale/engine';
 import type { EventEnvelope } from '@navale/protocol';
+import { contain, type ReportFailure } from './failure.js';
 import type { GameRuntime } from './game-runtime.js';
 
 /**
@@ -13,7 +14,10 @@ export class AfkSubstitution {
   /** Un compte à rebours par joueur attendu et absent, sous la clé `gameId:playerId`. */
   private readonly timers = new Map<string, NodeJS.Timeout>();
 
-  constructor(private readonly presence: { of(gameId: string): Presence }) {}
+  constructor(
+    private readonly presence: { of(gameId: string): Presence },
+    private readonly report: ReportFailure = () => undefined,
+  ) {}
 
   /** Après chaque lot d'événements : la manche, les tirs engagés ou les relais ont pu changer. */
   onEvents(runtime: GameRuntime, _envelopes: EventEnvelope[]): void {
@@ -29,7 +33,11 @@ export class AfkSubstitution {
     this.clear(`${runtime.gameId}:${playerId}`);
     const player = runtime.state.players.find((p) => p.playerId === playerId);
     if (player && player.substitute !== null)
-      void runtime.handle({ kind: 'system' }, { type: 'RESUME_PLAYER', playerId });
+      contain(
+        this.report,
+        { gameId: runtime.gameId, during: 'retour du joueur relayé', playerId },
+        () => runtime.handle({ kind: 'system' }, { type: 'RESUME_PLAYER', playerId }),
+      );
   }
 
   /** Reprise après redémarrage : les absents attendus repartent de zéro. */
@@ -72,9 +80,15 @@ export class AfkSubstitution {
     const seconds = runtime.state.settings.afkBotSeconds ?? 0;
     const timer = setTimeout(() => {
       this.timers.delete(key);
-      // Les conditions ont pu changer pendant le délai : on revérifie avant de relayer.
-      if (this.waiting(runtime).includes(playerId))
-        void runtime.handle({ kind: 'system' }, { type: 'SUBSTITUTE_PLAYER', playerId });
+      contain(
+        this.report,
+        { gameId: runtime.gameId, during: 'relais du joueur absent', playerId },
+        () => {
+          // Les conditions ont pu changer pendant le délai : on revérifie avant de relayer.
+          if (this.waiting(runtime).includes(playerId))
+            return runtime.handle({ kind: 'system' }, { type: 'SUBSTITUTE_PLAYER', playerId });
+        },
+      );
     }, seconds * 1000);
     this.timers.set(key, timer);
   }

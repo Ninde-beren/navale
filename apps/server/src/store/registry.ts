@@ -9,6 +9,7 @@ import {
   type GameEvent,
   type GameSettings,
 } from '@navale/protocol';
+import type { ReportFailure } from '../runtime/failure.js';
 import { GameRuntime, type RuntimeHooks } from '../runtime/game-runtime.js';
 import type { EventStore } from './event-store.js';
 import type { TokenRecord, TokenRole, TokenStore } from './token-store.js';
@@ -36,16 +37,28 @@ export class GameRegistry {
     private readonly hooks: RuntimeHooks,
   ) {}
 
-  /** Recharge les parties non terminées au démarrage. */
-  restore(): number {
-    let n = 0;
-    for (const g of this.store.loadActiveGames()) {
-      const runtime = GameRuntime.replay(g.gameId, g.events, this.store, this.hooks);
-      this.byId.set(runtime.gameId, runtime);
-      if (!battleship.isFinished(runtime.state)) this.byCode.set(runtime.code, runtime.gameId);
-      n++;
+  /**
+   * Recharge les parties non terminées au démarrage. Une partie dont le journal ne se
+   * rejoue plus est signalée et mise de côté (`BROKEN`, journal gardé) : les autres
+   * reviennent quand même, et elle ne sera pas retentée au démarrage suivant.
+   */
+  restore(report: ReportFailure): { restored: number; broken: string[] } {
+    let restored = 0;
+    const broken: string[] = [];
+    for (const g of this.store.activeGames()) {
+      try {
+        const events = this.store.events(g.gameId);
+        const runtime = GameRuntime.replay(g.gameId, events, this.store, this.hooks);
+        this.byId.set(runtime.gameId, runtime);
+        if (!battleship.isFinished(runtime.state)) this.byCode.set(runtime.code, runtime.gameId);
+        restored++;
+      } catch (err) {
+        report(err, { gameId: g.gameId, during: 'reprise après redémarrage', code: g.code });
+        this.store.markBroken(g.gameId, Date.now());
+        broken.push(g.gameId);
+      }
     }
-    return n;
+    return { restored, broken };
   }
 
   /** Nouvelle partie, avec un code libre et le jeton de son hôte. */
@@ -66,9 +79,10 @@ export class GameRegistry {
     if (this.byCode.has(created.code) || this.byId.has(gameId))
       throw new Error(`code ${created.code} ou partie ${gameId} déjà actifs`);
     const envelopes: EventEnvelope[] = events.map((event, i) => ({ seq: i + 1, at: now, event }));
+    // Rejoué avant d'être écrit : un journal initial que le moteur n'applique pas n'entre pas en base.
+    const runtime = GameRuntime.replay(gameId, envelopes, this.store, this.hooks);
     this.store.createGame(gameId, created.code, 'LOBBY', now);
     this.store.append(gameId, envelopes);
-    const runtime = GameRuntime.replay(gameId, envelopes, this.store, this.hooks);
     this.byId.set(gameId, runtime);
     this.byCode.set(created.code, gameId);
     return runtime;

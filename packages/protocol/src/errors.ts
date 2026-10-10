@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 export const ErrorCodeSchema = z.enum([
   'BAD_REQUEST',
+  /** Le serveur a levé une exception en traitant la demande ; elle est dans son journal. */
+  'INTERNAL_ERROR',
   'CODE_UNKNOWN',
   'TOKEN_INVALID',
   'GAME_FULL',

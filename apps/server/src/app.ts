@@ -14,6 +14,7 @@ import { PresenceTracker } from './realtime/presence.js';
 import type { GameServer } from './realtime/types.js';
 import { AfkSubstitution } from './runtime/afk.js';
 import { BotDriver } from './runtime/bots.js';
+import { contain, type ReportFailure } from './runtime/failure.js';
 import { Publisher } from './runtime/publisher.js';
 import { RematchService } from './runtime/rematch.js';
 import { DEFAULT_EXPIRY, Sweeper, type ExpiryPolicy } from './runtime/sweeper.js';
@@ -58,39 +59,54 @@ export async function createApp(
   app.addHook('onRequest', async (_request, reply) => {
     void reply.header('x-robots-tag', 'noindex, nofollow');
   });
+  // Une panne reste dans sa partie : journalisée avec son contexte, le serveur continue.
+  const report: ReportFailure = (err, { during, ...context }) =>
+    app.log.error({ err, ...context }, `${during} en échec`);
   const io: GameServer = new Server(app.server, { serveClient: false });
   const presence = new PresenceTracker(io);
-  const publisher = new Publisher(io, presence);
+  const publisher = new Publisher(io, presence, report);
   const bots = new BotDriver({
     settledAt: (gameId) => publisher.settledAt(gameId),
     ...(options.botThinkMs ? { thinkMs: options.botThinkMs } : {}),
     log: (message) => app.log.warn(message),
+    report,
   });
-  const timers = new RoundTimers();
-  const afk = new AfkSubstitution(presence);
+  const timers = new RoundTimers(undefined, report);
+  const afk = new AfkSubstitution(presence, report);
   const registry: GameRegistry = new GameRegistry(store, tokens, {
+    // La commande est déjà journalisée : chaque suite est isolée, l'échec de l'une
+    // n'empêche ni les autres, ni l'accusé de la commande.
     onEvents: (runtime, envelopes) => {
-      registry.sync(runtime);
-      publisher.publish(runtime, envelopes);
-      bots.onEvents(runtime, envelopes);
-      timers.reschedule(runtime);
-      afk.onEvents(runtime, envelopes);
-      rematch.onEvents(runtime, envelopes);
+      const after = (during: string, task: () => void) =>
+        contain(report, { gameId: runtime.gameId, during }, task);
+      after('libération du code', () => registry.sync(runtime));
+      after('publication', () => publisher.publish(runtime, envelopes));
+      after('pilote des bots', () => bots.onEvents(runtime, envelopes));
+      after('chrono de manche', () => timers.reschedule(runtime));
+      after('joueur absent', () => afk.onEvents(runtime, envelopes));
+      after('revanche', () => rematch.onEvents(runtime, envelopes));
     },
   });
   presence.onChange = (gameId, playerId, connected) => {
     const runtime = registry.get(gameId);
-    if (runtime) afk.onPresence(runtime, playerId, connected);
+    if (runtime)
+      contain(report, { gameId, during: 'présence', playerId }, () =>
+        afk.onPresence(runtime, playerId, connected),
+      );
   };
   const rematch = new RematchService(io, registry, publisher, presence);
-  const restored = registry.restore();
-  for (const runtime of registry.all()) {
-    bots.resume(runtime);
-    timers.reschedule(runtime);
-    afk.resume(runtime);
-  }
-  const sweeper = new Sweeper(registry, options.expiry ?? DEFAULT_EXPIRY, (msg) =>
-    app.log.info(msg),
+  const { restored, broken } = registry.restore(report);
+  for (const runtime of registry.all())
+    contain(report, { gameId: runtime.gameId, during: 'reprise des minuteries' }, () => {
+      bots.resume(runtime);
+      timers.reschedule(runtime);
+      afk.resume(runtime);
+    });
+  const sweeper = new Sweeper(
+    registry,
+    options.expiry ?? DEFAULT_EXPIRY,
+    (msg) => app.log.info(msg),
+    report,
   );
   sweeper.start();
 
@@ -111,7 +127,7 @@ export async function createApp(
   registerGameRoutes(app, registry, config);
   registerFeedback(app, { store: feedback, mailer, version }, config);
   registerAdmin(app, { registry, presence, io, history, feedback, mailer }, config);
-  registerSockets(io, registry, publisher, presence);
+  registerSockets(io, registry, publisher, presence, report);
   if (config.webDist) await registerStatic(app, config.webDist, config.publicUrl);
 
   return {
@@ -122,6 +138,8 @@ export async function createApp(
     feedback,
     config,
     restored,
+    /** Parties mises de côté à ce démarrage : leur journal ne se rejoue plus. */
+    broken,
     sweeper,
     async listen(): Promise<string> {
       return app.listen({ port: config.port, host: '0.0.0.0' });
