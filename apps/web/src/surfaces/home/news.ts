@@ -14,6 +14,12 @@ export interface NewsItem {
 
 export const NEWS: readonly NewsItem[] = [
   {
+    n: 93,
+    day: '10 octobre',
+    title: 'Revoir la partie',
+    text: 'À la fin, « Revoir la partie » la rejoue sur l’écran central, coup par coup, avec ses animations. Pause, manche suivante, vitesse ×2, et même les flottes de chacun, enfin dévoilées.',
+  },
+  {
     n: 91,
     day: '10 octobre',
     title: 'Ta couleur te suit',
