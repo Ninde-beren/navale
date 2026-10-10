@@ -1,5 +1,5 @@
 import type { Coord, ResolvedShot } from '@navale/protocol';
-import { HAMMER_TAPS, SONAR_PINGS } from '../../shared/audio.js';
+import { HAMMER_TAPS, SHATTER_AT, SONAR_PINGS } from '../../shared/audio.js';
 import { RADAR_SWEEP_MS } from '../../shared/radarSweep.js';
 
 /** Un tir résolu, tel que la séquence l'anime. */
@@ -54,8 +54,20 @@ const SONAR_WAVE_MS = 1000;
 const HAMMER_SWING_MS = 320;
 /** Le bouclier qui se lève, en ms. */
 const SHIELD_MS = 900;
-/** L'éclair d'un tir arrêté par un bouclier, en ms. */
-const BLOCK_MS = 700;
+/** Un tir arrêté par un bouclier, en ms : l'éclair, la fêlure, puis le bris (`SHATTER_AT`). */
+const BLOCK_MS = 1100;
+/** La fêlure du verre, tracée depuis le point d'impact. */
+const CRACK_SVG = `<svg viewBox="0 0 40 40" aria-hidden="true"><path pathLength="1"
+d="M20 20 3 7M20 20 31 2M20 20 38 23M20 20 26 38M20 20 5 31M11 13 6 21M28 10 35 15M30 22 32 31"/></svg>`;
+/** Les éclats : direction (en cases) et rotation de chacun quand la case vole en éclats. */
+const SHARDS = [
+  [-0.9, -0.8, -140],
+  [0.8, -1, 120],
+  [1.1, 0.3, 200],
+  [0.5, 1.1, -90],
+  [-0.7, 0.9, 160],
+  [-1.2, 0, -220],
+] as const;
 
 /** Un petit marteau : tête d'acier, manche de bois, tourné pour frapper vers le bas à gauche. */
 const HAMMER_SVG = `<svg viewBox="0 0 48 48" aria-hidden="true"><g transform="rotate(-45 24 24)">
@@ -248,12 +260,28 @@ export class ShotFx {
     els.hot.classList.remove('on');
     const fx = shot.result === 'MISS' ? els.splash : els.boom;
     if (shot.result === 'BLOCKED') {
-      // Arrêté net par le bouclier : un éclair sur la case, ni explosion ni plouf.
+      // Arrêté net par le bouclier : un éclair, le verre de la case se fêle puis vole en
+      // éclats ; ni explosion ni plouf, la même chose sur l'eau que sur un navire.
       const flash = document.createElement('span');
       flash.className = 'fx-block';
       flash.setAttribute('aria-hidden', 'true');
-      path.cell.appendChild(flash);
-      setTimeout(() => flash.remove(), BLOCK_MS);
+      const glass = document.createElement('span');
+      glass.className = 'fx-shatter';
+      glass.setAttribute('aria-hidden', 'true');
+      glass.style.setProperty('--shatter-at', `${Math.round(SHATTER_AT * 1000)}ms`);
+      glass.innerHTML = CRACK_SVG;
+      for (const [dx, dy, r] of SHARDS) {
+        const shard = document.createElement('i');
+        shard.style.setProperty('--dx', String(dx));
+        shard.style.setProperty('--dy', String(dy));
+        shard.style.setProperty('--r', `${r}deg`);
+        glass.appendChild(shard);
+      }
+      path.cell.append(flash, glass);
+      setTimeout(() => {
+        flash.remove();
+        glass.remove();
+      }, BLOCK_MS);
     } else {
       fx.setAttribute('transform', `translate(${path.x1.toFixed(1)} ${path.y1.toFixed(1)})`);
       replay(fx, 'go');

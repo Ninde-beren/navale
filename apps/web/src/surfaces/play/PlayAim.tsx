@@ -17,7 +17,7 @@ import {
   type PublicPlayer,
   type RadarResult,
 } from '@navale/protocol';
-import { ownGridClasses } from '../../shared/cells.js';
+import { ownGridClasses, shieldMarks } from '../../shared/cells.js';
 import { ABILITY_LABELS, abilityHint, commanderOf, count } from '../../shared/labels.js';
 import { playerLookup } from '../../shared/players.js';
 import { PlayerAvatar } from '../../shared/ui/Avatar.js';
@@ -211,7 +211,6 @@ export function PlayAim({
             radars={radars}
             sweeping={sweeping}
             allowRevealed={detector}
-            allowShielded={ability !== null}
             onCell={setCell}
           />
           {lastRadar && (
@@ -225,7 +224,8 @@ export function PlayAim({
           )}
           {target.shield && (
             <p className="hint">
-              Bouclier de {target.name} : la zone bleue est protégée jusqu’à son prochain tour.
+              Bouclier de {target.name} : une case bleue arrête le premier tir, sans rien révéler ;
+              le suivant passe.
             </p>
           )}
           {blocked && !detector && (
@@ -329,10 +329,9 @@ function OwnGrid({
   onCell: (cell: Coord) => void;
 }) {
   const { settings } = view;
-  const myShield = me.shield ? radarZone(settings, me.shield.center, me.shield.size) : [];
   const classes = ownGridClasses(view.me.fleet, me.revealed, {
     decoys: view.me.decoys,
-    shielded: myShield,
+    shield: shieldMarks(settings, me.shield, me.revealed),
   });
   const allowed =
     ability.type === 'repair'

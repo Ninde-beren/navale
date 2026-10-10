@@ -33,6 +33,17 @@ export type SfxName =
 export const RADAR_SWEEP = { turns: 2, turnSeconds: 0.7 } as const;
 export const SONAR_PINGS = [0, 0.3, 0.6] as const;
 export const HAMMER_TAPS = [0.22, 0.54, 0.86] as const;
+/** Tir bloqué : la case de verre se fêle à l'impact et vole en éclats `SHATTER_AT` s après. */
+export const SHATTER_AT = 0.3;
+/** Les éclats qui tintent en retombant : décalage en s après le bris, et fréquence en Hz. */
+const SHARDS = [
+  [0, 4200],
+  [0.04, 5600],
+  [0.09, 3700],
+  [0.15, 6300],
+  [0.22, 4800],
+  [0.3, 5200],
+] as const;
 
 interface SfxState {
   muted: boolean;
@@ -302,12 +313,30 @@ const SYNTH: Record<SfxName, (c: AudioContext, out: Out, t: number) => void> = {
       attack: 0.2,
     });
   },
-  // Tir bloqué : le tir sonne contre le bouclier, un tintement clair et un coup sourd.
+  // Tir bloqué : le tir sonne contre le verre, un tintement clair et un coup sourd ; le
+  // verre se fêle d'un craquement sec, puis la case vole en éclats qui tintent en retombant.
   blocked: (c, out, t) => {
     burst(c, out, t, { filter: 'highpass', from: 3000, to: 2000, dur: 0.06, peak: 0.4 });
     tone(c, out, t, { type: 'triangle', from: 1200, to: 1150, dur: 0.25, peak: 0.2 });
     tone(c, out, t, { type: 'sine', from: 3100, dur: 0.12, peak: 0.08 });
     tone(c, out, t, { type: 'sine', from: 200, to: 120, dur: 0.1, peak: 0.2 });
+    burst(c, out, t + 0.12, { filter: 'highpass', from: 5200, to: 3600, dur: 0.05, peak: 0.25 });
+    burst(c, out, t + SHATTER_AT, {
+      filter: 'bandpass',
+      from: 6500,
+      to: 2400,
+      q: 1.2,
+      dur: 0.45,
+      peak: 0.3,
+    });
+    for (const [at, f] of SHARDS)
+      tone(c, out, t + SHATTER_AT + at, {
+        type: 'sine',
+        from: f,
+        to: f * 0.97,
+        dur: 0.1,
+        peak: 0.07,
+      });
   },
   // Leurre : deux petits « bloup » discrets, on ne sait pas où.
   decoy: (c, out, t) => {

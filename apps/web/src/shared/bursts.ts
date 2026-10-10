@@ -7,10 +7,14 @@ export type LogEntry = ResolvedShot & {
   burstSize?: number;
 };
 
-/** Le verdict d'une rafale : coulé si elle achève un bateau, touché si un tir touche, sinon raté. */
+/**
+ * Le verdict d'une rafale : coulé si elle achève un bateau, touché si un tir touche,
+ * bloqué si un bouclier les arrête tous, sinon raté.
+ */
 export function burstResult(shots: ReadonlyArray<{ result: ShotResult }>): ShotResult {
   if (shots.some((s) => s.result === 'SUNK')) return 'SUNK';
-  return shots.some((s) => s.result === 'HIT') ? 'HIT' : 'MISS';
+  if (shots.some((s) => s.result === 'HIT')) return 'HIT';
+  return shots.length > 0 && shots.every((s) => s.result === 'BLOCKED') ? 'BLOCKED' : 'MISS';
 }
 
 /** Deux tirs consécutifs de la même rafale : même manche, même tireur, même centre. */

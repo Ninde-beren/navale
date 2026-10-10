@@ -1,7 +1,7 @@
 import clsx from 'clsx';
-import { coordKey, radarZone, sameCoord, shieldCovers } from '@navale/engine';
+import { coordKey, radarZone, sameCoord } from '@navale/engine';
 import type { Coord, PlayerView, PublicPlayer, RadarResult } from '@navale/protocol';
-import { publicGridClasses } from '../../shared/cells.js';
+import { publicGridClasses, shieldMarks } from '../../shared/cells.js';
 import { Grid } from '../../shared/ui/Grid.js';
 import { RadarSweep } from '../../shared/ui/RadarSweep.js';
 import { sameRadar } from './useRadarSweep.js';
@@ -20,7 +20,6 @@ export function TargetGrid({
   sweeping = null,
   cell = null,
   allowRevealed = false,
-  allowShielded = false,
   onCell,
   className,
 }: {
@@ -33,8 +32,6 @@ export function TargetGrid({
   cell?: Coord | null;
   /** Radar et sonar peuvent se centrer sur une case déjà révélée ; un tir, non. */
   allowRevealed?: boolean;
-  /** Une capacité peut viser sous un bouclier (le moteur dit si elle y sert) ; un tir, non. */
-  allowShielded?: boolean;
   onCell?: (cell: Coord) => void;
   className?: string;
 }) {
@@ -60,10 +57,12 @@ export function TargetGrid({
         : scanned.has(key)
           ? 'scan clear'
           : unknown.has(key) && 'scan';
-  const shielded = target.shield
-    ? radarZone(view.settings, target.shield.center, target.shield.size)
-    : [];
-  const classes = publicGridClasses(target.revealed, target.sunkShips, null, shielded);
+  const classes = publicGridClasses(
+    target.revealed,
+    target.sunkShips,
+    null,
+    shieldMarks(view.settings, target.shield, target.revealed),
+  );
   const ships = new Set((live?.contacts ?? []).map(coordKey));
   const echoes =
     live &&
@@ -90,7 +89,6 @@ export function TargetGrid({
           ((c) => {
             if (!c) return;
             if (!allowRevealed && revealed.has(coordKey(c))) return;
-            if (!allowShielded && shieldCovers(target.shield, c)) return;
             onCell(c);
           })
         }

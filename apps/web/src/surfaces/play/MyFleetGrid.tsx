@@ -1,6 +1,5 @@
-import { radarZone } from '@navale/engine';
 import type { PlayerView, PublicPlayer } from '@navale/protocol';
-import { ownGridClasses } from '../../shared/cells.js';
+import { ownGridClasses, shieldMarks } from '../../shared/cells.js';
 import { Grid } from '../../shared/ui/Grid.js';
 
 /** Ma grille, centrée : mes bateaux, les tirs que j'ai reçus, mes leurres et mon bouclier. */
@@ -20,7 +19,7 @@ export function MyFleetGrid({
         height={view.settings.grid.height}
         cellClass={ownGridClasses(view.me.fleet, me.revealed, {
           decoys: view.me.decoys,
-          shielded: me.shield ? radarZone(view.settings, me.shield.center, me.shield.size) : [],
+          shield: shieldMarks(view.settings, me.shield, me.revealed),
         })}
         className={dim ? 'dim' : ''}
         label="Ma flotte"

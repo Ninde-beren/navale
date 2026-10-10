@@ -41,7 +41,7 @@ export const ColorIdSchema = z.enum([
 export type ColorId = z.infer<typeof ColorIdSchema>;
 export const COLOR_IDS: readonly ColorId[] = ColorIdSchema.options;
 
-/** `BLOCKED` : le tir est tombé sur un bouclier, rien n'est touché ni révélé. */
+/** `BLOCKED` : le tir est tombé sur une case qu'un bouclier protège encore, rien n'est touché ni révélé. */
 export const ShotResultSchema = z.enum(['MISS', 'HIT', 'SUNK', 'BLOCKED']);
 export type ShotResult = z.infer<typeof ShotResultSchema>;
 
@@ -71,8 +71,8 @@ export type AbilityType = z.infer<typeof AbilityTypeSchema>;
  * cases de navire d'une zone carrée centrée sur la case visée, le sonar n'en donne
  * que le total, sur une zone plus grande, le missile frappe une case et ses quatre
  * voisines. Sur sa propre flotte : la réparation remet en état une case touchée d'un
- * bateau non coulé, le bouclier protège une zone jusqu'à son prochain tour (`turns`),
- * le leurre pose un faux navire sur une case vide.
+ * bateau non coulé, le bouclier protège une zone pour toute la partie (chaque case
+ * arrête un tir), le leurre pose un faux navire sur une case vide.
  */
 export const AbilitySchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('radar'), size: z.number().int().min(1).max(5) }),
@@ -82,7 +82,6 @@ export const AbilitySchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('shield'),
     size: z.number().int().min(1).max(5),
-    turns: z.number().int().min(1).max(3),
   }),
   z.object({ type: z.literal('decoy') }),
 ]);
@@ -181,8 +180,15 @@ export const RadarResultSchema = z.object({
 });
 export type RadarResult = z.infer<typeof RadarResultSchema>;
 
-/** Un bouclier levé sur une flotte : public, la zone est connue de tous. */
-export const ShieldSchema = z.object({ center: CoordSchema, size: z.number().int().min(1) });
+/**
+ * Un bouclier levé sur une flotte : public, la zone est connue de tous, comme les cases
+ * qu'un premier tir a percées (`pierced`) et qui ne protègent plus rien.
+ */
+export const ShieldSchema = z.object({
+  center: CoordSchema,
+  size: z.number().int().min(1),
+  pierced: z.array(CoordSchema),
+});
 export type Shield = z.infer<typeof ShieldSchema>;
 
 export const SunkInfoSchema = z.object({

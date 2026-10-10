@@ -68,7 +68,10 @@ function abilityAction(view: PlayerView, random: () => number): BotShot | null {
       let best: { targetId: string; coord: Coord; strikes: number } | null = null;
       for (const p of targets)
         for (const c of woundedCells(p)) {
-          const strikes = missileStrikes(view.settings, c, p.revealed, p.shield).length;
+          // Une croix qui ne tombe que sur des cases protégées serait toute bloquée.
+          const strikes = missileStrikes(view.settings, c, p.revealed).filter(
+            (s) => !shieldCovers(p.shield, s),
+          ).length;
           if (strikes > 0 && (!best || strikes > best.strikes))
             best = { targetId: p.playerId, coord: c, strikes };
         }
@@ -185,13 +188,13 @@ function huntShot(view: PlayerView, targets: PublicPlayer[], random: () => numbe
     .sort((a, b) => b.cells.length - a.cells.length);
   if (wounded.length > 0) {
     const best = wounded[0]!;
-    const candidates = aroundWounded(view, best.p, best.cells);
+    const candidates = cheapest(best.p, aroundWounded(view, best.p, best.cells));
     if (candidates.length > 0)
       return { targetId: best.p.playerId, coord: pick(random, candidates) };
   }
 
   const target = pick(random, targets);
-  const free = unrevealed(view, target);
+  const free = cheapest(target, unrevealed(view, target));
   if (free.length === 0) {
     // Cette cible n'a plus de case libre : on en cherche une autre.
     const other = targets
@@ -232,7 +235,7 @@ function probabilityShot(
   const open = openTargets(view, targets);
   if (open.length === 0) return null;
   const target = wounded[0]?.p ?? pick(random, open).p;
-  const best = densestCells(view, target).filter((c) => !shieldCovers(target.shield, c));
+  const best = densestCells(view, target);
   if (best.length > 0) return { targetId: target.playerId, coord: pick(random, best) };
   const fallback = open.find((t) => t.p.playerId === target.playerId) ?? open[0]!;
   return { targetId: fallback.p.playerId, coord: pick(random, fallback.free) };
@@ -266,12 +269,25 @@ export function densestCells(view: PlayerView, p: PublicPlayer): Coord[] {
     return total;
   };
   if (woundedKeys.size === 0 || count(true) === 0) count(false);
-  const max = Math.max(0, ...density.values());
+  // Une case protégée coûte un tir bloqué avant d'apprendre quoi que ce soit : son
+  // cumul compte pour moitié.
+  const scored = [...density.entries()].map(([key, n]) => {
+    const [x = 0, y = 0] = key.split(',').map(Number);
+    const c = { x, y };
+    return { c, score: shieldCovers(p.shield, c) ? n / 2 : n };
+  });
+  const max = Math.max(0, ...scored.map((s) => s.score));
   if (max === 0) return [];
-  return [...density.entries()]
-    .filter(([, n]) => n === max)
-    .map(([key]) => key.split(',').map(Number))
-    .map(([x, y]) => ({ x: x ?? 0, y: y ?? 0 }));
+  return scored.filter((s) => s.score === max).map((s) => s.c);
+}
+
+/**
+ * Parmi des cases d'égal intérêt, celles qu'aucun bouclier ne protège encore : le bot
+ * ne tire sous un bouclier que s'il n'a pas mieux, par exemple pour achever un navire.
+ */
+function cheapest(p: PublicPlayer, cells: Coord[]): Coord[] {
+  const open = cells.filter((c) => !shieldCovers(p.shield, c));
+  return open.length > 0 ? open : cells;
 }
 
 /** Chaque placement encore possible d'un bateau non coulé chez ce joueur : ses cases, aucune `blocked`. */
@@ -393,20 +409,12 @@ export function woundedCells(p: PublicPlayer): Coord[] {
     .map((r) => r.coord);
 }
 
-/** Cases qu'on ne peut pas tirer chez un joueur : déjà révélées, ou sous son bouclier ; en clés `x,y`. */
+/** Cases qu'on ne peut plus tirer chez un joueur : déjà révélées ; en clés `x,y`. */
 function closedKeys(p: PublicPlayer): Set<string> {
-  const keys = new Set(p.revealed.map((r) => coordKey(r.coord)));
-  const shield = p.shield;
-  if (shield) {
-    const half = Math.floor(shield.size / 2);
-    for (let dy = -half; dy <= half; dy++)
-      for (let dx = -half; dx <= half; dx++)
-        keys.add(coordKey({ x: shield.center.x + dx, y: shield.center.y + dy }));
-  }
-  return keys;
+  return new Set(p.revealed.map((r) => coordKey(r.coord)));
 }
 
-/** Cases encore à tirer chez un joueur : ni révélées, ni protégées. */
+/** Cases encore à tirer chez un joueur : non révélées, protégées ou non. */
 function unrevealed(view: PlayerView, p: PublicPlayer): Coord[] {
   const taken = closedKeys(p);
   const out: Coord[] = [];

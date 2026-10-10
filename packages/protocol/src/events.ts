@@ -105,14 +105,13 @@ export const GameEventSchema = z.discriminatedUnion('type', [
   /** Une capacité jouée : qui, laquelle, sur qui et où. Ses effets suivent (radar, réparation, tirs…). */
   AbilityUsedSchema,
   RadarResultEventSchema,
-  /** Bouclier levé : public, il tient jusqu'au prochain tour de son propriétaire (`turns`). */
+  /** Bouclier levé : public et permanent, chaque case de sa zone arrête un tir. */
   z.object({
     type: z.literal('SHIELD_RAISED'),
     round: z.number().int().min(0),
     playerId: z.string(),
     center: CoordSchema,
     size: z.number().int().min(1),
-    turns: z.number().int().min(1),
   }),
   DecoyPlacedSchema,
   z.object({

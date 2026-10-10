@@ -11,6 +11,7 @@ import {
   publicEvent,
 } from '../src/battleship/project.js';
 import { statsOf } from '../src/battleship/rules/end.js';
+import { antiFocusBlocked } from '../src/battleship/rules/targets.js';
 import { COMMANDERS, makeSettings } from '../src/battleship/settings.js';
 import { cellsRemaining, coordKey, type GameState } from '../src/battleship/state.js';
 import { mulberry32 } from '../src/core/random.js';
@@ -71,7 +72,16 @@ describe('sonar', () => {
 });
 
 describe('bouclier', () => {
-  it('en tour par tour : public, il interdit de tirer dans sa zone jusqu’au prochain tour de son propriétaire', () => {
+  const shotsOf = (events: GameEvent[]) =>
+    events.flatMap((e) => (e.type === 'SHOT_RESOLVED' ? [e] : []));
+  const shotOf = (events: GameEvent[]) => shotsOf(events)[0]!;
+  const statsFor = (h: Harness, id: string) =>
+    statsOf(
+      h.state,
+      h.state.players.find((p) => p.playerId === id)!,
+    );
+
+  it('en tour par tour : public et permanent, le premier tir sur une case la perce sans rien révéler, le deuxième passe', () => {
     const { h, ids } = game(['capitaine', 'amiral']);
     const [a, j] = ids as [string, string];
     expect(h.types(use(h, a, a, { x: 1, y: 1 }))).toEqual([
@@ -80,69 +90,93 @@ describe('bouclier', () => {
       'ROUND_RESOLVED',
       'ROUND_STARTED',
     ]);
-    expect(pub(h, a).shield).toEqual({ center: { x: 1, y: 1 }, size: 3 });
-    h.expectReject(
-      player(j),
-      { type: 'FIRE', targetId: a, coord: { x: 0, y: 0 } },
-      'CELL_SHIELDED',
-    );
-    h.fire(j, a, { x: 5, y: 5 });
-    // Le tour d'Antoine revient : le bouclier tombe.
-    expect(pub(h, a).shield).toBeNull();
+    expect(pub(h, a).shield).toEqual({ center: { x: 1, y: 1 }, size: 3, pierced: [] });
+    // Julie tire sous le bouclier, sur le croiseur d'Antoine : bloqué, rien n'est révélé.
+    expect(shotOf(h.fire(j, a, { x: 0, y: 0 }))).toMatchObject({ result: 'BLOCKED', shooterId: j });
+    expect(pub(h, a).revealed).toEqual([]);
+    expect(cellsRemaining(h.state.players.find((p) => p.playerId === a)!)).toBe(12);
+    expect(pub(h, a).shield).toEqual({
+      center: { x: 1, y: 1 },
+      size: 3,
+      pierced: [{ x: 0, y: 0 }],
+    });
+    // Le tour d'Antoine passe, le bouclier tient ; la case percée se tire comme une autre.
     h.fire(a, j, { x: 7, y: 7 });
-    expect(h.fire(j, a, { x: 0, y: 0 }).find((e) => e.type === 'SHOT_RESOLVED')).toMatchObject({
-      result: 'HIT',
-    });
+    expect(pub(h, a).shield).not.toBeNull();
+    expect(shotOf(h.fire(j, a, { x: 0, y: 0 }))).toMatchObject({ result: 'HIT' });
+    h.fire(a, j, { x: 6, y: 7 });
+    // Sa voisine, elle, est encore protégée.
+    expect(shotOf(h.fire(j, a, { x: 1, y: 0 }))).toMatchObject({ result: 'BLOCKED' });
+    expect(statsFor(h, j)).toMatchObject({ shotsFired: 3, hits: 1 });
   });
 
-  it('en salve : levé dans la même manche, il arrête les tirs déjà engagés, sans rien révéler', () => {
-    const { h, ids } = game(['capitaine', 'artificier'], { variant: 'simultaneous' });
-    const [a, j] = ids as [string, string];
-    h.fire(j, a, { x: 0, y: 0 }); // Julie vise le croiseur d'Antoine
-    const resolved = use(h, a, a, { x: 1, y: 1 }); // Antoine lève son bouclier dessus
-    expect(h.types(resolved)).toEqual([
-      'SHOT_COMMITTED',
-      'ABILITY_USED',
-      'SHIELD_RAISED',
-      'SHOT_RESOLVED',
-      'ROUND_RESOLVED',
-      'ROUND_STARTED',
-    ]);
-    expect(resolved.find((e) => e.type === 'SHOT_RESOLVED')).toMatchObject({
-      result: 'BLOCKED',
-      shooterId: j,
-    });
-    const me = h.state.players.find((p) => p.playerId === a)!;
-    expect(me.shotsReceived).toEqual([]);
-    expect(cellsRemaining(me)).toBe(12);
-    expect(
-      statsOf(
-        h.state,
-        h.state.players.find((p) => p.playerId === j)!,
-      ),
-    ).toMatchObject({
-      shotsFired: 1,
-      hits: 0,
-    });
-    // Une manche, et il tombe au tour suivant d'Antoine, c'est-à-dire tout de suite en salve.
-    expect(pub(h, a).shield).toBeNull();
-  });
-
-  it('le missile saute les cases protégées, et une rafale toute protégée est refusée', () => {
-    const { h, ids } = game(['capitaine', 'artificier']);
+  it('« bloqué » sort pareil sur l’eau et sur un navire : rien ne fuit', () => {
+    const { h, ids } = game(['capitaine', 'amiral']);
     const [a, j] = ids as [string, string];
     use(h, a, a, { x: 1, y: 1 });
-    h.expectReject(
-      player(j),
-      { type: 'USE_ABILITY', targetId: a, coord: { x: 1, y: 1 } },
-      'CELL_ALREADY_SHOT',
-    );
-    // Autour de C3 : C3, B3, C2 sont protégées ; D3 et C4 restent.
-    const burst = use(h, j, a, { x: 2, y: 2 });
-    expect(burst.filter((e) => e.type === 'SHOT_RESOLVED').map((e) => e.coord)).toEqual([
-      { x: 3, y: 2 },
-      { x: 2, y: 3 },
+    const onShip = shotOf(h.fire(j, a, { x: 0, y: 0 })); // le croiseur
+    h.fire(a, j, { x: 7, y: 7 });
+    const onWater = shotOf(h.fire(j, a, { x: 0, y: 1 })); // de l'eau
+    const strip = (e: GameEvent) => {
+      const { coord: _c, round: _r, ...rest } = publicEvent(e) as typeof onShip;
+      return rest;
+    };
+    expect(strip(onShip)).toEqual(strip(onWater));
+    expect(pub(h, a).revealed).toEqual([]);
+    expect(pub(h, a).shipsRemaining).toBe(4);
+    assertNoLeak(h.state);
+  });
+
+  it('le missile : chaque case de la croix suit la même règle, et une croix toute protégée est bloquée, pas refusée', () => {
+    const covered = game(['capitaine', 'artificier']);
+    const [a, j] = covered.ids as [string, string];
+    use(covered.h, a, a, { x: 1, y: 1 });
+    const all = shotsOf(use(covered.h, j, a, { x: 1, y: 1 }));
+    expect(all).toHaveLength(5);
+    expect(all.every((s) => s.result === 'BLOCKED')).toBe(true);
+    expect(pub(covered.h, a).shield?.pierced).toHaveLength(5);
+
+    const partial = game(['capitaine', 'artificier']);
+    use(partial.h, a, a, { x: 1, y: 1 });
+    // Autour de C3 : C3, B3 et C2 sont protégées ; D3 et C4 sont de l'eau.
+    const burst = shotsOf(use(partial.h, j, a, { x: 2, y: 2 }));
+    expect(burst.map((s) => [s.coord, s.result])).toEqual([
+      [{ x: 2, y: 2 }, 'BLOCKED'],
+      [{ x: 1, y: 2 }, 'BLOCKED'],
+      [{ x: 3, y: 2 }, 'MISS'],
+      [{ x: 2, y: 1 }, 'BLOCKED'],
+      [{ x: 2, y: 3 }, 'MISS'],
     ]);
+  });
+
+  it('en salve : tous les tirs d’une manche sur une même case protégée sont bloqués, puis la case est percée', () => {
+    const { h, ids } = game(['capitaine', 'artificier', 'amiral'], { variant: 'simultaneous' });
+    const [a, j, m] = ids as [string, string, string];
+    h.fire(j, a, { x: 0, y: 0 }); // Julie et Marc visent le croiseur d'Antoine…
+    h.fire(m, a, { x: 0, y: 0 });
+    const resolved = use(h, a, a, { x: 1, y: 1 }); // … qui lève son bouclier dessus
+    expect(shotsOf(resolved).map((s) => [s.shooterId, s.result])).toEqual([
+      [j, 'BLOCKED'],
+      [m, 'BLOCKED'],
+    ]);
+    expect(pub(h, a).revealed).toEqual([]);
+    expect(pub(h, a).shield?.pierced).toEqual([{ x: 0, y: 0 }]);
+    h.fire(a, j, { x: 7, y: 7 });
+    h.fire(j, a, { x: 0, y: 0 });
+    const next = shotsOf(h.fire(m, a, { x: 0, y: 1 }));
+    expect(next.map((s) => [s.shooterId, s.result])).toEqual([
+      [a, 'MISS'],
+      [j, 'HIT'],
+      [m, 'BLOCKED'],
+    ]);
+  });
+
+  it('un tir bloqué compte pour l’anti-acharnement', () => {
+    const { h, ids } = game(['capitaine', 'amiral', 'artificier'], { antiFocusMaxStreak: 1 });
+    const [a, j] = ids as [string, string, string];
+    use(h, a, a, { x: 1, y: 1 });
+    expect(shotOf(h.fire(j, a, { x: 0, y: 0 }))).toMatchObject({ result: 'BLOCKED' });
+    expect(antiFocusBlocked(h.state, j)).toBe(a);
   });
 });
 
@@ -227,6 +261,27 @@ describe('bots et capacités', () => {
         coord: { x: 0, y: 0 },
       });
     }
+  });
+
+  it('tire sous un bouclier pour achever un navire, et revient sur la case qu’il a percée', () => {
+    const { h, ids } = game(['capitaine', 'amiral']);
+    const [a, j] = ids as [string, string];
+    h.fire(a, j, { x: 7, y: 7 });
+    h.fire(j, a, { x: 0, y: 0 }); // touche le croiseur d'Antoine, dans le coin
+    use(h, a, a, { x: 1, y: 1 }); // qui le protège
+    // Les seules suites possibles, B1 et A2, sont sous le bouclier : le bot y tire quand même.
+    const first = botTurn(h, j).find((e) => e.type === 'SHOT_RESOLVED')!;
+    expect(first).toMatchObject({ result: 'BLOCKED' });
+    expect([
+      { x: 1, y: 0 },
+      { x: 0, y: 1 },
+    ]).toContainEqual((first as Extract<GameEvent, { type: 'SHOT_RESOLVED' }>).coord);
+    h.fire(a, j, { x: 6, y: 7 });
+    const second = botTurn(h, j).find((e) => e.type === 'SHOT_RESOLVED')!;
+    expect(second).toMatchObject({
+      coord: (first as Extract<GameEvent, { type: 'SHOT_RESOLVED' }>).coord,
+    });
+    expect(second).not.toMatchObject({ result: 'BLOCKED' });
   });
 
   it('tire son missile sur une touche à achever', () => {

@@ -1,7 +1,6 @@
 import clsx from 'clsx';
-import { radarZone } from '@navale/engine';
 import type { Commander, Coord, PublicPlayer } from '@navale/protocol';
-import { publicGridClasses } from '../../shared/cells.js';
+import { publicGridClasses, shieldMarks } from '../../shared/cells.js';
 import { abilityHint, ordinal } from '../../shared/labels.js';
 import { PlayerAvatar } from '../../shared/ui/Avatar.js';
 import { Grid } from '../../shared/ui/Grid.js';
@@ -63,7 +62,7 @@ export function PlayerZone({
           [...player.revealed, ...reveals],
           player.sunkShips,
           fresh,
-          player.shield ? radarZone({ grid }, player.shield.center, player.shield.size) : [],
+          shieldMarks({ grid }, player.shield, [...player.revealed, ...reveals]),
         )}
         className={clsx(eliminated && 'dim')}
         label={`Grille de ${player.name}`}

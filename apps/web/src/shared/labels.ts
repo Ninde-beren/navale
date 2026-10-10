@@ -97,9 +97,7 @@ export function abilityHint(ability: Ability): string {
     case 'repair':
       return 'Remet en état une case touchée d’un bateau encore à flot.';
     case 'shield':
-      return ability.turns > 1
-        ? `Protège une zone de ${ability.size} × ${ability.size} de ta flotte pendant tes ${ability.turns} prochains tours : les tirs y sont bloqués.`
-        : `Protège une zone de ${ability.size} × ${ability.size} de ta flotte jusqu’à ton prochain tour : les tirs y sont bloqués.`;
+      return `Protège une zone de ${ability.size} × ${ability.size} de ta flotte pour toute la partie : chaque case arrête le premier tir qui la vise.`;
     case 'decoy':
       return 'Pose en secret un faux navire sur une case vide : le premier tir dessus est annoncé « touché », sans rien abîmer.';
   }

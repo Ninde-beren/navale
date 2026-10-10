@@ -24,9 +24,9 @@ import type { ShotToResolve } from './resolve.js';
  * remplace le tir de la manche. Chez un adversaire : le radar apprend, en privé,
  * quelles cases d'une zone portent un navire ; le sonar n'en apprend que le total ;
  * le missile tire sur une case et ses voisines. Sur sa propre flotte : la réparation
- * remet en état une case touchée, le bouclier protège une zone jusqu'à son prochain
- * tour, le leurre pose un faux navire sur une case vide. Ce module calcule les zones
- * et les effets ; `decide` vérifie qui a le droit de jouer quoi.
+ * remet en état une case touchée, le bouclier protège une zone pour toute la partie,
+ * le leurre pose un faux navire sur une case vide. Ce module calcule les zones et les
+ * effets ; `decide` vérifie qui a le droit de jouer quoi.
  */
 
 type Grid = Pick<GameSettings, 'grid'>;
@@ -44,14 +44,27 @@ export function radarZone(settings: Grid, center: Coord, size: number): Coord[] 
   return cells;
 }
 
-/** Une case est-elle sous ce bouclier ? */
-export function shieldCovers(
-  shield: { center: Coord; size: number } | null | undefined,
-  c: Coord,
-): boolean {
+/** Un bouclier tel que l'état et les vues publiques le portent. */
+type ShieldLike = { center: Coord; size: number; pierced: Coord[] };
+
+/**
+ * Ce bouclier protège-t-il encore cette case ? Oui dans sa zone, tant qu'aucun tir ne
+ * l'a percée : chaque case arrête un tir. Un tir sur une case protégée est `BLOCKED`.
+ */
+export function shieldCovers(shield: ShieldLike | null | undefined, c: Coord): boolean {
   if (!shield) return false;
   const half = Math.floor(shield.size / 2);
-  return Math.abs(c.x - shield.center.x) <= half && Math.abs(c.y - shield.center.y) <= half;
+  return (
+    Math.abs(c.x - shield.center.x) <= half &&
+    Math.abs(c.y - shield.center.y) <= half &&
+    !shield.pierced.some((p) => sameCoord(p, c))
+  );
+}
+
+/** Le bouclier après un tir bloqué sur `c` : la case est percée, elle ne protège plus rien. */
+export function pierceShield<S extends ShieldLike>(shield: S | null, c: Coord): S | null {
+  if (!shield || shield.pierced.some((p) => sameCoord(p, c))) return shield;
+  return { ...shield, pierced: [...shield.pierced, c] };
 }
 
 /** Les cases frappées par un missile en croix : la case visée et ses quatre voisines, dans la grille. */
@@ -68,17 +81,14 @@ export function missileCells(settings: Grid, center: Coord): Coord[] {
 
 /**
  * Les cases qu'une rafale de missile frappe vraiment : la croix, sans les cases déjà
- * révélées ni celles qu'un bouclier connu protège.
+ * révélées. Celles qu'un bouclier protège sont frappées comme les autres, et bloquées.
  */
 export function missileStrikes(
   settings: Grid,
   center: Coord,
   revealed: ReadonlyArray<{ coord: Coord }>,
-  shield: { center: Coord; size: number } | null = null,
 ): Coord[] {
-  return missileCells(settings, center).filter(
-    (c) => !revealed.some((r) => sameCoord(r.coord, c)) && !shieldCovers(shield, c),
-  );
+  return missileCells(settings, center).filter((c) => !revealed.some((r) => sameCoord(r.coord, c)));
 }
 
 /**
@@ -192,7 +202,6 @@ export function abilityEffects(
             playerId,
             center: pending.coord,
             size: ability.size,
-            turns: ability.turns,
           },
         ],
         shots: [],
@@ -204,12 +213,7 @@ export function abilityEffects(
       };
     case 'missile': {
       const target = playerById(state, pending.targetId);
-      const cells = missileStrikes(
-        state.settings,
-        pending.coord,
-        target?.shotsReceived ?? [],
-        target?.shield ?? null,
-      );
+      const cells = missileStrikes(state.settings, pending.coord, target?.shotsReceived ?? []);
       const burst = { center: pending.coord, size: cells.length };
       const shots = cells.map((coord) => ({
         shooterId: playerId,

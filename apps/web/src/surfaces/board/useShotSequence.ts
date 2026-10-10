@@ -89,6 +89,8 @@ export function useShotSequence({
           const shooter = playerOf(shot.shooterId);
           if (shot.result === 'SUNK' && shooter)
             setTimeout(() => playSunkJingle(shooter.color), JINGLE_DELAY_MS);
+          // Un tir bloqué ne révèle rien : sa case garde son verre, fêlé à l'instantané suivant.
+          if (shot.result === 'BLOCKED') return;
           setReveals((r) => ({
             ...r,
             [shot.targetId]: [

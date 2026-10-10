@@ -28,8 +28,8 @@ export interface Player {
   abilityUsesLeft: number;
   /** Privé : ce que ses radars et sonars lui ont appris. */
   radarResults: RadarResult[];
-  /** Public : son bouclier, et combien de ses tours il tient encore. */
-  shield: { center: Coord; size: number; turnsLeft: number } | null;
+  /** Public : son bouclier, permanent, et les cases qu'un premier tir a percées. */
+  shield: { center: Coord; size: number; pierced: Coord[] } | null;
   /** Privé : ses leurres, des faux navires sur des cases vides de sa grille. */
   decoys: Coord[];
   name: string;

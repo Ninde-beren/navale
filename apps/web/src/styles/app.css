@@ -852,14 +852,44 @@ body {
 .tv.v2 .nameplate .role.shield {
   color: var(--shield);
 }
-/* Bouclier : la zone protégée, publique, teintée et bordée de bleu sur toutes les grilles. */
+/* Bouclier : un panneau de verre permanent sur la zone protégée, public, sur toutes les
+   grilles ; teinté et bordé de bleu, avec un reflet en biais. Une case percée par un premier
+   tir garde un verre fêlé, en pointillés : sa protection est tombée, le tir suivant passe. */
 .grid .cell.shielded {
   outline: 2px solid color-mix(in oklab, var(--shield) 75%, transparent);
   outline-offset: -2px;
-  background-image: linear-gradient(
-    color-mix(in oklab, var(--shield) 20%, transparent),
-    color-mix(in oklab, var(--shield) 20%, transparent)
-  );
+  background-image:
+    linear-gradient(
+      135deg,
+      transparent 0 34%,
+      color-mix(in oklab, white 30%, transparent) 44%,
+      transparent 56%
+    ),
+    linear-gradient(
+      color-mix(in oklab, var(--shield) 22%, transparent),
+      color-mix(in oklab, var(--shield) 22%, transparent)
+    );
+}
+.grid .cell.pierced {
+  outline: 2px dashed color-mix(in oklab, var(--shield) 70%, transparent);
+  outline-offset: -2px;
+  background-image:
+    linear-gradient(
+      62deg,
+      transparent 0 47%,
+      color-mix(in oklab, var(--shield) 80%, transparent) 48% 51%,
+      transparent 52%
+    ),
+    linear-gradient(
+      -38deg,
+      transparent 0 47%,
+      color-mix(in oklab, var(--shield) 70%, transparent) 48% 51%,
+      transparent 52%
+    ),
+    linear-gradient(
+      color-mix(in oklab, var(--shield) 8%, transparent),
+      color-mix(in oklab, var(--shield) 8%, transparent)
+    );
 }
 /* Leurre, sur ma grille seulement : un faux navire en pointillés, plein une fois tiré. */
 .grid .cell.decoy::before {
@@ -945,6 +975,67 @@ body {
   border-radius: 50%;
   background: radial-gradient(circle, #effaff 0 18%, var(--shield) 40%, transparent 70%);
   animation: block-flash 700ms ease-out forwards;
+}
+/* Puis le verre de la case : la fêlure se trace depuis le point d'impact, et la case vole en
+   éclats à --shatter-at (SHATTER_AT d'audio.ts, calé sur le son). */
+.cell .fx-shatter {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+.cell .fx-shatter svg {
+  position: absolute;
+  inset: -12%;
+  width: 124%;
+  height: 124%;
+  fill: none;
+  stroke: #effaff;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  filter: drop-shadow(0 0 3px var(--shield));
+  animation:
+    crack-draw 220ms ease-out forwards,
+    crack-fade 260ms ease-in var(--shatter-at, 300ms) forwards;
+}
+.cell .fx-shatter i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 42%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  background: color-mix(in oklab, var(--shield) 65%, white);
+  box-shadow: 0 0 6px var(--shield);
+  clip-path: polygon(50% 0, 100% 85%, 0 100%);
+  opacity: 0;
+  animation: shard-fly 650ms cubic-bezier(0.15, 0.7, 0.3, 1) var(--shatter-at, 300ms) forwards;
+}
+@keyframes crack-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes crack-fade {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes shard-fly {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(
+        calc(var(--dx) * (var(--cell) + var(--gap))),
+        calc(var(--dy) * (var(--cell) + var(--gap)) + 0.6 * var(--cell))
+      )
+      rotate(var(--r)) scale(0.5);
+  }
 }
 @keyframes block-flash {
   0% {

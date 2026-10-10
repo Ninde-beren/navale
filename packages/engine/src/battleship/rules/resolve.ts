@@ -44,7 +44,9 @@ export function resolveRound(state: GameState, shots: ShotToResolve[]): RoundRes
     const ship = fleet.find((s) => s.cells.some((c) => sameCoord(c, shot.coord)));
     const burst = shot.burst ? { burst: shot.burst } : {};
     const base = { round, shooterId: shot.shooterId, targetId: shot.targetId, coord: shot.coord };
-    // Bouclier levé dans la même manche (salve) : le tir, engagé avant, est arrêté.
+    // Case encore protégée : le tir est arrêté, rien n'est touché ni révélé, et la case
+    // est percée (`evolve`). Contre l'état de début de manche : en salve, tous les tirs
+    // de la manche sur cette case sont arrêtés, même un bouclier levé dans la manche.
     if (shieldCovers(target.shield, shot.coord)) {
       resolved.push({ ...base, result: 'BLOCKED', ...burst });
       continue;

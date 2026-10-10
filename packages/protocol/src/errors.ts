@@ -33,7 +33,6 @@ export const ErrorCodeSchema = z.enum([
   'COMMANDER_MISSING',
   'ABILITY_UNAVAILABLE',
   'CELL_NOT_REPAIRABLE',
-  'CELL_SHIELDED',
   'CELL_NOT_FREE',
 ]);
 export type ErrorCode = z.infer<typeof ErrorCodeSchema>;

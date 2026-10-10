@@ -40,7 +40,9 @@ function publicPlayer(state: GameState, p: Player, presence: Presence): PublicPl
     substitute: p.substitute,
     commanderId: p.commanderId,
     abilityUsesLeft: p.abilityUsesLeft,
-    shield: p.shield ? { center: p.shield.center, size: p.shield.size } : null,
+    shield: p.shield
+      ? { center: p.shield.center, size: p.shield.size, pierced: p.shield.pierced }
+      : null,
     shipsRemaining: shipsRemaining(p),
     revealed: p.shotsReceived.map((s) => ({ coord: s.coord, result: s.result })),
     sunkShips: p.fleet.filter(isSunk).map((ship) => sunkInfo(state.settings, ship)),
