@@ -1,7 +1,7 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import type { Command, Coord, GameEvent, GameSettings } from '@navale/protocol';
-import { chooseAction } from '../src/battleship/bot/strategy.js';
+import { chooseAction, densestCells } from '../src/battleship/bot/strategy.js';
 import { evolve } from '../src/battleship/evolve.js';
 import { initialState } from '../src/battleship/index.js';
 import {
@@ -12,7 +12,7 @@ import {
 } from '../src/battleship/project.js';
 import { statsOf } from '../src/battleship/rules/end.js';
 import { COMMANDERS, makeSettings } from '../src/battleship/settings.js';
-import { cellsRemaining, type GameState } from '../src/battleship/state.js';
+import { cellsRemaining, coordKey, type GameState } from '../src/battleship/state.js';
 import { mulberry32 } from '../src/core/random.js';
 import { randomFleet } from '../src/battleship/placement.js';
 import { COLORS, FIXED_QUICK, HOST, Harness, player } from './helpers.js';
@@ -41,6 +41,14 @@ function game(commanderIds: string[], over: Partial<GameSettings> = {}) {
 
 const use = (h: Harness, who: string, targetId: string, coord: Coord) =>
   h.expectOk(player(who), { type: 'USE_ABILITY', targetId, coord });
+/** Les cases que la carte de probabilités du bot difficile de `me` place en tête chez `target`. */
+const densest = (h: Harness, me: string, target: string) => {
+  const view = projectPrivate(h.state, me);
+  return densestCells(
+    view,
+    view.players.find((p) => p.playerId === target)!,
+  ).map(coordKey);
+};
 const pub = (h: Harness, id: string) =>
   projectPublic(h.state).players.find((p) => p.playerId === id)!;
 
@@ -251,6 +259,42 @@ describe('bots et capacités', () => {
       expect(radar.contacts).toContainEqual(
         (shot as Extract<GameEvent, { type: 'SHOT_RESOLVED' }>).coord,
       );
+  });
+
+  it('difficile : ne compte plus l’eau vue au radar, ni la zone d’un sonar qui ne trouve rien', () => {
+    // Radar sur D4 chez Julie : deux contacts (C3, C5), sept cases d'eau au cœur de sa grille.
+    const r = game(['amiral', 'ingenieur']);
+    const [a, j] = r.ids as [string, string];
+    const water = ['3,2', '4,2', '2,3', '3,3', '4,3', '3,4', '4,4'];
+    expect(densest(r.h, a, j).some((key) => water.includes(key))).toBe(true);
+    use(r.h, a, j, { x: 3, y: 3 });
+    expect(densest(r.h, a, j).some((key) => water.includes(key))).toBe(false);
+
+    // Sonar sur F6 : zéro case de navire dans la zone 5 × 5, D4 à H8.
+    const s = game(['sonariste', 'ingenieur']);
+    const [b, k] = s.ids as [string, string];
+    const inZone = (key: string) => key.split(',').every((n) => Number(n) >= 3);
+    expect(densest(s.h, b, k).some(inZone)).toBe(true);
+    use(s.h, b, k, { x: 5, y: 5 });
+    expect(densest(s.h, b, k).length).toBeGreaterThan(0);
+    expect(densest(s.h, b, k).some(inZone)).toBe(false);
+  });
+
+  it('difficile : vise la zone d’un sonar qui compte plus de navires que prévu', () => {
+    // Sonar sur B2 : sept cases de navire sur les seize de A1 à D4, bien plus que le hasard.
+    const { h, ids } = game(['sonariste', 'ingenieur']);
+    const [a, j] = ids as [string, string];
+    const inZone = (key: string) => key.split(',').every((n) => Number(n) <= 3);
+    expect(densest(h, a, j).every(inZone)).toBe(false);
+    use(h, a, j, { x: 1, y: 1 });
+    expect(densest(h, a, j).every(inZone)).toBe(true);
+    // Une touche dans la zone : il en reste six à trouver, la zone attire toujours.
+    h.fire(j, a, { x: 7, y: 7 });
+    h.fire(a, j, { x: 0, y: 0 });
+    h.fire(j, a, { x: 7, y: 6 });
+    expect(chooseAction(projectPrivate(h.state, a), mulberry32(4), 'hard').coord).toSatisfy(
+      (c: Coord) => inZone(coordKey(c)),
+    );
   });
 
   it('pose son leurre dès la deuxième manche, sur une case libre', () => {

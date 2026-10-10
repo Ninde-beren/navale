@@ -214,10 +214,11 @@ function huntShot(view: PlayerView, targets: PublicPlayer[], random: () => numbe
 
 /**
  * Difficile : carte de probabilités. Pour chaque bateau non coulé, chaque
- * placement encore possible (dans la grille, sans case ratée ni case d'un bateau
- * coulé connu) ajoute un point à chacune de ses cases non révélées. S'il reste
- * des touches non conclues, seuls les placements qui les recouvrent comptent, et
- * d'autant plus qu'ils en recouvrent. On tire la case au plus fort cumul.
+ * placement encore possible (dans la grille, sans case ratée, sans case d'un bateau
+ * coulé connu, sans case que mes détections savent vide) ajoute un point à chacune
+ * de ses cases non révélées, pondéré par ce que mes sonars ont compté (`sonarFit`).
+ * S'il reste des touches non conclues, seuls les placements qui les recouvrent
+ * comptent, et d'autant plus qu'ils en recouvrent. On tire la case au plus fort cumul.
  */
 function probabilityShot(
   view: PlayerView,
@@ -239,41 +240,29 @@ function probabilityShot(
 
 /** Les cases non révélées au cumul maximal chez une cible ; vide si aucun placement n'est possible. */
 export function densestCells(view: PlayerView, p: PublicPlayer): Coord[] {
-  const { width, height } = view.settings.grid;
   const miss = new Set(p.revealed.filter((r) => r.result === 'MISS').map((r) => coordKey(r.coord)));
   const hit = new Set(p.revealed.filter((r) => r.result === 'HIT').map((r) => coordKey(r.coord)));
   const sunk = new Set(p.sunkShips.flatMap((s) => (s.cells ?? []).map(coordKey)));
   const woundedKeys = new Set(woundedCells(p).map(coordKey));
-  const blocked = (c: Coord) => miss.has(coordKey(c)) || sunk.has(coordKey(c));
+  const known = detections(view, p);
+  const blocked = (c: Coord) =>
+    miss.has(coordKey(c)) || sunk.has(coordKey(c)) || known.water.has(coordKey(c));
+  const fit = sonarFit(view, p, known.sonars, blocked, hit);
 
   const density = new Map<string, number>();
   const count = (onlyThroughWounded: boolean): number => {
     density.clear();
     let total = 0;
-    for (const size of remainingSizes(view, p)) {
-      for (const [dx, dy] of [
-        [1, 0],
-        [0, 1],
-      ] as const) {
-        for (let y = 0; y + dy * (size - 1) < height; y++) {
-          for (let x = 0; x + dx * (size - 1) < width; x++) {
-            const cells = Array.from({ length: size }, (_, i) => ({
-              x: x + dx * i,
-              y: y + dy * i,
-            }));
-            if (cells.some(blocked)) continue;
-            const covers = cells.filter((c) => woundedKeys.has(coordKey(c))).length;
-            const weight = onlyThroughWounded ? covers : 1;
-            if (weight === 0) continue;
-            for (const c of cells) {
-              if (hit.has(coordKey(c))) continue;
-              density.set(coordKey(c), (density.get(coordKey(c)) ?? 0) + weight);
-              total += weight;
-            }
-          }
-        }
+    placements(view, p, blocked, (cells) => {
+      const covers = cells.filter((c) => woundedKeys.has(coordKey(c))).length;
+      const weight = (onlyThroughWounded ? covers : 1) * fit(cells);
+      if (weight === 0) return;
+      for (const c of cells) {
+        if (hit.has(coordKey(c))) continue;
+        density.set(coordKey(c), (density.get(coordKey(c)) ?? 0) + weight);
+        total += weight;
       }
-    }
+    });
     return total;
   };
   if (woundedKeys.size === 0 || count(true) === 0) count(false);
@@ -283,6 +272,107 @@ export function densestCells(view: PlayerView, p: PublicPlayer): Coord[] {
     .filter(([, n]) => n === max)
     .map(([key]) => key.split(',').map(Number))
     .map(([x, y]) => ({ x: x ?? 0, y: y ?? 0 }));
+}
+
+/** Chaque placement encore possible d'un bateau non coulé chez ce joueur : ses cases, aucune `blocked`. */
+function placements(
+  view: PlayerView,
+  p: PublicPlayer,
+  blocked: (c: Coord) => boolean,
+  visit: (cells: Coord[]) => void,
+): void {
+  const { width, height } = view.settings.grid;
+  for (const size of remainingSizes(view, p))
+    for (const [dx, dy] of [
+      [1, 0],
+      [0, 1],
+    ] as const)
+      for (let y = 0; y + dy * (size - 1) < height; y++)
+        for (let x = 0; x + dx * (size - 1) < width; x++) {
+          const cells = Array.from({ length: size }, (_, i) => ({ x: x + dx * i, y: y + dy * i }));
+          if (!cells.some(blocked)) visit(cells);
+        }
+}
+
+/** Un sonar chez ce joueur : ses cases encore inconnues, et combien de cases de navire il y reste. */
+interface SonarCount {
+  cells: Set<string>;
+  left: number;
+}
+
+/**
+ * Ce que mes radars et mes sonars ont appris chez ce joueur. `water` : les cases sûres
+ * d'être de l'eau, la zone d'un radar hors de ses contacts, et toute la zone d'un sonar
+ * dont le total est déjà trouvé. `sonars` : pour les autres sonars, les cases inconnues
+ * de la zone et le nombre de cases de navire qui y restent, le total moins les touches
+ * déjà révélées dedans (un leurre compte comme un navire, pour le sonar comme au tir).
+ */
+function detections(
+  view: PlayerView,
+  p: PublicPlayer,
+): { water: Set<string>; sonars: SonarCount[] } {
+  const hits = new Set(p.revealed.filter((r) => r.result === 'HIT').map((r) => coordKey(r.coord)));
+  const revealed = new Set(p.revealed.map((r) => coordKey(r.coord)));
+  const water = new Set<string>();
+  const counts: SonarCount[] = [];
+  for (const r of view.me.radarResults) {
+    if (r.targetId !== p.playerId) continue;
+    const zone = radarZone(view.settings, r.center, r.size).map(coordKey);
+    if (r.contacts) {
+      const ships = new Set(r.contacts.map(coordKey));
+      for (const key of zone) if (!ships.has(key)) water.add(key);
+    } else {
+      // Un leurre posé après le sondage et tiré dans la zone peut faire passer le reste sous zéro.
+      const left = Math.max(0, r.shipCells - zone.filter((key) => hits.has(key)).length);
+      counts.push({ cells: new Set(zone.filter((key) => !revealed.has(key))), left });
+    }
+  }
+  for (const count of counts) if (count.left === 0) for (const key of count.cells) water.add(key);
+  return { water, sonars: counts.filter((count) => count.left > 0) };
+}
+
+/**
+ * Le poids d'un placement d'après le total de mes sonars. Un bateau qui couvrirait plus
+ * de cases inconnues d'une zone qu'il n'y reste de cases de navire est impossible (0).
+ * Sinon, s'il en couvre `k`, les autres bateaux doivent fournir `left - k` cases dans la
+ * zone : en approchant leur apport par une loi de Poisson de moyenne `λ`, les cases qu'on
+ * y attendait sans le sonar, le poids vaut left × (left - 1) × … (k facteurs) / λ^k.
+ * Une zone qui compte plus que prévu attire les placements, une zone pauvre les repousse.
+ */
+function sonarFit(
+  view: PlayerView,
+  p: PublicPlayer,
+  sonars: SonarCount[],
+  blocked: (c: Coord) => boolean,
+  hit: Set<string>,
+): (cells: Coord[]) => number {
+  if (sonars.length === 0) return () => 1;
+  // Sans le sonar : la part de chaque case dans les placements possibles, ramenée
+  // au nombre de cases de navire encore inconnues.
+  const prior = new Map<string, number>();
+  let total = 0;
+  placements(view, p, blocked, (cells) => {
+    for (const c of cells)
+      if (!hit.has(coordKey(c))) {
+        prior.set(coordKey(c), (prior.get(coordKey(c)) ?? 0) + 1);
+        total++;
+      }
+  });
+  const unknownShipCells =
+    remainingSizes(view, p).reduce((sum, size) => sum + size, 0) - woundedCells(p).length;
+  const expected = sonars.map((count) => {
+    let mass = 0;
+    for (const key of count.cells) mass += prior.get(key) ?? 0;
+    return Math.max((mass / Math.max(total, 1)) * unknownShipCells, Number.EPSILON);
+  });
+  return (cells) => {
+    let weight = 1;
+    sonars.forEach((count, i) => {
+      const k = cells.filter((c) => count.cells.has(coordKey(c))).length;
+      for (let j = 0; j < k; j++) weight *= Math.max(0, count.left - j) / expected[i]!;
+    });
+    return weight;
+  };
 }
 
 /** Tailles des bateaux non coulés chez un joueur, d'après la flotte des réglages et ses bateaux coulés. */
