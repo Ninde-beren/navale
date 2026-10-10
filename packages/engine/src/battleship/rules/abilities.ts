@@ -43,11 +43,12 @@ export function missileStrikes(
 }
 
 /**
- * Cadence d'une rafale : les tirs partent à ce rythme, puis une seule annonce suit,
- * avec le délai d'annonce ordinaire. Dérivée de `settings.revealDelayMs`.
+ * Écart entre deux départs de missile d'une rafale : ils partent l'un après l'autre,
+ * volent ensemble, puis les impacts s'enchaînent ; une seule annonce suit. Dérivé de
+ * `settings.revealDelayMs`, assez court pour que tous partent avant le premier impact.
  */
-export function burstStepMs(revealDelayMs: number): number {
-  return Math.round(revealDelayMs / 4);
+export function burstStaggerMs(revealDelayMs: number): number {
+  return Math.round(revealDelayMs * 0.06);
 }
 
 /** Les cases touchées d'une flotte qu'une réparation peut remettre en état : sur un bateau non coulé. */

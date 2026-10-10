@@ -1,4 +1,10 @@
-import { battleship, burstStepMs, privateRecipient, publicEvent, sameCoord } from '@navale/engine';
+import {
+  battleship,
+  burstStaggerMs,
+  privateRecipient,
+  publicEvent,
+  sameCoord,
+} from '@navale/engine';
 import type { EventEnvelope, GameView } from '@navale/protocol';
 import type { PresenceTracker } from '../realtime/presence.js';
 import { gameRoom, playerRoom, socketsInGame } from '../realtime/rooms.js';
@@ -34,8 +40,9 @@ export class Publisher {
     envelopes.forEach((envelope, i) => {
       this.schedule(releaseAt - now, () => this.emitEvent(gameId, envelope));
       const event = envelope.event;
-      // Chaque tir, et chaque capacité jouée, a droit à son temps d'annonce sur l'écran central ;
-      // les tirs d'une rafale de missile partent à la suite et ne sont annoncés qu'une fois, au dernier.
+      // Chaque tir, et chaque capacité jouée, a droit à son temps d'annonce sur l'écran central.
+      // Les tirs d'une rafale de missile partent ensemble : l'écran central les fait décoller à
+      // la suite et ne les annonce qu'une fois ; le délai suit le dernier, allongé des départs décalés.
       if (event.type === 'SHOT_RESOLVED') {
         const next = envelopes[i + 1]?.event;
         const continues =
@@ -44,7 +51,8 @@ export class Publisher {
           next.burst !== undefined &&
           next.shooterId === event.shooterId &&
           sameCoord(next.burst.center, event.burst.center);
-        releaseAt += continues ? burstStepMs(delay) : delay;
+        if (!continues)
+          releaseAt += delay + (event.burst ? (event.burst.size - 1) * burstStaggerMs(delay) : 0);
       } else if (event.type === 'ABILITY_USED' && event.ability !== 'missile') {
         releaseAt += delay;
       }

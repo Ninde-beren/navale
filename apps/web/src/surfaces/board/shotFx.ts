@@ -14,12 +14,35 @@ export interface ShotFxHooks {
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** Les éléments d'un missile en vol : le projectile, sa traînée, l'explosion et le plouf. */
+interface Missile {
+  missile: HTMLElement;
+  trail: SVGPathElement;
+  glow: SVGPathElement;
+  hot: SVGPathElement;
+  boom: Element;
+  splash: Element;
+}
+
+/** Ce qu'il faut mesurer pour un tir : les zones, la plaque du tireur, la case et la trajectoire. */
+interface Path {
+  targetZone: HTMLElement | null;
+  plate: HTMLElement;
+  d: string;
+  x1: number;
+  y1: number;
+}
+
+/** Les classes d'état qu'une copie du calque ne doit pas hériter de l'original. */
+const STATES = ['show', 'draw', 'fade', 'on', 'go'];
+
 /**
  * Séquence d'un tir sur l'écran central, reprise des maquettes de conception :
  * flash sur la plaque du tireur, missile qui suit une trajectoire courbe en ne
  * laissant sa trace que derrière lui, explosion ou plouf sur la case, puis le
  * callout. Dessin en CSS/SVG (classes de `mockup.css`), positions mesurées dans le DOM.
  * Les tirs d'une salve s'enchaînent dans l'ordre reçu : une file, jamais deux à la fois.
+ * Seule exception, la rafale d'un missile : ses tirs volent ensemble (`playBurst`).
  */
 export class ShotFx {
   private queue: Promise<void> = Promise.resolve();
@@ -45,22 +68,26 @@ export class ShotFx {
   }
 
   /**
-   * Un tir de rafale : même vol et même impact, en `stepMs`, sans annonce ni retour
-   * à la normale du centre ; `finish` les fait après le dernier tir.
+   * Une rafale : les missiles partent l'un après l'autre à `staggerMs` d'écart, volent
+   * ensemble, puis les impacts s'enchaînent dans le même ordre. Chaque missile a ses
+   * propres éléments, copiés du calque et retirés après coup. Pas d'annonce ici :
+   * l'appelant annonce le verdict de la rafale, puis appelle `finish`.
    */
-  playQuick(shot: ShotFxShot, stepMs: number): Promise<void> {
-    return this.enqueue(() => this.run(shot, stepMs, true));
+  playBurst(shots: ShotFxShot[], revealDelayMs: number, staggerMs: number): Promise<void> {
+    return this.enqueue(async () => {
+      this.dim(true);
+      await Promise.all(
+        shots.map(async (shot, i) => {
+          await sleep(i * staggerMs);
+          if (!this.disposed) await this.runCopy(shot, revealDelayMs);
+        }),
+      );
+    });
   }
 
-  /** Fin d'une rafale : l'explosion et le plouf s'effacent, le centre se rallume. */
+  /** Fin d'une rafale : le centre se rallume. */
   finish(): void {
-    this.$('.fx .boom')?.classList.remove('go');
-    this.$('.fx .splash')?.classList.remove('go');
-    this.$('.fx .trail')?.classList.add('fade');
-    this.$('.fx .trail-glow')?.classList.add('fade');
-    this.root()
-      ?.querySelectorAll('.centre .dimmable')
-      .forEach((el) => el.classList.remove('dim'));
+    this.dim(false);
   }
 
   /** Place une annonce (élimination…) dans la file, après les tirs déjà en attente. */
@@ -78,6 +105,12 @@ export class ShotFx {
     return this.root()?.querySelector<HTMLElement>(sel) ?? null;
   }
 
+  private dim(on: boolean): void {
+    this.root()
+      ?.querySelectorAll('.centre .dimmable')
+      .forEach((el) => el.classList.toggle('dim', on));
+  }
+
   private centerOf(el: Element): [number, number] {
     const screen = this.$('.screen') ?? this.root()!;
     const s = screen.getBoundingClientRect();
@@ -86,88 +119,125 @@ export class ShotFx {
     return [(r.left + r.width / 2 - s.left) / k, (r.top + r.height / 2 - s.top) / k];
   }
 
-  private async run(shot: ShotFxShot, revealDelayMs: number, quick = false): Promise<void> {
-    const root = this.root();
-    if (!root || this.disposed) return;
-    const { flight, impact, hold } = quick
-      ? {
-          flight: Math.max(200, Math.round(revealDelayMs * 0.55)),
-          impact: Math.max(120, Math.round(revealDelayMs * 0.45)),
-          hold: 0,
-        }
-      : ShotFx.timings(revealDelayMs);
-    const shooterZone = this.$(`.zone[data-player="${shot.shooterId}"]`);
-    const targetZone = this.$(`.zone[data-player="${shot.targetId}"]`);
-    const plate = shooterZone?.querySelector<HTMLElement>('.nameplate .avatar');
-    const cell = targetZone?.querySelector<HTMLElement>(
-      `.cell[data-x="${shot.coord.x}"][data-y="${shot.coord.y}"]`,
-    );
+  /** Le calque d'effets de l'écran ; `null` tant qu'il n'est pas monté. */
+  private layer(): Missile | null {
     const missile = this.$('.missile');
     const trail = this.$('.fx .trail') as SVGPathElement | null;
     const glow = this.$('.fx .trail-glow') as SVGPathElement | null;
     const hot = this.$('.fx .hot') as SVGPathElement | null;
     const boom = this.$('.fx .boom');
     const splash = this.$('.fx .splash');
-    this.hooks.onLaunch?.(shot);
-    if (!plate || !cell || !missile || !trail || !glow || !hot || !boom || !splash) {
-      // Écran pas encore prêt : on révèle et on annonce sans animer.
-      this.hooks.onImpact(shot);
-      if (quick) return;
-      this.hooks.onCallout(shot);
-      await sleep(hold);
-      this.hooks.onCallout(null);
-      return;
-    }
+    if (!missile || !trail || !glow || !hot || !boom || !splash) return null;
+    return { missile, trail, glow, hot, boom, splash };
+  }
 
+  /** La trajectoire d'un tir, de la plaque du tireur à la case visée ; `null` si l'écran n'est pas prêt. */
+  private path(shot: ShotFxShot): Path | null {
+    const shooterZone = this.$(`.zone[data-player="${shot.shooterId}"]`);
+    const targetZone = this.$(`.zone[data-player="${shot.targetId}"]`);
+    const plate = shooterZone?.querySelector<HTMLElement>('.nameplate .avatar');
+    const cell = targetZone?.querySelector<HTMLElement>(
+      `.cell[data-x="${shot.coord.x}"][data-y="${shot.coord.y}"]`,
+    );
+    if (!plate || !cell) return null;
     const [x0, y0] = this.centerOf(plate);
     const [x1, y1] = this.centerOf(cell);
     // Point de contrôle vers le centre de l'écran, pour une courbe qui traverse la scène.
     const cx = (x0 + x1) / 2 + (960 - (x0 + x1) / 2) * 0.5;
     const cy = (y0 + y1) / 2 + (540 - (y0 + y1) / 2) * 0.5;
     const d = `M${x0.toFixed(1)} ${y0.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${x1.toFixed(1)} ${y1.toFixed(1)}`;
+    return { targetZone, plate, d, x1, y1 };
+  }
 
-    // 1. Départ
+  /** Départ, vol et impact d'un missile ; rend la main juste après l'impact, l'effet encore visible. */
+  private async launch(
+    shot: ShotFxShot,
+    path: Path,
+    els: Missile,
+    flight: number,
+    impact: number,
+  ): Promise<Element> {
     // `launching`, pas `launch` : cette classe-là habille le bloc de lancement du lobby.
-    replay(plate.parentElement!, 'launching');
-    this.root()
-      ?.querySelectorAll('.centre .dimmable')
-      .forEach((el) => el.classList.add('dim'));
-    await this.fly(d, flight, { missile, trail, glow, hot });
-    if (this.disposed) return;
-
-    // 2. Impact
-    missile.classList.remove('show');
-    hot.classList.remove('on');
-    const fx = shot.result === 'MISS' ? splash : boom;
-    fx.setAttribute('transform', `translate(${x1.toFixed(1)} ${y1.toFixed(1)})`);
+    replay(path.plate.parentElement!, 'launching');
+    await this.fly(path.d, flight, els);
+    if (this.disposed) return els.boom;
+    els.missile.classList.remove('show');
+    els.hot.classList.remove('on');
+    const fx = shot.result === 'MISS' ? els.splash : els.boom;
+    fx.setAttribute('transform', `translate(${path.x1.toFixed(1)} ${path.y1.toFixed(1)})`);
     replay(fx, 'go');
-    if (targetZone) {
-      targetZone.classList.toggle('wet', shot.result === 'MISS');
-      targetZone.classList.add('impact');
-      replay(targetZone, 'shake');
+    const zone = path.targetZone;
+    if (zone) {
+      zone.classList.toggle('wet', shot.result === 'MISS');
+      zone.classList.add('impact');
+      replay(zone, 'shake');
     }
     await sleep(Math.round(impact * 0.3));
     this.hooks.onImpact(shot);
     await sleep(Math.round(impact * 0.7));
-    if (quick) {
-      // Rafale : paf, et le suivant part tout de suite ; l'annonce viendra après le dernier.
-      targetZone?.classList.remove('impact', 'wet');
+    return fx;
+  }
+
+  private async run(shot: ShotFxShot, revealDelayMs: number): Promise<void> {
+    if (!this.root() || this.disposed) return;
+    const { flight, impact, hold } = ShotFx.timings(revealDelayMs);
+    const els = this.layer();
+    const path = this.path(shot);
+    this.hooks.onLaunch?.(shot);
+    if (!els || !path) {
+      // Écran pas encore prêt : on révèle et on annonce sans animer.
+      this.hooks.onImpact(shot);
+      this.hooks.onCallout(shot);
+      await sleep(hold);
+      this.hooks.onCallout(null);
       return;
     }
-
-    // 3. Callout, toujours au centre de l'écran
+    this.dim(true);
+    const fx = await this.launch(shot, path, els, flight, impact);
+    if (this.disposed) return;
+    // Callout, toujours au centre de l'écran
     this.hooks.onCallout(shot);
     await sleep(300);
-    trail.classList.add('fade');
-    glow.classList.add('fade');
+    els.trail.classList.add('fade');
+    els.glow.classList.add('fade');
     await sleep(Math.max(0, hold - 300));
     this.hooks.onCallout(null);
     fx.classList.remove('go');
     await sleep(250);
-    targetZone?.classList.remove('impact', 'wet');
-    this.root()
-      ?.querySelectorAll('.centre .dimmable')
-      .forEach((el) => el.classList.remove('dim'));
+    path.targetZone?.classList.remove('impact', 'wet');
+    this.dim(false);
+  }
+
+  /** Un missile de rafale, sur une copie du calque : plusieurs peuvent voler en même temps. */
+  private async runCopy(shot: ShotFxShot, revealDelayMs: number): Promise<void> {
+    const { flight, impact } = ShotFx.timings(revealDelayMs);
+    const layer = this.layer();
+    const path = this.path(shot);
+    this.hooks.onLaunch?.(shot);
+    if (!layer || !path) {
+      this.hooks.onImpact(shot);
+      return;
+    }
+    const copy = <T extends Element>(el: T): T => {
+      const c = el.cloneNode(true) as T;
+      c.classList.remove(...STATES);
+      el.parentNode?.insertBefore(c, el);
+      return c;
+    };
+    const els: Missile = {
+      missile: copy(layer.missile),
+      trail: copy(layer.trail),
+      glow: copy(layer.glow),
+      hot: copy(layer.hot),
+      boom: copy(layer.boom),
+      splash: copy(layer.splash),
+    };
+    await this.launch(shot, path, els, flight, impact);
+    els.trail.classList.add('fade');
+    els.glow.classList.add('fade');
+    path.targetZone?.classList.remove('impact', 'wet');
+    // L'explosion et le plouf finissent de s'animer, puis la copie disparaît.
+    setTimeout(() => Object.values(els).forEach((el) => el.remove()), 1400);
   }
 
   private fly(

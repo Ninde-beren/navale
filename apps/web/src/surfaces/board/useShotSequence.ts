@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { burstStepMs } from '@navale/engine';
+import { burstStaggerMs } from '@navale/engine';
 import {
   coordLabel,
   type Coord,
@@ -118,14 +118,15 @@ export function useShotSequence({
       if (eventSeq <= lastSeq.current) continue;
       lastSeq.current = eventSeq;
       if (event.type === 'SHOT_RESOLVED' && event.burst) {
-        // Rafale de missile : paf paf paf, puis une seule annonce avec son verdict.
+        // Rafale de missile : tir, tir, tir, puis impact, impact, impact, et une seule annonce.
+        // Les tirs arrivent ensemble ; la rafale part quand on les a tous.
         const { type: _type, ...shot } = event;
         if (!sameBurst(burst.current.at(-1), shot)) burst.current = [];
         burst.current.push(shot);
-        void fx.playQuick(shot, burstStepMs(revealDelayMs));
         if (burst.current.length >= event.burst.size) {
           const shots = burst.current;
           burst.current = [];
+          void fx.playBurst(shots, revealDelayMs, burstStaggerMs(revealDelayMs));
           const result = burstResult(shots);
           const where = `Missile ${coordLabel(event.burst.center)} · ${nameOf(event.shooterId)} → ${nameOf(event.targetId)}`;
           void fx.enqueue(async () => {

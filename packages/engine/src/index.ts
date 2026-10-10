@@ -31,7 +31,7 @@ export {
   validateSettings,
 } from './battleship/settings.js';
 export {
-  burstStepMs,
+  burstStaggerMs,
   missileCells,
   radarZone,
   repairableCells,
