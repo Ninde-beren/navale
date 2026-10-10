@@ -115,6 +115,7 @@ export function registerAdmin(app: FastifyInstance, deps: AdminDeps, config: Ser
         played: deps.history.playedGames(),
         marks: deps.marks.all(),
         marksSince: deps.marks.since(),
+        hostLinkSince: deps.marks.since('host_link'),
         since: period.days === null ? null : now - period.days * DAY_MS,
       }),
       period: period.id satisfies PeriodId,

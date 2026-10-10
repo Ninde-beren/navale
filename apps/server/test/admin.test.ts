@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { io as connect } from 'socket.io-client';
+import type { HostLink } from '@navale/protocol';
 import { basicCredentials } from '../src/http/admin.js';
 import { parisDay } from '../src/admin/stats.js';
 import { OBSERVER_COOKIE } from '../src/admin/tracking.js';
@@ -276,6 +277,37 @@ describe('statistiques d’utilisation', () => {
     expect((await share('board', 'ZZZZ')).statusCode).toBe(404);
   });
 
+  it('donne le lien d’hôte à l’hôte seul, et note son affichage puis son ouverture ailleurs', async () => {
+    const g = await createGame(baseUrl);
+    const other = await createGame(baseUrl);
+    const post = (path: string, payload: unknown, code = g.code) =>
+      app.app.inject({ method: 'POST', url: `/api/games/${code}/${path}`, payload });
+    expect((await post('host-link', {})).statusCode).toBe(400);
+    expect((await post('host-link', { hostToken: 'faux' })).statusCode).toBe(403);
+    // Le jeton d'hôte d'une autre partie n'ouvre pas celle-ci, ni l'inverse.
+    expect((await post('host-link', { hostToken: other.hostToken })).statusCode).toBe(403);
+    expect(
+      (await post('host-link/opened', { hostToken: g.hostToken }, other.code)).statusCode,
+    ).toBe(403);
+    expect(app.marks.all().get(g.gameId)).toBeUndefined();
+
+    const shown = await post('host-link', { hostToken: g.hostToken });
+    expect(shown.statusCode).toBe(200);
+    expect(shown.headers['cache-control']).toBe('no-store');
+    const link = shown.json<HostLink>();
+    // Le jeton après le # : le navigateur qui ouvre le lien ne l'envoie pas dans l'adresse.
+    expect(link.url).toBe(`https://navale.test/host/${g.code}#${g.hostToken}`);
+    expect(link.qr).toContain('<svg');
+    expect([...(app.marks.all().get(g.gameId) ?? [])]).toEqual(['host_link']);
+
+    // Le code se tape aussi en minuscules ; ouvrir deux fois ne note qu'une fois.
+    expect(
+      (await post('host-link/opened', { hostToken: g.hostToken }, g.code.toLowerCase())).statusCode,
+    ).toBe(204);
+    expect((await post('host-link/opened', { hostToken: g.hostToken })).statusCode).toBe(204);
+    expect([...(app.marks.all().get(g.gameId) ?? [])].sort()).toEqual(['host_link', 'host_moved']);
+  });
+
   it('compte une partie lancée contre un bot, partagée et ouverte ailleurs', async () => {
     const g = await createGame(baseUrl);
     const board = await open(baseUrl, { kind: 'board', code: g.code, hostToken: g.hostToken });
@@ -292,6 +324,12 @@ describe('statistiques d’utilisation', () => {
       payload: { from: 'board' },
     });
     const remote = await open(baseUrl, { kind: 'board', code: g.code });
+    for (const path of ['host-link', 'host-link/opened'])
+      await app.app.inject({
+        method: 'POST',
+        url: `/api/games/${g.code}/${path}`,
+        payload: { hostToken: g.hostToken },
+      });
     expect((await command(board, { type: 'START_GAME' })).ok).toBe(true);
 
     const html = (await statsPage()).body;
@@ -299,6 +337,8 @@ describe('statistiques d’utilisation', () => {
     expect(text(html, 'usage-humans')).toBe('50 %');
     expect(text(html, 'usage-remote')).toBe('100 %');
     expect(text(html, 'usage-shared')).toBe('100 %');
+    expect(text(html, 'usage-host-moved')).toBe('100 %');
+    expect(text(html, 'usage-host-link')).toBe('100 %');
     expect(html).toContain('Tour par tour · classique 10×10 · 2 joueurs · sans commandants');
 
     for (const socket of [board, me, remote]) socket.disconnect();

@@ -115,6 +115,7 @@ export function renderUsagePage({ stats, period, now, version }: UsagePageInput)
   const r = stats.remote;
   const physical = r.measured - r.remote;
   const since = day.format(r.since);
+  const h = stats.hostLink;
   const commanders = stats.commanders.rows;
   const humanPicks = commanders.reduce((n, c) => n + c.humanPicks, 0);
   const favourite = commanders[0]?.humanPicks ? commanders[0] : null;
@@ -181,6 +182,13 @@ export function renderUsagePage({ stats, period, now, version }: UsagePageInput)
       ${tile('usage-shared', percent(r.shared, r.measured), 'Lien de l’écran partagé', `${num.format(r.sharedBoard)} depuis l’écran central · ${num.format(r.sharedPhone)} depuis un téléphone`)}
     </div>
     <p class="note">Mesuré depuis le ${since} ; les parties d’avant ne comptent pas ici. « À distance » : l’écran central de la partie s’est ouvert sur un autre appareil que celui de l’hôte, par le lien partagé. « Partagé » : quelqu’un a touché le bouton de partage, que le lien ait servi ou non. Une revanche garde le constat de la partie d’avant. Tes « Voir l’écran » depuis l’administration ne comptent pas.</p>
+
+    <h2>Lien d’hôte</h2>
+    <div class="tiles">
+      ${tile('usage-host-moved', percent(h.moved, h.measured), 'Hôte passé sur un autre appareil', `${num.format(h.moved)} sur ${num.format(h.measured)} : le lien d’hôte a servi`)}
+      ${tile('usage-host-link', percent(h.shown, h.measured), 'Lien d’hôte affiché', `${num.format(h.shown)} parties : l’hôte a ouvert « Changer d’appareil hôte »`)}
+    </div>
+    <p class="note">Mesuré depuis le ${day.format(h.since)}, la mise en ligne du lien d’hôte. « Affiché » : l’hôte a ouvert le lien depuis l’écran central, qu’il ait servi ou non. « Passé » : un autre appareil a ouvert le lien et pris les boutons de l’hôte ; celui qui l’a montré les garde. Une revanche garde le constat de la partie d’avant.</p>
 `,
   });
 }

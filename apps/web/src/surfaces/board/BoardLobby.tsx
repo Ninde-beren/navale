@@ -19,6 +19,7 @@ import { useFitText } from '../../shared/useFitText.js';
 import { PlayerAvatar } from '../../shared/ui/Avatar.js';
 import { FeedbackButton } from '../../shared/ui/Feedback.js';
 import { FlatButton } from '../../shared/ui/FlatButton.js';
+import { HostLinkButton } from '../../shared/ui/HostLink.js';
 import { ShareButton } from '../../shared/ui/ShareButton.js';
 import { Wordmark } from '../../shared/ui/Wordmark.js';
 
@@ -253,6 +254,7 @@ export function BoardLobby({ view, socket }: { view: GameView; socket: SocketRef
                     Retirer le bot
                   </button>
                 )}
+                <HostLinkButton code={code} label="Changer d’appareil" />
                 <button
                   className="btn danger"
                   onClick={() => {
@@ -260,7 +262,7 @@ export function BoardLobby({ view, socket }: { view: GameView; socket: SocketRef
                       void sendCommand(socket.current, { type: 'CANCEL_GAME' });
                   }}
                 >
-                  Annuler la partie
+                  Annuler
                 </button>
               </div>
             )}

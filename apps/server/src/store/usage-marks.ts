@@ -4,9 +4,18 @@ import type { DatabaseSync } from 'node:sqlite';
  * Ce que le journal ne dit pas sur la façon de jouer, noté une fois par partie :
  * - `shared_board` : l'écran central a partagé son lien (bouton de partage du lobby) ;
  * - `shared_phone` : un téléphone a invité des amis à distance ;
- * - `remote_board` : l'écran de la partie s'est ouvert sur un autre appareil que celui de l'hôte.
+ * - `remote_board` : l'écran de la partie s'est ouvert sur un autre appareil que celui de l'hôte ;
+ * - `host_link` : l'hôte a affiché son lien d'hôte (« Changer d'appareil hôte ») ;
+ * - `host_moved` : ce lien s'est ouvert sur un autre appareil, qui a pris les boutons de l'hôte.
  */
-export type GameMark = 'shared_board' | 'shared_phone' | 'remote_board';
+export type GameMark =
+  'shared_board' | 'shared_phone' | 'remote_board' | 'host_link' | 'host_moved';
+
+/**
+ * Ce que l'on mesure, chacun depuis sa mise en ligne : les marques de partage et de jeu à
+ * distance, puis celles du lien d'hôte, arrivées plus tard.
+ */
+export type Measure = 'marks' | 'host_link';
 
 /**
  * Marques d'usage, pour les statistiques de l'administration : anonymes, sans adresse
@@ -27,10 +36,10 @@ export class UsageMarks {
         value TEXT NOT NULL
       );
     `);
-    // Les parties d'avant la mesure n'ont aucune marque : les pourcentages partent d'ici.
-    db.prepare("INSERT OR IGNORE INTO usage_meta (key, value) VALUES ('marks_since', ?)").run(
-      String(Date.now()),
-    );
+    // Les parties d'avant une mesure n'en ont aucune marque : ses pourcentages partent d'ici.
+    const start = db.prepare('INSERT OR IGNORE INTO usage_meta (key, value) VALUES (?, ?)');
+    for (const measure of ['marks', 'host_link'] satisfies Measure[])
+      start.run(`${measure}_since`, String(Date.now()));
   }
 
   /** Note la marque ; la première fois seulement, les suivantes ne changent rien. */
@@ -55,10 +64,11 @@ export class UsageMarks {
     return out;
   }
 
-  /** Début de la mesure : la première ouverture de la base avec cette table. */
-  since(): number {
-    const row = this.db.prepare("SELECT value FROM usage_meta WHERE key = 'marks_since'").get() as
-      { value: string } | undefined;
+  /** Début d'une mesure : la première ouverture de la base qui la connaissait. */
+  since(measure: Measure = 'marks'): number {
+    const row = this.db
+      .prepare('SELECT value FROM usage_meta WHERE key = ?')
+      .get(`${measure}_since`) as { value: string } | undefined;
     return Number(row?.value ?? Date.now());
   }
 }

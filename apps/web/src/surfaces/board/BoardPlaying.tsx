@@ -9,6 +9,7 @@ import { useCommittedShooters, useGame } from '../../shared/store.js';
 import { PlayerAvatar } from '../../shared/ui/Avatar.js';
 import { FeedbackButton } from '../../shared/ui/Feedback.js';
 import { FlatButton } from '../../shared/ui/FlatButton.js';
+import { HostLinkButton } from '../../shared/ui/HostLink.js';
 import { SoundButton } from '../../shared/ui/SoundButton.js';
 import { Wordmark } from '../../shared/ui/Wordmark.js';
 import { timerSuffix, useCountdown } from '../../shared/useCountdown.js';
@@ -203,6 +204,7 @@ export function BoardPlaying({
             </>
           )}
           <span className="flex items-center gap-3">
+            {view.isHost && <HostLinkButton code={view.code} variant="icon" />}
             <SoundButton />
             <FlatButton />
             <FeedbackButton />

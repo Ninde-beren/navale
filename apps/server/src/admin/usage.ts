@@ -62,6 +62,15 @@ export interface UsageStats {
     shared: number;
     remote: number;
   };
+  hostLink: {
+    /** Début de la mesure : la mise en ligne du lien d'hôte. */
+    since: number;
+    measured: number;
+    /** Parties où l'hôte a affiché son lien. */
+    shown: number;
+    /** Parties où le lien a servi : un autre appareil a pris les boutons de l'hôte. */
+    moved: number;
+  };
 }
 
 export interface UsageInput {
@@ -69,6 +78,7 @@ export interface UsageInput {
   played: PlayedGame[];
   marks: Map<string, Set<GameMark>>;
   marksSince: number;
+  hostLinkSince: number;
   /** Début de la période ; `null` pour tout l'historique. */
   since: number | null;
   /** Lignes gardées dans le tableau des configurations. */
@@ -154,6 +164,7 @@ export function usageStats({
   played,
   marks,
   marksSince,
+  hostLinkSince,
   since,
   topConfigurations = 10,
 }: UsageInput): UsageStats {
@@ -178,8 +189,9 @@ export function usageStats({
     }
   }
   const measured = games.filter((g) => g.startedAt >= marksSince);
-  const withMark = (mark: GameMark) =>
-    measured.filter((g) => effectiveMarks.get(g.gameId)?.has(mark)).length;
+  const withMark = (mark: GameMark, among = measured) =>
+    among.filter((g) => effectiveMarks.get(g.gameId)?.has(mark)).length;
+  const hostLinkMeasured = games.filter((g) => g.startedAt >= hostLinkSince);
 
   const seats = games.flatMap((g) => g.seats);
   const bots = seats.filter((s) => s.kind === 'bot');
@@ -346,6 +358,12 @@ export function usageStats({
         return m?.has('shared_board') || m?.has('shared_phone');
       }).length,
       remote: withMark('remote_board'),
+    },
+    hostLink: {
+      since: hostLinkSince,
+      measured: hostLinkMeasured.length,
+      shown: withMark('host_link', hostLinkMeasured),
+      moved: withMark('host_moved', hostLinkMeasured),
     },
   };
 }

@@ -47,6 +47,25 @@ export const GameSharedRequestSchema = z.object({ from: ShareSourceSchema });
 export type GameSharedRequest = z.infer<typeof GameSharedRequestSchema>;
 
 /**
+ * `POST /api/games/:code/host-link` (le lien d'hôte et son QR, pour les montrer) et
+ * `POST /api/games/:code/host-link/opened` (le lien ouvert sur un autre appareil) : le jeton
+ * d'hôte prouve que la demande vient de l'hôte de cette partie.
+ */
+export const HostLinkRequestSchema = z.object({ hostToken: z.string().min(1).max(128) });
+export type HostLinkRequest = z.infer<typeof HostLinkRequestSchema>;
+
+/**
+ * Le lien d'hôte : l'appareil qui l'ouvre reçoit les boutons de l'hôte, celui qui l'a
+ * montré les garde. Le jeton y suit un `#`, le navigateur ne l'envoie dans aucune requête.
+ */
+export const HostLinkSchema = z.object({
+  url: z.string(),
+  /** Le QR code du lien, en SVG. */
+  qr: z.string(),
+});
+export type HostLink = z.infer<typeof HostLinkSchema>;
+
+/**
  * `GET /api/games/:gameId/replay` : le journal complet d'une partie terminée, pour la revoir,
  * pendant 24 h après sa fin (`expiresAt`). Une fois la partie finie, plus rien n'y est secret :
  * flottes, détections et pronostics compris.

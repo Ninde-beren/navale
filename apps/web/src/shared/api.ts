@@ -1,4 +1,11 @@
-import type { CreateGameRequest, CreateGameResponse, Feedback, Replay } from '@navale/protocol';
+import type {
+  CreateGameRequest,
+  CreateGameResponse,
+  Feedback,
+  HostLink,
+  HostLinkRequest,
+  Replay,
+} from '@navale/protocol';
 
 export class ApiError extends Error {
   constructor(
@@ -20,7 +27,8 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
       res.status,
     );
   }
-  return (await res.json()) as T;
+  // 204 : rien à lire, la demande a réussi.
+  return (res.status === 204 ? undefined : await res.json()) as T;
 }
 
 export const api = {
@@ -28,6 +36,18 @@ export const api = {
     call<CreateGameResponse>('/api/games', { method: 'POST', body: JSON.stringify(body) }),
   /** Le journal d'une partie terminée, pour la revoir. */
   replay: (gameId: string) => call<Replay>(`/api/games/${encodeURIComponent(gameId)}/replay`),
+  /** Le lien d'hôte et son QR, pour donner les boutons de l'hôte à un autre appareil. */
+  hostLink: (code: string, body: HostLinkRequest) =>
+    call<HostLink>(`/api/games/${encodeURIComponent(code)}/host-link`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  /** Le lien d'hôte s'est ouvert ici : le serveur vérifie le jeton (et le note, anonymement). */
+  openHostLink: (code: string, body: HostLinkRequest) =>
+    call<void>(`/api/games/${encodeURIComponent(code)}/host-link/opened`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   sendFeedback: (body: Feedback) =>
     call<{ ok: true; id: number }>('/api/feedback', { method: 'POST', body: JSON.stringify(body) }),
 };

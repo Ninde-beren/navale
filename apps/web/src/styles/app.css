@@ -495,6 +495,7 @@ body {
 }
 .launch .hostrow .btn {
   height: 56px;
+  padding: 0 24px;
   font-size: 24px;
 }
 
@@ -1980,6 +1981,27 @@ body {
 .fb-row .btn:last-child {
   flex: 2;
 }
+/* Lien d'hôte : le QR sur fond blanc, comme celui du lobby, assez grand pour un téléphone. */
+.host-sheet .host-qr {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: 240px;
+  height: 240px;
+  padding: 14px;
+  border-radius: var(--r-m);
+  background: #ffffff;
+  color: #0a0e1a;
+  text-align: center;
+}
+.host-sheet .host-qr img {
+  width: 100%;
+  height: 100%;
+}
+.host-sheet .host-qr .muted {
+  color: inherit;
+}
 /* Ordinateur, tablette, écran central : une carte au milieu plutôt qu'une feuille. */
 @media (min-width: 768px) {
   .fb-scrim {
@@ -2029,6 +2051,12 @@ body {
   position: fixed;
   right: var(--s-8);
   bottom: var(--s-8);
+}
+/* À quatre, la colonne du centre est étroite : avec les boutons de l'hôte, « Suivre la partie »
+   passe à la ligne au lieu de déborder sur la grille de droite. */
+.tv.v2:not(.p2):not(.p3):not(.flat) .centre .controls {
+  flex-wrap: wrap;
+  row-gap: 8px;
 }
 
 /* ---------- Tablette à plat : chaque grille tournée vers son joueur ----------

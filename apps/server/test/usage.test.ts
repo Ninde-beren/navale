@@ -67,7 +67,7 @@ function game(
 
 const noMarks = new Map<string, Set<GameMark>>();
 const stats = (played: PlayedGame[], extra: Partial<Parameters<typeof usageStats>[0]> = {}) =>
-  usageStats({ played, marks: noMarks, marksSince: 0, since: null, ...extra });
+  usageStats({ played, marks: noMarks, marksSince: 0, hostLinkSince: 0, since: null, ...extra });
 
 describe('statistiques d’utilisation', () => {
   it('suit une session de revanche en revanche, et s’arrête à une revanche jamais lancée', () => {
@@ -243,6 +243,25 @@ describe('statistiques d’utilisation', () => {
       shared: 3,
       remote: 2,
     });
+  });
+
+  it('mesure le lien d’hôte depuis sa propre mise en ligne, revanches comprises', () => {
+    const played = [
+      game('avant', [human('h0'), bot('b0')], { at: T0 - 60 * MIN }),
+      game('a', [human('h1'), human('h2')], { rematch: 'b' }),
+      game('b', [human('h1'), human('h2')], { at: T0 + 20 * MIN }),
+      game('c', [human('h3'), bot('b3')]),
+    ];
+    const marks = new Map<string, Set<GameMark>>([
+      ['avant', new Set<GameMark>(['host_link', 'host_moved'])],
+      ['a', new Set<GameMark>(['host_link', 'host_moved'])],
+      ['c', new Set<GameMark>(['host_link'])],
+    ]);
+    const s = stats(played, { marks, marksSince: 0, hostLinkSince: T0 });
+    // La revanche « b » garde les boutons passés sur l'autre appareil dans « a ».
+    expect(s.hostLink).toEqual({ since: T0, measured: 3, shown: 3, moved: 2 });
+    // Le partage, mesuré depuis plus longtemps, compte aussi la partie d'avant.
+    expect(s.remote.measured).toBe(4);
   });
 
   it('ne garde que la période demandée, sessions comprises', () => {
