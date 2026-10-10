@@ -36,8 +36,8 @@ const PRESET_LABELS: Record<PresetId, string> = {
 type AntiFocusChoice = 'none' | '2' | '1';
 const ANTI_FOCUS_CHOICES: Array<[AntiFocusChoice, string]> = [
   ['none', 'Libre'],
-  ['2', '2 de suite au plus'],
-  ['1', 'Alterner à chaque tir'],
+  ['2', '2 de suite'],
+  ['1', 'Alterner'],
 ];
 const TIMER_CHOICES = [
   ['none', 'Aucun'],
@@ -47,8 +47,8 @@ const TIMER_CHOICES = [
 type TimerChoice = (typeof TIMER_CHOICES)[number][0];
 /** Joueur absent : au bout de combien de temps un bot tire pour lui ; « Jamais » = on l'attend. */
 const AFK_CHOICES = [
-  ['45', 'Bot après 45 s'],
-  ['90', 'Bot après 90 s'],
+  ['45', 'Après 45 s'],
+  ['90', 'Après 90 s'],
   ['none', 'Jamais'],
 ] as const;
 type AfkChoice = (typeof AFK_CHOICES)[number][0];
@@ -57,13 +57,16 @@ function Seg<T extends string>({
   value,
   options,
   onChange,
+  sub = false,
 }: {
   value: T;
   options: ReadonlyArray<readonly [T, string]>;
   onChange: (v: T) => void;
+  /** Un choix qui précise le précédent, dans le même champ : plus bas. */
+  sub?: boolean;
 }) {
   return (
-    <div className="seg">
+    <div className={sub ? 'seg sub' : 'seg'}>
       {options.map(([v, label]) => (
         <button
           key={v}
@@ -192,27 +195,21 @@ export function CreateGame() {
                   if (!timerTouched) setTimer(v === 'simultaneous' ? '45' : 'none');
                 }}
               />
-              <p className="hint">
-                {variant === 'sequential'
-                  ? 'Un joueur tire à la fois, dans l’ordre des sièges.'
-                  : 'Tout le monde tire en secret, l’écran central résout les tirs un par un.'}
-              </p>
+              {/* En salve, l'ordre de résolution se choisit dans le même champ : le formulaire
+                  garde ses quatre rangées et tient sans défilement. */}
+              {variant === 'sequential' ? (
+                <p className="hint">Un joueur tire à la fois, dans l’ordre des sièges.</p>
+              ) : (
+                <>
+                  <Seg
+                    value={salvoOrder}
+                    options={choices(SALVO_ORDER_LABELS)}
+                    onChange={setSalvoOrder}
+                    sub
+                  />
+                </>
+              )}
             </div>
-            {variant === 'simultaneous' && (
-              <div className="field">
-                <span className="label">Résolution de la salve</span>
-                <Seg
-                  value={salvoOrder}
-                  options={choices(SALVO_ORDER_LABELS)}
-                  onChange={setSalvoOrder}
-                />
-                <p className="hint">
-                  {salvoOrder === 'commit'
-                    ? 'Dans l’ordre où les tirs ont été engagés ; un bateau achevé par deux tirs revient au plus rapide.'
-                    : 'Siège par siège, en tournant à chaque manche.'}
-                </p>
-              </div>
-            )}
             <div className="field">
               <span className="label">Grille et flotte</span>
               <Seg value={effectivePreset} options={choices(PRESET_LABELS)} onChange={setPreset} />
@@ -232,17 +229,19 @@ export function CreateGame() {
               />
               <p className="hint">
                 {timer === 'none'
-                  ? 'Sans chrono, l’hôte peut toujours passer un tour depuis l’écran central.'
-                  : 'À l’échéance, le tour passe ou la salve se résout avec les tirs manquants.'}
+                  ? 'L’hôte peut toujours passer un tour.'
+                  : variant === 'sequential'
+                    ? 'À l’échéance, le tour passe.'
+                    : 'À l’échéance, la salve se résout.'}
               </p>
             </div>
             <div className="field">
-              <span className="label">Joueur injoignable</span>
+              <span className="label">Bot pour un absent</span>
               <Seg value={afk} options={AFK_CHOICES} onChange={setAfk} />
               <p className="hint">
                 {afk === 'none'
-                  ? 'On attend un joueur déconnecté, le temps qu’il revienne.'
-                  : 'Un bot tire à sa place s’il est déconnecté quand on l’attend ; il reprend la main en revenant.'}
+                  ? 'On attend un joueur déconnecté.'
+                  : 'Il tire pour lui jusqu’à son retour.'}
               </p>
             </div>
             {maxPlayers >= 3 && (
@@ -352,9 +351,7 @@ export function CreateGame() {
             >
               {busy ? 'Création…' : 'Créer et afficher l’écran central'}
             </button>
-            <p className="hint after">
-              Cet écran deviendra l’écran central et affichera le QR code pour les téléphones.
-            </p>
+            <p className="hint after">Il affichera le QR code des téléphones.</p>
           </aside>
         </div>
       </div>

@@ -98,58 +98,64 @@ export function BoardLobby({ view, socket }: { view: GameView; socket: SocketRef
             </span>
           </div>
           <div className="plist">
-            {players.map((p) => (
-              <div key={p.playerId} className="prow">
-                <PlayerAvatar player={p} />
-                <div className="nm">
-                  {p.name}
-                  {commanderOf(settings, p.commanderId) && (
-                    <span className="chip plain">
-                      {commanderLabel(commanderOf(settings, p.commanderId)!)}
-                    </span>
-                  )}
-                  {p.kind === 'bot' && (
-                    <span className="chip plain">
-                      Bot
-                      {p.level && p.level !== 'normal'
-                        ? ` · ${BOT_LEVEL_LABELS[p.level].toLowerCase()}`
-                        : ''}
-                    </span>
-                  )}
-                </div>
-                <span className="flex items-center gap-3">
-                  {p.status === 'READY' ? (
-                    <span className="chip ready">Prêt</span>
-                  ) : (
-                    <span className="chip placing">Placement en cours</span>
-                  )}
-                  {view.isHost && p.kind === 'human' && (
-                    <button
-                      className="icon-btn"
-                      aria-label={`Exclure ${p.name}`}
-                      title={`Exclure ${p.name}`}
-                      onClick={() => {
-                        if (confirm(`Exclure ${p.name} de la partie ?`))
-                          void sendCommand(socket.current, {
-                            type: 'KICK_PLAYER',
-                            playerId: p.playerId,
-                          });
-                      }}
-                    >
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
+            {players.map((p) => {
+              const commander = commanderOf(settings, p.commanderId);
+              return (
+                <div key={p.playerId} className="prow">
+                  <PlayerAvatar player={p} />
+                  {/* Le nom, et en dessous ce qui le décrit : la rangée garde sa largeur. */}
+                  <div className="who">
+                    <div className="nm">{p.name}</div>
+                    {(commander || p.kind === 'bot') && (
+                      <div className="tags">
+                        {commander && (
+                          <span className="chip plain">{commanderLabel(commander)}</span>
+                        )}
+                        {p.kind === 'bot' && (
+                          <span className="chip plain">
+                            Bot
+                            {p.level && p.level !== 'normal'
+                              ? ` · ${BOT_LEVEL_LABELS[p.level].toLowerCase()}`
+                              : ''}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <span className="flex items-center gap-3">
+                    {p.status === 'READY' ? (
+                      <span className="chip ready">Prêt</span>
+                    ) : (
+                      <span className="chip placing">Placement en cours</span>
+                    )}
+                    {view.isHost && p.kind === 'human' && (
+                      <button
+                        className="icon-btn"
+                        aria-label={`Exclure ${p.name}`}
+                        title={`Exclure ${p.name}`}
+                        onClick={() => {
+                          if (confirm(`Exclure ${p.name} de la partie ?`))
+                            void sendCommand(socket.current, {
+                              type: 'KICK_PLAYER',
+                              playerId: p.playerId,
+                            });
+                        }}
                       >
-                        <path d="M6 6l12 12M18 6L6 18" />
-                      </svg>
-                    </button>
-                  )}
-                </span>
-              </div>
-            ))}
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                        >
+                          <path d="M6 6l12 12M18 6L6 18" />
+                        </svg>
+                      </button>
+                    )}
+                  </span>
+                </div>
+              );
+            })}
             {view.isHost && free > 0 && (
               <div className="prow add">
                 <div
@@ -186,9 +192,8 @@ export function BoardLobby({ view, socket }: { view: GameView; socket: SocketRef
               </div>
             ))}
           </div>
+          {/* La variante et la fin de partie sont déjà dans le bandeau du haut. */}
           <div className="settings">
-            <span className="chip plain">{VARIANT_LABELS[settings.variant]}</span>
-            <span className="chip plain">{END_LABELS[settings.endCondition]}</span>
             <span className="chip plain">
               {settings.grid.width} × {settings.grid.height}
             </span>

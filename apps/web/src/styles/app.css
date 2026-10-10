@@ -391,12 +391,27 @@ body {
   outline: 3px dashed var(--pc);
   outline-offset: 4px;
 }
-.prow .nm {
+.prow .who {
   display: flex;
-  align-items: center;
-  gap: 16px;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.prow .nm {
   font: 800 40px/1 var(--font-display);
   letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.prow .tags {
+  display: flex;
+  gap: 8px;
+}
+.prow .tags .chip {
+  height: 30px;
+  padding: 0 12px;
+  font-size: 18px;
 }
 .prow.empty {
   background: transparent;
@@ -438,7 +453,26 @@ body {
 .players .settings {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
+}
+.players .settings .chip {
+  height: 34px;
+  padding: 0 14px;
+  font-size: 20px;
+}
+/* À table pleine, avec beaucoup de réglages, la colonne tient dans l'écran : les rangées des
+   joueurs se resserrent (de 104 à 80 px) plutôt que de pousser le lancement dehors. */
+.players {
+  min-height: 0;
+}
+.plist {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+.plist .prow:not(.add):not(.empty) {
+  flex: 0 1 104px;
+  height: auto;
+  min-height: 80px;
 }
 .launch {
   margin-top: auto;
@@ -1795,6 +1829,11 @@ body {
   text-align: center;
 }
 .create .hint {
+  font-size: 0.9em;
+}
+/* Le choix qui précise le précédent (l'ordre de la salve) : plus bas que les autres. */
+.create .seg.sub > button {
+  min-height: 2.4em;
   font-size: 0.9em;
 }
 .create-summary {
