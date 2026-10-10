@@ -1,4 +1,5 @@
-import type { ResolvedShot } from '@navale/protocol';
+import type { Coord, ResolvedShot } from '@navale/protocol';
+import { HAMMER_TAPS, RADAR_PINGS } from '../../shared/audio.js';
 
 /** Un tir résolu, tel que la séquence l'anime. */
 export type ShotFxShot = Omit<ResolvedShot, 'sunk'>;
@@ -35,6 +36,17 @@ interface Path {
 
 /** Les classes d'état qu'une copie du calque ne doit pas hériter de l'original. */
 const STATES = ['show', 'draw', 'fade', 'on', 'go'];
+
+/** Durée d'une onde de radar, en ms ; la dernière part au dernier ping (`RADAR_PINGS`). */
+const RADAR_WAVE_MS = 1000;
+/** Un coup de marteau, en ms : il frappe à 70 % du mouvement, sur chaque coup de `HAMMER_TAPS`. */
+const HAMMER_SWING_MS = 320;
+
+/** Un petit marteau : tête d'acier, manche de bois, tourné pour frapper vers le bas à gauche. */
+const HAMMER_SVG = `<svg viewBox="0 0 48 48" aria-hidden="true"><g transform="rotate(-45 24 24)">
+<rect x="22" y="14" width="4.5" height="30" rx="2" fill="#c98a4b" stroke="#7a4d22" stroke-width="1.2"/>
+<rect x="11" y="5" width="26" height="11" rx="2.5" fill="#d7dde6" stroke="#5c6675" stroke-width="1.4"/>
+<rect x="11" y="5" width="26" height="3.5" rx="1.5" fill="#ffffff" opacity="0.55"/></g></svg>`;
 
 /**
  * Séquence d'un tir sur l'écran central, reprise des maquettes de conception :
@@ -88,6 +100,50 @@ export class ShotFx {
   /** Fin d'une rafale : le centre se rallume. */
   finish(): void {
     this.dim(false);
+  }
+
+  /**
+   * Une capacité qui ne tire pas, jouée sur une case : l'onde du radar sur la grille de
+   * la cible, couvrant les `span` × `span` cases de sa zone ; ou le marteau qui tape sur la
+   * case réparée. L'animation est la même quelle que soit la case : elle ne révèle rien.
+   * Rend la main quand elle est finie ; le son se joue à côté, au même instant.
+   */
+  async mark(
+    kind: 'radar' | 'repair',
+    actorId: string,
+    zonePlayerId: string,
+    coord: Coord,
+    span = 1,
+  ): Promise<void> {
+    const duration =
+      kind === 'radar'
+        ? RADAR_PINGS[RADAR_PINGS.length - 1]! * 1000 + RADAR_WAVE_MS
+        : HAMMER_TAPS.length * HAMMER_SWING_MS + 40;
+    const plate = this.$(`.zone[data-player="${actorId}"] .nameplate .avatar`);
+    if (plate) replay(plate.parentElement!, 'launching');
+    const cell = this.$(
+      `.zone[data-player="${zonePlayerId}"] .cell[data-x="${coord.x}"][data-y="${coord.y}"]`,
+    );
+    if (!cell || this.disposed) {
+      await sleep(duration);
+      return;
+    }
+    const el = document.createElement('span');
+    el.className = `fx-${kind}`;
+    el.setAttribute('aria-hidden', 'true');
+    if (kind === 'radar') {
+      el.style.setProperty('--span', String(span));
+      for (const at of RADAR_PINGS) {
+        const wave = document.createElement('i');
+        wave.style.animationDelay = `${Math.round(at * 1000)}ms`;
+        el.appendChild(wave);
+      }
+    } else {
+      el.innerHTML = `${HAMMER_SVG}<b></b>`;
+    }
+    cell.appendChild(el);
+    await sleep(duration);
+    el.remove();
   }
 
   /** Place une annonce (élimination…) dans la file, après les tirs déjà en attente. */

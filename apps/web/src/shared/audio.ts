@@ -9,7 +9,15 @@ import { COLOR_IDS, type ColorId } from '@navale/protocol';
  * Les navigateurs bloquent l'audio avant un geste : `installUnlock` écoute le
  * premier geste et réveille le contexte ; `useSfx` expose muet / déverrouillé.
  */
-export type SfxName = 'launch' | 'miss' | 'hit' | 'sunk' | 'eliminated' | 'victory' | 'turn';
+export type SfxName =
+  'launch' | 'miss' | 'hit' | 'sunk' | 'eliminated' | 'victory' | 'turn' | 'radar' | 'hammer';
+
+/**
+ * Rythme des sons de capacité, en secondes : l'écran central cale ses animations
+ * dessus (les ondes du radar partent sur chaque ping, le marteau frappe sur chaque coup).
+ */
+export const RADAR_PINGS = [0, 0.3, 0.6] as const;
+export const HAMMER_TAPS = [0.22, 0.54, 0.86] as const;
 
 interface SfxState {
   muted: boolean;
@@ -236,6 +244,31 @@ const SYNTH: Record<SfxName, (c: AudioContext, out: Out, t: number) => void> = {
   turn: (c, out, t) => {
     tone(c, out, t, { type: 'sine', from: 880, dur: 0.16, peak: 0.3 });
     tone(c, out, t + 0.1, { type: 'sine', from: 1320, dur: 0.22, peak: 0.22 });
+  },
+  // Radar : trois pings de sonar, chacun suivi de son écho, sur un léger souffle de balayage.
+  radar: (c, out, t) => {
+    for (const at of RADAR_PINGS) {
+      tone(c, out, t + at, { type: 'sine', from: 1480, to: 1320, dur: 0.42, peak: 0.26 });
+      tone(c, out, t + at + 0.12, { type: 'sine', from: 1480, to: 1320, dur: 0.3, peak: 0.07 });
+    }
+    burst(c, out, t, {
+      filter: 'bandpass',
+      from: 600,
+      to: 1800,
+      q: 3,
+      dur: 0.9,
+      peak: 0.05,
+      attack: 0.2,
+    });
+  },
+  // Marteau : trois coups secs sur de la tôle, un claquement, deux harmoniques métalliques et un petit coup sourd.
+  hammer: (c, out, t) => {
+    for (const at of HAMMER_TAPS) {
+      burst(c, out, t + at, { filter: 'highpass', from: 2200, to: 1600, dur: 0.05, peak: 0.5 });
+      tone(c, out, t + at, { type: 'triangle', from: 1760, to: 1700, dur: 0.16, peak: 0.16 });
+      tone(c, out, t + at, { type: 'sine', from: 2650, to: 2600, dur: 0.1, peak: 0.08 });
+      tone(c, out, t + at, { type: 'sine', from: 190, to: 90, dur: 0.08, peak: 0.3 });
+    }
   },
 };
 

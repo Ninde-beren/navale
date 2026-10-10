@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { burstStaggerMs } from '@navale/engine';
 import {
   coordLabel,
+  type Commander,
   type Coord,
   type PublicPlayer,
   type ResolvedShot,
@@ -23,7 +24,6 @@ const SOUND = { MISS: 'miss', HIT: 'hit', SUNK: 'sunk' } as const;
 /** Le petit air du tireur part juste après l'explosion du coulé. */
 const JINGLE_DELAY_MS = 550;
 const ELIMINATED_CALLOUT_MS = 1600;
-const ABILITY_CALLOUT_MS = 1800;
 
 /**
  * La séquence animée de l'écran central. Chaque SHOT_RESOLVED reçu rejoint la file
@@ -34,11 +34,14 @@ const ABILITY_CALLOUT_MS = 1800;
 export function useShotSequence({
   events,
   players,
+  commanders,
   revealDelayMs,
   seq,
 }: {
   events: VisibleEnvelope[];
   players: PublicPlayer[];
+  /** Les commandants de la partie : la taille de la zone d'un radar en dépend. */
+  commanders: Commander[];
   revealDelayMs: number;
   seq: number;
 }) {
@@ -141,16 +144,27 @@ export function useShotSequence({
       } else if (event.type === 'ABILITY_USED' && event.ability === 'missile') {
         // La rafale qui suit est l'annonce du missile.
       } else if (event.type === 'ABILITY_USED') {
-        // La capacité s'annonce avant ses effets (radar, réparation, tirs du missile).
-        const who =
-          event.ability === 'repair'
-            ? nameOf(event.playerId)
-            : `${nameOf(event.playerId)} → ${nameOf(event.targetId)}`;
+        // Radar ou réparation : l'onde ou le marteau sur la case, avec son son, puis l'annonce.
+        const repair = event.ability === 'repair';
+        const who = repair
+          ? nameOf(event.playerId)
+          : `${nameOf(event.playerId)} → ${nameOf(event.targetId)}`;
         const where = `${coordLabel(event.coord)} · ${who}`;
         const word = ABILITY_LABELS[event.ability].toUpperCase();
+        const commanderId = playerOf(event.playerId)?.commanderId;
+        const ability = commanders.find((c) => c.id === commanderId)?.ability;
+        const span = ability?.type === 'radar' ? ability.size : 1;
         void fx.enqueue(async () => {
+          play(repair ? 'hammer' : 'radar');
+          await fx.mark(
+            repair ? 'repair' : 'radar',
+            event.playerId,
+            repair ? event.playerId : event.targetId,
+            event.coord,
+            span,
+          );
           setCallout({ word, where, cls: 'ability' });
-          await sleep(ABILITY_CALLOUT_MS);
+          await sleep(ShotFx.timings(revealDelayMs).hold);
           setCallout(null);
         });
       } else if (event.type === 'PLAYER_ELIMINATED') {

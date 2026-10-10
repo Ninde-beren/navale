@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import clsx from 'clsx';
 import type { GameView, PublicPlayer } from '@navale/protocol';
-import { END_LABELS, VARIANT_LABELS, commanderOf } from '../../shared/labels.js';
+import { END_LABELS, VARIANT_LABELS, commanderOf, commandersOf } from '../../shared/labels.js';
 import { playerLookup } from '../../shared/players.js';
 import { useShotHistory } from '../../shared/shotHistory.js';
 import { sendCommand, type SocketRef } from '../../shared/socket.js';
@@ -51,6 +51,7 @@ export function BoardPlaying({
   const { rootRef, reveals, fresh, callout, salvoStep } = useShotSequence({
     events: useGame((s) => s.events),
     players,
+    commanders: commandersOf(settings),
     revealDelayMs: settings.revealDelayMs,
     seq: view.seq,
   });
