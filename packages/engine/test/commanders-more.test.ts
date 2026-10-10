@@ -288,13 +288,12 @@ describe('bots et capacités', () => {
     expect(densest(h, a, j).every(inZone)).toBe(false);
     use(h, a, j, { x: 1, y: 1 });
     expect(densest(h, a, j).every(inZone)).toBe(true);
-    // Une touche dans la zone : il en reste six à trouver, la zone attire toujours.
+    // Un raté en D4, dans la zone : les sept cases de navire y sont toujours, elle attire encore.
     h.fire(j, a, { x: 7, y: 7 });
-    h.fire(a, j, { x: 0, y: 0 });
+    h.fire(a, j, { x: 3, y: 3 });
     h.fire(j, a, { x: 7, y: 6 });
-    expect(chooseAction(projectPrivate(h.state, a), mulberry32(4), 'hard').coord).toSatisfy(
-      (c: Coord) => inZone(coordKey(c)),
-    );
+    expect(densest(h, a, j).every(inZone)).toBe(true);
+    expect(densest(h, a, j)).not.toContain('3,3');
   });
 
   it('pose son leurre dès la deuxième manche, sur une case libre', () => {
