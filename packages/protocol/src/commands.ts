@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   BetSchema,
+  GhostCardSchema,
   BotLevelSchema,
   ColorIdSchema,
   CoordSchema,
@@ -33,6 +34,14 @@ export const CommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('USE_ABILITY'), targetId: z.string(), coord: CoordSchema }),
   /** Fantôme : mon pronostic sur cette manche, la manche en cours, changeable jusqu'à sa résolution. */
   z.object({ type: z.literal('PLACE_BET'), round: z.number().int().min(0), bet: BetSchema }),
+  /** Fantôme : ma carte, jouée à la fin de cette manche ; le feu follet vise une case d'un survivant. */
+  z.object({
+    type: z.literal('PLAY_GHOST_CARD'),
+    round: z.number().int().min(0),
+    card: GhostCardSchema,
+    targetId: z.string().optional(),
+    coord: CoordSchema.optional(),
+  }),
   z.object({ type: z.literal('FORCE_ROUND') }),
   /** Joueur absent : un bot prend son tour (serveur), le joueur reprend la main à son retour. */
   z.object({ type: z.literal('SUBSTITUTE_PLAYER'), playerId: z.string() }),

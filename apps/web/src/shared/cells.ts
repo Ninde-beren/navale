@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { cellsOf, coordKey, radarZone, sameCoord, shieldCovers, shipSize } from '@navale/engine';
-import type { Coord, GameSettings, Shield, Ship, ShipPlacement } from '@navale/protocol';
+import type { Coord, GameSettings, LitCell, Shield, Ship, ShipPlacement } from '@navale/protocol';
 
 /** Les cases d'un bouclier à dessiner : celles qu'il protège encore, et celles qu'un tir a percées. */
 export interface ShieldMarks {
@@ -58,7 +58,7 @@ export function hullClasses(cells: Coord[], orientation: 'H' | 'V'): Map<string,
 export function ownGridClasses(
   fleet: Ship[],
   revealed: Array<{ coord: Coord; result: 'MISS' | 'HIT' }>,
-  extras: { decoys?: Coord[]; shield?: ShieldMarks } = {},
+  extras: { decoys?: Coord[]; shield?: ShieldMarks; lit?: LitCell[] } = {},
 ): (x: number, y: number) => string {
   const map = new Map<string, string>();
   for (const ship of fleet) {
@@ -78,7 +78,15 @@ export function ownGridClasses(
     map.set(coordKey(d), clsx('decoy', tricked && 'tricked'));
   }
   markShield(map, extras.shield ?? NO_SHIELD);
+  // Ce qu'un fantôme a montré de ma grille à tout le monde.
+  for (const l of unrevealedLit(extras.lit ?? [], revealed))
+    map.set(coordKey(l.coord), clsx(map.get(coordKey(l.coord)), 'exposed'));
   return (x, y) => map.get(coordKey({ x, y })) ?? '';
+}
+
+/** Les cases éclairées par un fantôme qui ne sont pas encore révélées : une case tirée montre son résultat. */
+function unrevealedLit(lit: LitCell[], revealed: ReadonlyArray<{ coord: Coord }>): LitCell[] {
+  return lit.filter((l) => !revealed.some((r) => sameCoord(r.coord, l.coord)));
 }
 
 /** Classes d'une grille publique : tirs reçus et bateaux coulés (mode classique). */
@@ -91,8 +99,12 @@ export function publicGridClasses(
    * sont pas révélées. La zone du bouclier, elle, ne se montre pas.
    */
   pierced: Coord[] = [],
+  /** Les cases qu'un fantôme a éclairées, publiques : un navire découvert, ou de l'eau. */
+  lit: LitCell[] = [],
 ): (x: number, y: number) => string {
   const map = new Map<string, string>();
+  for (const l of unrevealedLit(lit, revealed))
+    map.set(coordKey(l.coord), l.ship ? 'lit-ship' : 'lit-water');
   for (const r of revealed) map.set(coordKey(r.coord), r.result === 'MISS' ? 'miss' : 'hit');
   for (const s of sunkShips) {
     if (!s.cells || s.cells.length === 0) continue;

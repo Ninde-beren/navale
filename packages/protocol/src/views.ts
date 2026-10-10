@@ -6,6 +6,9 @@ import {
   CoordSchema,
   GameSettingsSchema,
   GameStatusSchema,
+  GhostCardSchema,
+  GhostPlaySchema,
+  LitCellSchema,
   PendingShotSchema,
   PlayerKindSchema,
   PlayerStatusSchema,
@@ -50,6 +53,10 @@ export const PublicPlayerSchema = z.object({
   rank: z.number().int().min(1).nullable(),
   /** Ses pronostics de fantôme : les bons, sur ceux qui ont compté. */
   bets: z.object({ won: z.number().int().min(0), total: z.number().int().min(0) }),
+  /** Fantôme : la manche à partir de laquelle il peut jouer sa prochaine carte ; `null` sinon. */
+  ghostReadyAt: z.number().int().min(0).nullable(),
+  /** Les cases de sa grille qu'un fantôme a éclairées : navire ou eau, pour tous. */
+  lit: z.array(LitCellSchema),
 });
 export type PublicPlayer = z.infer<typeof PublicPlayerSchema>;
 
@@ -105,6 +112,10 @@ export const PrivateMeSchema = z.object({
   canBet: z.boolean(),
   /** Mon pronostic sur la manche en cours, tant qu'elle n'est pas résolue. */
   bet: BetSchema.nullable(),
+  /** Fantôme : les cartes que je peux jouer dans cette manche ; vide si je n'en ai pas. */
+  ghostCards: z.array(GhostCardSchema),
+  /** Fantôme : la carte que j'ai engagée pour cette manche. */
+  ghostPlay: GhostPlaySchema.nullable(),
 });
 export type PrivateMe = z.infer<typeof PrivateMeSchema>;
 

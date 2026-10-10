@@ -36,6 +36,8 @@ export const ErrorCodeSchema = z.enum([
   'CELL_NOT_FREE',
   /** Pronostiquer est réservé aux éliminés d'une partie à fantômes. */
   'NOT_A_GHOST',
+  /** Pas de carte fantôme à jouer : pas encore prête, déjà jouée dans la manche, ou pas la sienne. */
+  'GHOST_CARD_UNAVAILABLE',
 ]);
 export type ErrorCode = z.infer<typeof ErrorCodeSchema>;
 

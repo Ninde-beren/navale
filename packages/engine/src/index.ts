@@ -40,6 +40,7 @@ export {
   repairableCells,
   shieldCovers,
 } from './battleship/rules/abilities.js';
+export { ghostLeadMs } from './battleship/rules/ghosts.js';
 export {
   cellsOf,
   randomFleet,
@@ -53,7 +54,9 @@ export { coordKey, isSunk, sameCoord } from './battleship/state.js';
 export {
   chooseAction,
   chooseBet,
+  chooseGhostCard,
   chooseShot,
   type BotAction,
+  type BotGhostPlay,
   type BotShot,
 } from './battleship/bot/strategy.js';

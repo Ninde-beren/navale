@@ -1,6 +1,7 @@
 import {
   battleship,
   burstStaggerMs,
+  ghostLeadMs,
   privateRecipient,
   publicEvent,
   sameCoord,
@@ -56,18 +57,24 @@ export class Publisher {
       // Chaque tir, et chaque capacité jouée, a droit à son temps d'annonce sur l'écran central.
       // Les tirs d'une rafale de missile partent ensemble : l'écran central les fait décoller à
       // la suite et ne les annonce qu'une fois ; le délai suit le dernier, allongé des départs décalés.
+      // Le barrage d'un fantôme aussi : ses tirs partent ensemble, vers chaque survivant.
+      // Les cases qu'un fantôme éclaire ont leur annonce.
       if (event.type === 'SHOT_RESOLVED') {
         const next = envelopes[i + 1]?.event;
         const continues =
-          event.burst !== undefined &&
           next?.type === 'SHOT_RESOLVED' &&
-          next.burst !== undefined &&
           next.shooterId === event.shooterId &&
-          sameCoord(next.burst.center, event.burst.center);
-        if (!continues)
-          releaseAt += delay + (event.burst ? (event.burst.size - 1) * burstStaggerMs(delay) : 0);
+          ((event.burst !== undefined &&
+            next.burst !== undefined &&
+            sameCoord(next.burst.center, event.burst.center)) ||
+            (event.barrage !== undefined && next.barrage !== undefined));
+        const volley = event.burst?.size ?? event.barrage?.size ?? 1;
+        const lead = event.barrage ? ghostLeadMs(delay) : 0;
+        if (!continues) releaseAt += delay + lead + (volley - 1) * burstStaggerMs(delay);
       } else if (event.type === 'ABILITY_USED' && event.ability !== 'missile') {
         releaseAt += delay;
+      } else if (event.type === 'CELLS_LIT') {
+        releaseAt += delay + ghostLeadMs(delay);
       }
     });
     this.releaseAt.set(gameId, releaseAt);

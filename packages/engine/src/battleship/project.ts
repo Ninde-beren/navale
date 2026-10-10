@@ -8,7 +8,7 @@ import type {
   VisibleEvent,
 } from '@navale/protocol';
 import type { Presence } from '../core/definition.js';
-import { canBet } from './rules/ghosts.js';
+import { canBet, ghostCards } from './rules/ghosts.js';
 import { startBlocker } from './rules/start.js';
 import { antiFocusBlocked, legalTargets } from './rules/targets.js';
 import {
@@ -52,6 +52,8 @@ function publicPlayer(state: GameState, p: Player, presence: Presence): PublicPl
     sunkShips: p.fleet.filter(isSunk).map((ship) => sunkInfo(state.settings, ship)),
     rank: p.rank,
     bets: p.bets,
+    ghostReadyAt: p.ghostReadyAt,
+    lit: p.lit,
   };
 }
 
@@ -121,6 +123,8 @@ export function projectPrivate(
       shield: me.shield,
       canBet: canBet(state, me),
       bet: round?.bets[playerId] ?? null,
+      ghostCards: ghostCards(state, me),
+      ghostPlay: round?.ghostPlays[playerId] ?? null,
     },
   };
 }
@@ -159,6 +163,11 @@ export function publicEvent(event: GameEvent): VisibleEvent {
       const { bet: _bet, ...placed } = event;
       return placed;
     }
+    // Le feu follet vise en secret : les autres savent qu'une carte est engagée, pas où.
+    case 'GHOST_CARD_COMMITTED': {
+      const { targetId: _targetId, coord: _coord, ...committed } = event;
+      return committed;
+    }
     default:
       return event;
   }
@@ -175,6 +184,7 @@ export function privateRecipient(event: GameEvent): string | null {
     case 'DECOY_PLACED':
     case 'SHIELD_RAISED':
     case 'BET_PLACED':
+    case 'GHOST_CARD_COMMITTED':
       return event.playerId;
     case 'ABILITY_USED':
       return SECRET_ABILITIES.has(event.ability) ? event.playerId : null;

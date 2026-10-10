@@ -22,7 +22,10 @@ export type SfxName =
   | 'hammer'
   | 'shield'
   | 'blocked'
-  | 'decoy';
+  | 'decoy'
+  | 'ghost'
+  | 'wisp'
+  | 'tide';
 
 /**
  * Rythme des sons de capacité, en secondes : l'écran central cale ses animations
@@ -342,6 +345,56 @@ const SYNTH: Record<SfxName, (c: AudioContext, out: Out, t: number) => void> = {
   decoy: (c, out, t) => {
     tone(c, out, t, { type: 'sine', from: 330, to: 220, dur: 0.18, peak: 0.2 });
     tone(c, out, t + 0.16, { type: 'sine', from: 440, to: 300, dur: 0.2, peak: 0.16 });
+  },
+  // Fantôme : un souffle qui gémit en glissant vers l'aigu puis retombe, avant sa carte.
+  ghost: (c, out, t) => {
+    const low = lowpass(c, out, 1400);
+    tone(c, low, t, { type: 'sine', from: 330, to: 520, dur: 0.5, peak: 0.14, attack: 0.25 });
+    tone(c, low, t + 0.45, { type: 'sine', from: 520, to: 260, dur: 0.7, peak: 0.12, attack: 0.1 });
+    burst(c, out, t, {
+      filter: 'bandpass',
+      from: 600,
+      to: 1800,
+      q: 3,
+      dur: 1.0,
+      peak: 0.05,
+      attack: 0.4,
+    });
+  },
+  // Feu follet : un carillon qui s'allume doucement, deux notes claires et un scintillement.
+  wisp: (c, out, t) => {
+    tone(c, out, t, { type: 'sine', from: 1046.5, to: 1174.7, dur: 0.9, peak: 0.12, attack: 0.18 });
+    tone(c, out, t + 0.22, {
+      type: 'sine',
+      from: 1568,
+      to: 1760,
+      dur: 0.8,
+      peak: 0.08,
+      attack: 0.15,
+    });
+    burst(c, out, t + 0.1, {
+      filter: 'bandpass',
+      from: 5200,
+      to: 7600,
+      q: 3,
+      dur: 0.9,
+      peak: 0.04,
+      attack: 0.3,
+    });
+  },
+  // Marée basse : une longue vague grave qui se retire, et le ressac qui suit.
+  tide: (c, out, t) => {
+    burst(c, out, t, { filter: 'lowpass', from: 900, to: 220, dur: 1.5, peak: 0.22, attack: 0.55 });
+    burst(c, out, t + 0.35, {
+      filter: 'bandpass',
+      from: 1800,
+      to: 600,
+      q: 0.9,
+      dur: 1.0,
+      peak: 0.07,
+      attack: 0.3,
+    });
+    tone(c, out, t, { type: 'sine', from: 110, to: 70, dur: 1.4, peak: 0.18, attack: 0.4 });
   },
   // Marteau : trois coups secs sur de la tôle, un claquement, deux harmoniques métalliques et un petit coup sourd.
   hammer: (c, out, t) => {

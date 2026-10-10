@@ -20,6 +20,7 @@ export function MyFleetGrid({
         cellClass={ownGridClasses(view.me.fleet, me.revealed, {
           decoys: view.me.decoys,
           shield: shieldMarks(view.settings, view.me.shield, me.revealed),
+          lit: me.lit,
         })}
         className={dim ? 'dim' : ''}
         label="Ma flotte"

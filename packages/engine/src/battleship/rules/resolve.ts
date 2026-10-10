@@ -10,6 +10,8 @@ export interface ShotToResolve {
   coord: Coord;
   /** Tir d'une rafale de missile. */
   burst?: { center: Coord; size: number };
+  /** Tir du barrage d'un fantôme. */
+  barrage?: { size: number };
 }
 
 export interface RoundResolution {
@@ -42,7 +44,10 @@ export function resolveRound(state: GameState, shots: ShotToResolve[]): RoundRes
     if (!target) continue;
     const fleet = fleetOf(target);
     const ship = fleet.find((s) => s.cells.some((c) => sameCoord(c, shot.coord)));
-    const burst = shot.burst ? { burst: shot.burst } : {};
+    const burst = {
+      ...(shot.burst ? { burst: shot.burst } : {}),
+      ...(shot.barrage ? { barrage: shot.barrage } : {}),
+    };
     const base = { round, shooterId: shot.shooterId, targetId: shot.targetId, coord: shot.coord };
     // Case encore protégée : le tir est arrêté, rien n'est touché ni révélé, et la case
     // est percée (`evolve`). Contre l'état de début de manche : en salve, tous les tirs

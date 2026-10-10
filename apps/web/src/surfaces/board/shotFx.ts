@@ -52,6 +52,10 @@ const STATES = ['show', 'draw', 'fade', 'on', 'go'];
 const SONAR_WAVE_MS = 1000;
 /** Un coup de marteau, en ms : il frappe à 70 % du mouvement, sur chaque coup de `HAMMER_TAPS`. */
 const HAMMER_SWING_MS = 320;
+/** Le feu follet d'un fantôme, en ms : il descend sur la case et s'y allume. */
+export const WISP_MS = 1400;
+/** La marée basse, en ms : la mer se retire sur la grille d'un survivant. */
+export const TIDE_MS = 1600;
 /** Un tir arrêté par un bouclier, en ms : l'éclair, la fêlure, puis le bris (`SHATTER_AT`). */
 const BLOCK_MS = 1100;
 /** La fêlure du verre, tracée depuis le point d'impact. */
@@ -131,11 +135,12 @@ export class ShotFx {
    * Une capacité qui ne tire pas, jouée sur une case : le balayage du radar ou les ondes du
    * sonar sur la grille de la cible, couvrant les `span` × `span` cases de sa zone, ou le
    * marteau qui tape sur la case réparée. Le bouclier se lève en secret : rien ici.
-   * L'animation est la même quelle que soit la case : elle ne révèle rien. Rend la main
-   * quand elle est finie ; le son se joue à côté, au même instant.
+   * L'animation est la même quelle que soit la case : elle ne révèle rien. Pour un fantôme,
+   * le feu follet qui s'allume sur une case, et la marée qui se retire sur toute une grille.
+   * Rend la main quand elle est finie ; le son se joue à côté, au même instant.
    */
   async mark(
-    kind: 'radar' | 'sonar' | 'repair',
+    kind: 'radar' | 'sonar' | 'repair' | 'wisp' | 'tide',
     actorId: string,
     zonePlayerId: string,
     coord: Coord,
@@ -150,10 +155,22 @@ export class ShotFx {
       this.hooks.onSweep?.(null);
       return;
     }
+    if (kind === 'tide') {
+      const grid = this.$(`.zone[data-player="${zonePlayerId}"] .grid`);
+      const wave = document.createElement('span');
+      wave.className = 'fx-tide';
+      wave.setAttribute('aria-hidden', 'true');
+      grid?.appendChild(wave);
+      await sleep(TIDE_MS);
+      wave.remove();
+      return;
+    }
     const duration =
       kind === 'sonar'
         ? SONAR_PINGS[SONAR_PINGS.length - 1]! * 1000 + SONAR_WAVE_MS
-        : HAMMER_TAPS.length * HAMMER_SWING_MS + 40;
+        : kind === 'wisp'
+          ? WISP_MS
+          : HAMMER_TAPS.length * HAMMER_SWING_MS + 40;
     const cell = this.$(
       `.zone[data-player="${zonePlayerId}"] .cell[data-x="${coord.x}"][data-y="${coord.y}"]`,
     );
@@ -171,7 +188,7 @@ export class ShotFx {
         wave.style.animationDelay = `${Math.round(at * 1000)}ms`;
         el.appendChild(wave);
       }
-    } else {
+    } else if (kind === 'repair') {
       el.innerHTML = `${HAMMER_SVG}<b></b>`;
     }
     cell.appendChild(el);

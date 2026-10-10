@@ -57,7 +57,13 @@ export function TargetGrid({
         : scanned.has(key)
           ? 'scan clear'
           : unknown.has(key) && 'scan';
-  const classes = publicGridClasses(target.revealed, target.sunkShips, null, target.pierced);
+  const classes = publicGridClasses(
+    target.revealed,
+    target.sunkShips,
+    null,
+    target.pierced,
+    target.lit,
+  );
   const ships = new Set((live?.contacts ?? []).map(coordKey));
   const echoes =
     live &&

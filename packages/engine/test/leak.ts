@@ -8,7 +8,9 @@ export function assertNoLeak(state: GameState): void {
   for (const p of state.players) {
     // Les cases percées d'un bouclier sont publiques : un tireur les a choisies, et un tir
     // bloqué sort pareil sur l'eau et sur un navire. La zone du bouclier, elle, reste secrète.
-    const { pierced: _pierced, ...pub } = view.players.find((v) => v.playerId === p.playerId)!;
+    // Les cases qu'un fantôme a éclairées sont publiques aussi : c'est ce que fait sa carte.
+    const { pierced: _pierced, lit, ...pub } = view.players.find((v) => v.playerId === p.playerId)!;
+    const litKeys = new Set(lit.map((l) => coordKey(l.coord)));
     const text = JSON.stringify(pub);
     expect(text).not.toContain('"fleet"');
     expect(text).not.toContain('"shield"');
@@ -16,7 +18,7 @@ export function assertNoLeak(state: GameState): void {
     for (const ship of p.fleet) {
       if (isSunk(ship)) continue;
       for (const c of ship.cells) {
-        if (revealed.has(coordKey(c))) continue;
+        if (revealed.has(coordKey(c)) || litKeys.has(coordKey(c))) continue;
         expect(text, `fuite de la case ${coordKey(c)} de ${p.name}`).not.toContain(
           `"x":${c.x},"y":${c.y}`,
         );

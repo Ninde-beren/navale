@@ -338,6 +338,7 @@ function OwnGrid({
   const classes = ownGridClasses(view.me.fleet, me.revealed, {
     decoys: view.me.decoys,
     shield: shieldMarks(settings, view.me.shield, me.revealed),
+    lit: me.lit,
   });
   const allowed =
     ability.type === 'repair'

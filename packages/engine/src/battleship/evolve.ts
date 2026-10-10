@@ -42,6 +42,8 @@ function apply(state: GameState, event: GameEvent): GameState {
         eliminatedAtRound: null,
         rank: null,
         bets: { won: 0, total: 0 },
+        ghostReadyAt: null,
+        lit: [],
       };
       return { ...state, players: [...state.players, player].sort((a, b) => a.seat - b.seat) };
     }
@@ -122,6 +124,7 @@ function apply(state: GameState, event: GameEvent): GameState {
           expectedShooters: [...event.expectedShooters],
           committed: {},
           bets: {},
+          ghostPlays: {},
           startedAt: event.startedAt,
           deadline: event.deadline,
         },
@@ -197,7 +200,35 @@ function apply(state: GameState, event: GameEvent): GameState {
         status: 'ELIMINATED',
         rank: event.rank,
         eliminatedAtRound: event.round,
+        // Fantôme : sa première carte dès la manche suivante.
+        ghostReadyAt: state.settings.eliminated === 'ghosts' ? event.round + 1 : null,
       }));
+    case 'GHOST_CARD_COMMITTED': {
+      if (!state.round) return state;
+      const { card, targetId, coord } = event;
+      return {
+        ...state,
+        round: {
+          ...state.round,
+          ghostPlays: {
+            ...state.round.ghostPlays,
+            [event.playerId]: {
+              card,
+              ...(targetId ? { targetId } : {}),
+              ...(coord ? { coord } : {}),
+            },
+          },
+        },
+      };
+    }
+    case 'GHOST_CARD_PLAYED':
+      return mapPlayer(state, event.playerId, (p) => ({ ...p, ghostReadyAt: event.readyAt }));
+    case 'CELLS_LIT': {
+      let next = state;
+      for (const { targetId, coord, ship } of event.cells)
+        next = mapPlayer(next, targetId, (p) => ({ ...p, lit: [...p.lit, { coord, ship }] }));
+      return next;
+    }
     case 'ROUND_RESOLVED': {
       const expected = state.round?.expectedShooters[0];
       const seat =

@@ -1,4 +1,4 @@
-import type { Bet, BotLevel, Coord, PlayerView, PublicPlayer } from '@navale/protocol';
+import type { Bet, BotLevel, Coord, GhostCard, PlayerView, PublicPlayer } from '@navale/protocol';
 import { pick, randomInt } from '../../core/random.js';
 import { decoyCells, missileStrikes, radarZone, repairableCells } from '../rules/abilities.js';
 import { coordKey, inBounds } from '../state.js';
@@ -91,13 +91,18 @@ function abilityAction(view: PlayerView, random: () => number): BotShot | null {
   }
 }
 
-/** Les cases que mes radars ont vues comme un navire chez cette cible, encore à tirer. */
+/**
+ * Les cases vues comme un navire chez cette cible, encore à tirer : par mes radars, ou par
+ * le feu follet et la marée basse d'un fantôme, que tout le monde voit.
+ */
 function radarContacts(view: PlayerView, p: PublicPlayer): Coord[] {
   const closed = closedKeys(p);
   const out = new Map<string, Coord>();
   for (const r of view.me.radarResults)
     if (r.targetId === p.playerId)
       for (const c of r.contacts ?? []) if (!closed.has(coordKey(c))) out.set(coordKey(c), c);
+  for (const l of p.lit)
+    if (l.ship && !closed.has(coordKey(l.coord))) out.set(coordKey(l.coord), l.coord);
   return [...out.values()];
 }
 
@@ -114,6 +119,41 @@ export function chooseBet(view: PlayerView): Bet {
     ),
   );
   return wounded ? 'HIT' : 'MISS';
+}
+
+/** La carte qu'un bot fantôme joue, et pour le feu follet, où. */
+export interface BotGhostPlay {
+  card: GhostCard;
+  targetId?: string;
+  coord?: Coord;
+}
+
+/**
+ * La carte d'un bot fantôme, dès qu'elle est prête : celle de son commandant ; au choix, le
+ * barrage. Son feu follet éclaire, chez le survivant qui cache le plus de cases, la case
+ * que le plus de placements encore possibles recouvrent.
+ */
+export function chooseGhostCard(view: PlayerView, random: () => number): BotGhostPlay | null {
+  const cards = view.me.ghostCards;
+  if (cards.length === 0) return null;
+  const card = cards.includes('barrage') ? 'barrage' : cards[0]!;
+  if (card !== 'wisp') return { card };
+  const survivors = view.players
+    .filter((p) => p.status === 'ALIVE')
+    .map((p) => {
+      const lit = new Set(p.lit.map((l) => coordKey(l.coord)));
+      return { p, lit, free: unrevealed(view, p).filter((c) => !lit.has(coordKey(c))) };
+    })
+    .filter((s) => s.free.length > 0)
+    .sort((a, b) => b.free.length - a.free.length);
+  const target = survivors[0];
+  if (!target) return null;
+  const best = densestCells(view, target.p).filter((c) => !target.lit.has(coordKey(c)));
+  return {
+    card,
+    targetId: target.p.playerId,
+    coord: pick(random, best.length > 0 ? best : target.free),
+  };
 }
 
 /**
@@ -361,6 +401,8 @@ function detections(
     }
   }
   for (const count of counts) if (count.max <= 0) for (const key of count.cells) water.add(key);
+  // L'eau qu'un fantôme a éclairée, tout le monde la connaît.
+  for (const l of p.lit) if (!l.ship) water.add(coordKey(l.coord));
   return { water, sonars: counts.filter((count) => count.max > 0) };
 }
 
@@ -433,9 +475,15 @@ export function woundedCells(p: PublicPlayer): Coord[] {
     .map((r) => r.coord);
 }
 
-/** Cases qu'on ne peut plus tirer chez un joueur : déjà révélées ; en clés `x,y`. */
+/**
+ * Cases à ne plus tirer chez un joueur : déjà révélées, ou éclairées comme de l'eau par un
+ * fantôme ; en clés `x,y`.
+ */
 function closedKeys(p: PublicPlayer): Set<string> {
-  return new Set(p.revealed.map((r) => coordKey(r.coord)));
+  return new Set([
+    ...p.revealed.map((r) => coordKey(r.coord)),
+    ...p.lit.filter((l) => !l.ship).map((l) => coordKey(l.coord)),
+  ]);
 }
 
 /** Cases encore à tirer chez un joueur : non révélées, protégées ou non. */

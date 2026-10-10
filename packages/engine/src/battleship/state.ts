@@ -6,6 +6,8 @@ import type {
   Coord,
   GameSettings,
   GameStatus,
+  GhostPlay,
+  LitCell,
   PendingShot,
   PlayerKind,
   PlayerStatus,
@@ -45,6 +47,10 @@ export interface Player {
   rank: number | null;
   /** Ses pronostics de fantôme réglés : les bons, sur ceux qui ont compté. Public. */
   bets: { won: number; total: number };
+  /** Fantôme : la manche à partir de laquelle il peut jouer sa prochaine carte ; `null` sinon. */
+  ghostReadyAt: number | null;
+  /** Public : les cases de sa grille qu'un fantôme a éclairées, navire ou eau. */
+  lit: LitCell[];
 }
 
 export interface Round {
@@ -55,6 +61,8 @@ export interface Round {
   committed: Record<string, PendingShot>;
   /** Les pronostics des fantômes sur cette manche, privés jusqu'à sa résolution. */
   bets: Record<string, Bet>;
+  /** Les cartes engagées par les fantômes, jouées après les tirs, dans l'ordre d'engagement. */
+  ghostPlays: Record<string, GhostPlay>;
   startedAt: number;
   deadline: number | null;
 }

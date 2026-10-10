@@ -1,4 +1,4 @@
-import { battleship, chooseAction, chooseBet, type Player } from '@navale/engine';
+import { battleship, chooseAction, chooseBet, chooseGhostCard, type Player } from '@navale/engine';
 import type { EventEnvelope, GameEventOf, Variant } from '@navale/protocol';
 import { contain, type ReportFailure } from './failure.js';
 import type { GameRuntime } from './game-runtime.js';
@@ -87,7 +87,10 @@ export class BotDriver {
     }
   }
 
-  /** Les bots éliminés d'une partie à fantômes pronostiquent chaque manche, sur la vue publique. */
+  /**
+   * Les bots éliminés d'une partie à fantômes pronostiquent chaque manche, sur la vue publique,
+   * et jouent leur carte dès qu'elle est prête.
+   */
   private scheduleBets(runtime: GameRuntime, roundIndex: number): void {
     const { state, gameId } = runtime;
     if (state.settings.eliminated !== 'ghosts') return;
@@ -98,25 +101,33 @@ export class BotDriver {
       clearTimeout(this.timers.get(key));
       const timer = setTimeout(() => {
         this.timers.delete(key);
-        contain(this.report, { gameId, during: 'pronostic du bot', playerId: ghost.playerId }, () =>
-          this.bet(runtime, ghost.playerId, roundIndex),
+        contain(this.report, { gameId, during: 'fantôme du bot', playerId: ghost.playerId }, () =>
+          this.haunt(runtime, ghost.playerId, roundIndex),
         );
       }, announced + this.betMs());
       this.timers.set(key, timer);
     }
   }
 
-  private async bet(runtime: GameRuntime, botId: string, roundIndex: number): Promise<void> {
-    const { state } = runtime;
-    if (state.status !== 'PLAYING' || state.round?.index !== roundIndex) return;
-    const view = battleship.projectPrivate(state, botId);
-    if (!view.me.canBet || view.me.bet !== null) return;
-    const decision = await runtime.handle(
-      { kind: 'player', playerId: botId },
-      { type: 'PLACE_BET', round: roundIndex, bet: chooseBet(view) },
-    );
-    if (!decision.ok)
-      this.log(`bot ${botId} refusé (${decision.rejection.code}) : ${decision.rejection.message}`);
+  private async haunt(runtime: GameRuntime, botId: string, roundIndex: number): Promise<void> {
+    const actor = { kind: 'player', playerId: botId } as const;
+    const send = async (command: Parameters<GameRuntime['handle']>[1]) => {
+      const decision = await runtime.handle(actor, command);
+      if (!decision.ok)
+        this.log(
+          `bot ${botId} refusé (${decision.rejection.code}) : ${decision.rejection.message}`,
+        );
+    };
+    const current = () =>
+      runtime.state.status === 'PLAYING' && runtime.state.round?.index === roundIndex;
+    if (!current()) return;
+    let view = battleship.projectPrivate(runtime.state, botId);
+    if (view.me.canBet && view.me.bet === null)
+      await send({ type: 'PLACE_BET', round: roundIndex, bet: chooseBet(view) });
+    if (!current()) return;
+    view = battleship.projectPrivate(runtime.state, botId);
+    const play = chooseGhostCard(view, Math.random);
+    if (play) await send({ type: 'PLAY_GHOST_CARD', round: roundIndex, ...play });
   }
 
   private schedule(runtime: GameRuntime, roundIndex: number, expectedShooters: string[]): void {

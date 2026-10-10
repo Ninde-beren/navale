@@ -6,6 +6,8 @@ import {
   ColorIdSchema,
   CoordSchema,
   GameSettingsSchema,
+  GhostCardSchema,
+  LitCellSchema,
   PlayerKindSchema,
   RadarResultSchema,
   RankEntrySchema,
@@ -64,6 +66,16 @@ const BetPlacedSchema = z.object({
   round: z.number().int().min(0),
   playerId: z.string(),
   bet: BetSchema,
+});
+
+/** La carte engagée par un fantôme. Le feu follet vise en secret : sa cible et sa case sont privées. */
+const GhostCardCommittedSchema = z.object({
+  type: z.literal('GHOST_CARD_COMMITTED'),
+  round: z.number().int().min(0),
+  playerId: z.string(),
+  card: GhostCardSchema,
+  targetId: z.string().optional(),
+  coord: CoordSchema.optional(),
 });
 
 /** Privé : seul l'auteur de la détection reçoit `shipCells`, `contacts` et `echo`. */
@@ -151,6 +163,26 @@ export const GameEventSchema = z.discriminatedUnion('type', [
     outcome: BetSchema.nullable(),
     bets: z.array(z.object({ playerId: z.string(), bet: BetSchema })),
   }),
+  GhostCardCommittedSchema,
+  /**
+   * La carte d'un fantôme, jouée à la fin de la manche, après les tirs : ses effets suivent
+   * (les tirs d'un barrage, les cases éclairées). `readyAt` : la manche de sa carte suivante.
+   */
+  z.object({
+    type: z.literal('GHOST_CARD_PLAYED'),
+    round: z.number().int().min(0),
+    playerId: z.string(),
+    card: GhostCardSchema,
+    readyAt: z.number().int().min(0),
+  }),
+  /** Des cases éclairées par un fantôme (feu follet, marée basse) : navire ou eau, pour tous. */
+  z.object({
+    type: z.literal('CELLS_LIT'),
+    round: z.number().int().min(0),
+    playerId: z.string(),
+    card: GhostCardSchema,
+    cells: z.array(LitCellSchema.extend({ targetId: z.string() })),
+  }),
   /** Un bot tire pour ce joueur absent, à ce niveau, jusqu'à son retour. */
   z.object({ type: z.literal('PLAYER_SUBSTITUTED'), playerId: z.string(), level: BotLevelSchema }),
   /** Le joueur est revenu : il reprend sa flotte, le bot s'efface. */
@@ -192,6 +224,7 @@ export const VisibleEventSchema = z.union([
   ShieldRaisedSchema.omit({ center: true, size: true }),
   DecoyPlacedSchema.omit({ coord: true }),
   BetPlacedSchema.omit({ bet: true }),
+  GhostCardCommittedSchema.omit({ targetId: true, coord: true }),
 ]);
 export type VisibleEvent = z.infer<typeof VisibleEventSchema>;
 

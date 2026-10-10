@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import type { Commander, Coord, PublicPlayer } from '@navale/protocol';
+import type { Commander, Coord, LitCell, PublicPlayer } from '@navale/protocol';
 import { publicGridClasses } from '../../shared/cells.js';
 import { abilityHint, betsLabel, ordinal } from '../../shared/labels.js';
 import { PlayerAvatar } from '../../shared/ui/Avatar.js';
@@ -19,6 +19,8 @@ export function PlayerZone({
   sweep,
   commander,
   ghost = false,
+  ghostReady = false,
+  lights = [],
 }: {
   player: PublicPlayer;
   seat: number;
@@ -35,6 +37,10 @@ export function PlayerZone({
   sweep: Sweep | null;
   /** Éliminé d'une partie à fantômes : il pronostique, sa plaque montre ses bons pronostics. */
   ghost?: boolean;
+  /** Fantôme dont la carte est prête : sa plaque le dit. */
+  ghostReady?: boolean;
+  /** Cases éclairées par l'animation d'un fantôme, pas encore dans l'instantané. */
+  lights?: LitCell[];
 }) {
   const eliminated = player.status === 'ELIMINATED';
   return (
@@ -64,6 +70,7 @@ export function PlayerZone({
             title="Ses pronostics de fantôme : les bons, sur ceux qui ont compté"
           >
             fantôme{player.bets.total > 0 && ` · ${betsLabel(player.bets)}`}
+            {ghostReady && ' · carte prête'}
           </span>
         )}
         {player.substitute ? (
@@ -80,6 +87,7 @@ export function PlayerZone({
           player.sunkShips,
           fresh,
           player.pierced,
+          [...player.lit, ...lights],
         )}
         className={clsx(eliminated && 'dim')}
         label={`Grille de ${player.name}`}

@@ -22,7 +22,15 @@ import {
   repairableCells,
 } from './rules/abilities.js';
 import { computeRanking, isFinishedAfterRound } from './rules/end.js';
-import { canBet, roundOutcome } from './rules/ghosts.js';
+import {
+  barrageShots,
+  canBet,
+  ghostCards,
+  lowTideCells,
+  nextGhostReady,
+  roundOutcome,
+  wispCells,
+} from './rules/ghosts.js';
 import { resolveRound, type ShotToResolve } from './rules/resolve.js';
 import { startBlocker } from './rules/start.js';
 import { antiFocusBlocked, legalTargets } from './rules/targets.js';
@@ -107,6 +115,8 @@ export function decide(state: GameState, command: Command, ctx: DecideContext): 
       return useAbility(state, command, ctx);
     case 'PLACE_BET':
       return placeBet(state, command, ctx);
+    case 'PLAY_GHOST_CARD':
+      return playGhostCard(state, command, ctx);
     case 'FORCE_ROUND':
       return forceRound(state, ctx);
     case 'SUBSTITUTE_PLAYER':
@@ -176,17 +186,8 @@ function roundStarted(state: GameState, index: number, now: number): GameEventOf
   };
 }
 
-/**
- * Résout les tirs d'une manche, prononce les éliminations, clôt la manche,
- * puis ouvre la suivante ou termine la partie. Le serveur espace la
- * publication de ces événements au rythme de l'écran central, le moteur les produit d'un coup.
- */
-function resolveAndAdvance(
-  state: GameState,
-  shots: ShotToResolve[],
-  skipped: string[],
-  ctx: DecideContext,
-): GameEvent[] {
+/** Les tirs résolus d'une passe et les éliminations qu'ils prononcent, comme événements. */
+function shotEvents(state: GameState, shots: ShotToResolve[]) {
   const roundIndex = state.round?.index ?? 0;
   const { resolved, eliminated } = resolveRound(state, shots);
   const events: GameEvent[] = resolved.map((r) => ({ type: 'SHOT_RESOLVED', ...r }));
@@ -197,19 +198,78 @@ function resolveAndAdvance(
       round: roundIndex,
       rank: e.rank,
     });
-  // Les pronostics des fantômes, dévoilés et comptés une fois les tirs de la manche résolus.
+  return { resolved, events };
+}
+
+/**
+ * Les cartes des fantômes, jouées après les tirs de la manche, dans l'ordre où elles ont
+ * été engagées, chacune contre l'état laissé par la précédente. Le hasard du barrage et de
+ * la marée basse vient du contexte : le journal garde les cases tirées, le rejeu les relit.
+ */
+function ghostCardEvents(state: GameState, ctx: DecideContext): GameEvent[] {
+  const round = state.round;
+  if (!round) return [];
+  const events: GameEvent[] = [];
+  let next = state;
+  const push = (e: GameEvent) => {
+    events.push(e);
+    next = evolve(next, e);
+  };
+  for (const [playerId, play] of Object.entries(round.ghostPlays)) {
+    // Un barrage a pu finir la partie : les cartes suivantes ne partent pas.
+    if (isFinishedAfterRound(next, 0)) break;
+    push({
+      type: 'GHOST_CARD_PLAYED',
+      round: round.index,
+      playerId,
+      card: play.card,
+      readyAt: nextGhostReady(next, round.index),
+    });
+    if (play.card === 'barrage') {
+      for (const e of shotEvents(next, barrageShots(next, playerId, ctx.random)).events) push(e);
+    } else {
+      const cells = play.card === 'wisp' ? wispCells(next, play) : lowTideCells(next, ctx.random);
+      push({ type: 'CELLS_LIT', round: round.index, playerId, card: play.card, cells });
+    }
+  }
+  return events;
+}
+
+/**
+ * Résout les tirs d'une manche, prononce les éliminations, joue les cartes des fantômes,
+ * règle leurs pronostics, clôt la manche, puis ouvre la suivante ou termine la partie. Le
+ * serveur espace la publication de ces événements au rythme de l'écran central, le moteur
+ * les produit d'un coup.
+ */
+function resolveAndAdvance(
+  state: GameState,
+  shots: ShotToResolve[],
+  skipped: string[],
+  ctx: DecideContext,
+): GameEvent[] {
+  const roundIndex = state.round?.index ?? 0;
+  const { resolved, events } = shotEvents(state, shots);
+  let next = state;
+  for (const e of events) next = evolve(next, e);
+  const out = (e: GameEvent) => {
+    events.push(e);
+    next = evolve(next, e);
+  };
+  // Les cartes des fantômes, après les tirs, sauf si ces tirs viennent de finir la partie.
+  const eliminatedByShots = events.filter((e) => e.type === 'PLAYER_ELIMINATED').length;
+  if (!isFinishedAfterRound(next, eliminatedByShots))
+    for (const e of ghostCardEvents(next, ctx)) out(e);
+  // Les pronostics des fantômes, dévoilés et comptés sur les tirs des joueurs de la manche.
   const bets = Object.entries(state.round?.bets ?? {}).map(([playerId, bet]) => ({
     playerId,
     bet,
   }));
   if (bets.length > 0)
-    events.push({ type: 'BETS_SETTLED', round: roundIndex, outcome: roundOutcome(resolved), bets });
-  events.push({ type: 'ROUND_RESOLVED', round: roundIndex, skipped });
+    out({ type: 'BETS_SETTLED', round: roundIndex, outcome: roundOutcome(resolved), bets });
+  out({ type: 'ROUND_RESOLVED', round: roundIndex, skipped });
 
-  let next = state;
-  for (const e of events) next = evolve(next, e);
-
-  if (isFinishedAfterRound(next, eliminated.length)) {
+  const eliminated = events.filter((e) => e.type === 'PLAYER_ELIMINATED').length;
+  if (isFinishedAfterRound(next, eliminated)) {
     const ranking = computeRanking(next);
     const firsts = ranking.filter((r) => r.rank === 1);
     events.push({
@@ -613,6 +673,66 @@ function placeBet(
   if (state.round.bets[me.playerId] === command.bet) return ok([]);
   return ok([
     { type: 'BET_PLACED', round: state.round.index, playerId: me.playerId, bet: command.bet },
+  ]);
+}
+
+/**
+ * Fantôme : la carte que je joue à la fin de cette manche, celle de mon commandant ou
+ * celle de mon choix, quand elle est prête. Le feu follet vise une case encore cachée
+ * d'un survivant ; le barrage et la marée basse frappent tous les survivants.
+ */
+function playGhostCard(
+  state: GameState,
+  command: CommandOf<'PLAY_GHOST_CARD'>,
+  ctx: DecideContext,
+): BattleshipDecision {
+  const me = actorPlayer(state, ctx);
+  if (isDecision(me)) return me;
+  if (state.status !== 'PLAYING' || !state.round)
+    return reject('GAME_NOT_PLAYING', 'La partie n’est pas en cours.');
+  if (!canBet(state, me))
+    return reject('NOT_A_GHOST', 'Les cartes fantômes sont pour les éliminés.');
+  const round = state.round;
+  if (command.round !== round.index) return reject('WRONG_STATE', 'Cette manche est déjà jouée.');
+  if (!ghostCards(state, me).includes(command.card))
+    return reject(
+      'GHOST_CARD_UNAVAILABLE',
+      round.ghostPlays[me.playerId]
+        ? 'Ta carte est déjà jouée pour cette manche.'
+        : me.ghostReadyAt !== null && round.index < me.ghostReadyAt
+          ? 'Ta carte n’est pas encore prête.'
+          : 'Ce n’est pas ta carte.',
+    );
+  if (command.card !== 'wisp')
+    return ok([
+      {
+        type: 'GHOST_CARD_COMMITTED',
+        round: round.index,
+        playerId: me.playerId,
+        card: command.card,
+      },
+    ]);
+  const { targetId, coord } = command;
+  if (!targetId || !coord)
+    return reject('BAD_REQUEST', 'Le feu follet vise une case chez un survivant.');
+  const target = playerById(state, targetId);
+  if (!target || target.status !== 'ALIVE')
+    return reject('TARGET_NOT_ALIVE', 'Cette cible n’est plus en jeu.');
+  if (!inBounds(state.settings, coord))
+    return reject('COORD_OUT_OF_BOUNDS', 'Case hors de la grille.');
+  if (target.shotsReceived.some((s) => sameCoord(s.coord, coord)))
+    return reject('CELL_ALREADY_SHOT', 'Cette case est déjà révélée.');
+  if (target.lit.some((l) => sameCoord(l.coord, coord)))
+    return reject('CELL_ALREADY_SHOT', 'Cette case est déjà éclairée.');
+  return ok([
+    {
+      type: 'GHOST_CARD_COMMITTED',
+      round: round.index,
+      playerId: me.playerId,
+      card: 'wisp',
+      targetId,
+      coord,
+    },
   ]);
 }
 

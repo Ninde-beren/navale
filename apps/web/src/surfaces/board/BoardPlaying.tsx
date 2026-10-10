@@ -48,7 +48,7 @@ export function BoardPlaying({
   // Assez de tirs pour trois lignes même avec des rafales de missile (cinq tirs chacune).
   const history = useShotHistory(view.lastShots, view.gameId, 15);
   const showHistory = flat || layout === 'p3';
-  const { rootRef, reveals, fresh, callout, salvoStep, sweep } = useShotSequence({
+  const { rootRef, reveals, fresh, callout, salvoStep, sweep, lit } = useShotSequence({
     events: useGame((s) => s.events),
     players,
     commanders: commandersOf(settings),
@@ -136,6 +136,10 @@ export function BoardPlaying({
             sweep={sweep?.playerId === p.playerId ? sweep : null}
             commander={commanderOf(settings, p.commanderId)}
             ghost={settings.eliminated === 'ghosts' && p.status === 'ELIMINATED'}
+            ghostReady={
+              p.ghostReadyAt !== null && view.round !== null && view.round.index >= p.ghostReadyAt
+            }
+            lights={lit[p.playerId] ?? []}
           />
         );
         // À plat, chaque zone est dans un cadre tourné vers le côté de la table où son joueur est assis.

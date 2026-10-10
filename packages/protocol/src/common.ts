@@ -72,6 +72,14 @@ export type EliminatedRole = z.infer<typeof EliminatedRoleSchema>;
 export const BetSchema = z.enum(['HIT', 'MISS']);
 export type Bet = z.infer<typeof BetSchema>;
 
+/**
+ * Les cartes d'un fantôme, chacune juste pour tous les survivants : le feu follet éclaire
+ * une case de son choix chez un survivant, sans dégât ; le barrage tire une case au hasard
+ * chez chacun ; la marée basse découvre chez chacun une case de navire au hasard.
+ */
+export const GhostCardSchema = z.enum(['wisp', 'barrage', 'low_tide']);
+export type GhostCard = z.infer<typeof GhostCardSchema>;
+
 // ---- Commandants et capacités ----------------------------------------------------
 
 export const AbilityTypeSchema = z.enum(['radar', 'sonar', 'missile', 'repair', 'shield', 'decoy']);
@@ -114,12 +122,16 @@ export const AbilitySchema = z.discriminatedUnion('type', [
 ]);
 export type Ability = z.infer<typeof AbilitySchema>;
 
-/** Un commandant : un nom et une capacité, utilisable `uses` fois par partie. */
+/**
+ * Un commandant : un nom et une capacité, utilisable `uses` fois par partie, et la carte
+ * qu'il laisse à son joueur une fois éliminé ; sans carte, le fantôme choisit la sienne.
+ */
 export const CommanderSchema = z.object({
   id: z.string().min(1).max(32),
   name: z.string().min(1).max(32),
   ability: AbilitySchema,
   uses: z.number().int().min(1).max(5),
+  ghostCard: GhostCardSchema.optional(),
 });
 export type Commander = z.infer<typeof CommanderSchema>;
 
@@ -159,8 +171,13 @@ export const GameSettingsSchema = z.object({
   afkBotLevel: BotLevelSchema.default('normal'),
   /** Commandants proposés aux joueurs ; vide = partie sans capacités. */
   commanders: z.array(CommanderSchema).max(8).default([]),
-  /** Les éliminés : fantômes (ils pronostiquent) ou spectateurs. */
+  /** Les éliminés : fantômes (ils pronostiquent et jouent une carte) ou spectateurs. */
   eliminated: EliminatedRoleSchema.default('ghosts'),
+  /**
+   * Un fantôme joue une carte dès la manche qui suit son élimination, puis tous les N tours
+   * de table : N manches en salve, N fois le nombre de survivants en tour par tour.
+   */
+  ghostCardEveryTurns: z.number().int().min(1).max(10).default(2),
 });
 export type GameSettings = z.infer<typeof GameSettingsSchema>;
 
@@ -231,6 +248,18 @@ export const ShieldSchema = z.object({
 });
 export type Shield = z.infer<typeof ShieldSchema>;
 
+/** Une case éclairée par un fantôme chez un joueur : tout le monde sait s'il y a un navire. */
+export const LitCellSchema = z.object({ coord: CoordSchema, ship: z.boolean() });
+export type LitCell = z.infer<typeof LitCellSchema>;
+
+/** La carte qu'un fantôme a engagée pour la manche ; le feu follet porte sa cible et sa case. */
+export const GhostPlaySchema = z.object({
+  card: GhostCardSchema,
+  targetId: z.string().optional(),
+  coord: CoordSchema.optional(),
+});
+export type GhostPlay = z.infer<typeof GhostPlaySchema>;
+
 export const SunkInfoSchema = z.object({
   shipId: z.string(),
   size: z.number().int().min(1),
@@ -248,6 +277,8 @@ export const ResolvedShotSchema = z.object({
   sunk: SunkInfoSchema.optional(),
   /** Missile : la rafale dont ce tir fait partie, son centre et son nombre de tirs. */
   burst: z.object({ center: CoordSchema, size: z.number().int().min(1) }).optional(),
+  /** Le barrage d'un fantôme dont ce tir fait partie, et son nombre de tirs (un par survivant). */
+  barrage: z.object({ size: z.number().int().min(1) }).optional(),
 });
 export type ResolvedShot = z.infer<typeof ResolvedShotSchema>;
 

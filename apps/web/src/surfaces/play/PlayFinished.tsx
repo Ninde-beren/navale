@@ -9,6 +9,7 @@ import { clearPlayer } from '../../shared/session.js';
 import type { SocketRef } from '../../shared/socket.js';
 import { PhoneScreen } from '../../shared/ui/PhoneScreen.js';
 import { GhostBets } from './GhostBets.js';
+import { GhostCards } from './GhostCards.js';
 import { MyFleetGrid } from './MyFleetGrid.js';
 
 /**
@@ -45,13 +46,14 @@ export function PlayFinished({
         <h1 className={clsx('state', rank === 1 && 'me')}>{headline}</h1>
         <p className="muted">
           {ghost
-            ? 'Éliminé, mais pas sorti du jeu : pronostique chaque manche.'
+            ? 'Éliminé, mais pas sorti du jeu : pronostique chaque manche, joue ta carte.'
             : finished
               ? 'La partie est terminée.'
               : 'La partie continue sans toi.'}
         </p>
       </div>
       {ghost && <GhostBets view={view} me={me} socket={socket} />}
+      {ghost && <GhostCards view={view} socket={socket} />}
       <MyFleetGrid view={view} me={me} dim />
       {entry && (
         <div className="panel flex flex-col gap-2">

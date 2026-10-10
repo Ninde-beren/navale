@@ -3,6 +3,8 @@ import { randomFleet } from '../src/battleship/placement.js';
 import { makeSettings } from '../src/battleship/settings.js';
 import { coordKey } from '../src/battleship/state.js';
 import { legalTargets } from '../src/battleship/rules/targets.js';
+import { chooseGhostCard } from '../src/battleship/bot/strategy.js';
+import { projectPrivate } from '../src/battleship/project.js';
 import { COLORS, HOST, Harness, player } from './helpers.js';
 
 /** Joue une partie entière avec des tirs légaux au hasard. Renvoie le banc d'essai. */
@@ -29,14 +31,23 @@ export function randomGame(
   let commands = 0;
   while (h.state.status === 'PLAYING' && commands++ < maxCommands) {
     const round = h.state.round!;
-    // Les fantômes pronostiquent au hasard : leurs paris passent aussi par le rejeu et les vues.
-    for (const p of h.state.players)
-      if (p.status === 'ELIMINATED' && rnd() < 0.7)
+    // Les fantômes pronostiquent et jouent leurs cartes au hasard : paris, barrages et cases
+    // éclairées passent aussi par le rejeu et les vues.
+    for (const p of h.state.players) {
+      if (p.status !== 'ELIMINATED') continue;
+      if (rnd() < 0.7)
         h.expectOk(player(p.playerId), {
           type: 'PLACE_BET',
           round: round.index,
           bet: rnd() < 0.5 ? 'HIT' : 'MISS',
         });
+      const view = projectPrivate(h.state, p.playerId);
+      if (view.me.ghostCards.length > 0 && rnd() < 0.5) {
+        const play = chooseGhostCard(view, rnd);
+        if (play)
+          h.expectOk(player(p.playerId), { type: 'PLAY_GHOST_CARD', round: round.index, ...play });
+      }
+    }
     const shooter = round.expectedShooters.find((id) => !round.committed[id]);
     if (!shooter) {
       h.expectOk(HOST, { type: 'FORCE_ROUND' });

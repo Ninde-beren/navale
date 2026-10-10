@@ -8,6 +8,7 @@ import type {
   EliminatedRole,
   EndCondition,
   GameSettings,
+  GhostCard,
   RadarResult,
   RankEntry,
   SalvoOrder,
@@ -56,6 +57,19 @@ export const ELIMINATED_LABELS: Record<EliminatedRole, string> = {
 export const BET_LABELS: Record<Bet, string> = {
   HIT: 'Touché',
   MISS: 'Raté',
+};
+
+export const GHOST_CARD_LABELS: Record<GhostCard, string> = {
+  wisp: 'Feu follet',
+  barrage: 'Barrage',
+  low_tide: 'Marée basse',
+};
+
+/** Ce que fait une carte fantôme, en une phrase. */
+export const GHOST_CARD_HINTS: Record<GhostCard, string> = {
+  wisp: 'Éclaire une case chez un survivant : tout le monde voit s’il y a un navire.',
+  barrage: 'Un tir au hasard chez chaque survivant.',
+  low_tide: 'Découvre une case de navire au hasard chez chaque survivant.',
 };
 
 /** « 3 bons sur 5 », les pronostics d'un fantôme. */

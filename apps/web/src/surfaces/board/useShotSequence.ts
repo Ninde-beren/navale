@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import { burstStaggerMs } from '@navale/engine';
+import { burstStaggerMs, ghostLeadMs } from '@navale/engine';
 import {
   coordLabel,
   type Commander,
   type Coord,
+  type LitCell,
   type PublicPlayer,
   type ResolvedShot,
   type VisibleEnvelope,
 } from '@navale/protocol';
 import { play, playSunkJingle } from '../../shared/audio.js';
 import { burstResult, sameBurst } from '../../shared/bursts.js';
-import { ABILITY_LABELS, RESULT_LABELS } from '../../shared/labels.js';
+import { ABILITY_LABELS, GHOST_CARD_LABELS, RESULT_LABELS, count } from '../../shared/labels.js';
 import { ShotFx, sleep, type Sweep } from './shotFx.js';
 
 /** Une case révélée par l'animation, en attendant l'instantané qui la confirmera. */
@@ -53,6 +54,8 @@ export function useShotSequence({
   const lastSeq = useRef(0);
   // Rafale en cours de réception : ses tirs, jusqu'au dernier, puis une seule annonce.
   const burst = useRef<ResolvedShot[]>([]);
+  // Barrage d'un fantôme en cours de réception, de même.
+  const barrage = useRef<ResolvedShot[]>([]);
   // Dernier tir parti : un tir de la même rafale ne compte pas comme un tir de plus de la salve.
   const lastLaunch = useRef<ResolvedShot | null>(null);
   const [reveals, setReveals] = useState<Record<string, Reveal[]>>({});
@@ -60,6 +63,8 @@ export function useShotSequence({
   const [callout, setCallout] = useState<Callout | null>(null);
   const [salvoStep, setSalvoStep] = useState<SalvoStep | null>(null);
   const [sweep, setSweep] = useState<Sweep | null>(null);
+  // Cases éclairées par un fantôme à la fin de leur animation, en attendant l'instantané.
+  const [lit, setLit] = useState<Record<string, LitCell[]>>({});
 
   const playerOf = (playerId: string) => playersRef.current.find((p) => p.playerId === playerId);
   const nameOf = (playerId: string) => playerOf(playerId)?.name ?? '?';
@@ -67,6 +72,7 @@ export function useShotSequence({
   useEffect(() => {
     setReveals({});
     setFresh(null);
+    setLit({});
   }, [seq]);
 
   useEffect(() => {
@@ -143,8 +149,74 @@ export function useShotSequence({
             fx.finish();
           });
         }
+      } else if (event.type === 'SHOT_RESOLVED' && event.barrage) {
+        // Barrage d'un fantôme : un souffle, puis un missile vers chaque survivant, tous partis
+        // de sa plaque à la suite, et une seule annonce.
+        const { type: _type, ...shot } = event;
+        const last = barrage.current.at(-1);
+        if (last && (last.round !== shot.round || last.shooterId !== shot.shooterId))
+          barrage.current = [];
+        barrage.current.push(shot);
+        if (barrage.current.length >= event.barrage.size) {
+          const shots = barrage.current;
+          barrage.current = [];
+          void fx.enqueue(async () => {
+            play('ghost');
+            await sleep(ghostLeadMs(revealDelayMs));
+          });
+          void fx.playBurst(shots, revealDelayMs, burstStaggerMs(revealDelayMs));
+          const result = burstResult(shots);
+          const where = `Barrage du fantôme de ${nameOf(event.shooterId)}`;
+          void fx.enqueue(async () => {
+            setCallout({ word: RESULT_LABELS[result], where, cls: result.toLowerCase() });
+            await sleep(ShotFx.timings(revealDelayMs).hold);
+            setCallout(null);
+            fx.finish();
+          });
+        }
       } else if (event.type === 'SHOT_RESOLVED') {
         void fx.play(event, revealDelayMs);
+      } else if (event.type === 'CELLS_LIT') {
+        // Feu follet ou marée basse : la case s'allume, ou la mer se retire sur chaque grille,
+        // puis les cases découvertes restent éclairées pour tous.
+        const ghost = nameOf(event.playerId);
+        const hold = ShotFx.timings(revealDelayMs).hold;
+        void fx.enqueue(async () => {
+          play('ghost');
+          await sleep(ghostLeadMs(revealDelayMs));
+          play(event.card === 'wisp' ? 'wisp' : 'tide');
+          await Promise.all(
+            event.card === 'wisp'
+              ? event.cells.map((c) => fx.mark('wisp', event.playerId, c.targetId, c.coord))
+              : playersRef.current
+                  .filter((p) => p.status === 'ALIVE')
+                  .map((p) => fx.mark('tide', event.playerId, p.playerId, { x: 0, y: 0 })),
+          );
+          setLit((current) => {
+            const next = { ...current };
+            for (const { targetId, coord, ship } of event.cells)
+              next[targetId] = [...(next[targetId] ?? []), { coord, ship }];
+            return next;
+          });
+          const first = event.cells[0];
+          setCallout(
+            event.card === 'wisp'
+              ? first
+                ? {
+                    word: first.ship ? 'NAVIRE' : 'EAU',
+                    where: `${GHOST_CARD_LABELS.wisp} ${coordLabel(first.coord)} · ${ghost} → ${nameOf(first.targetId)}`,
+                    cls: 'ghost',
+                  }
+                : { word: 'FEU FOLLET', where: `Le feu follet de ${ghost} s’éteint`, cls: 'ghost' }
+              : {
+                  word: 'MARÉE BASSE',
+                  where: `Le fantôme de ${ghost} découvre ${count(event.cells.length, 'navire')}`,
+                  cls: 'ghost',
+                },
+          );
+          await sleep(hold);
+          setCallout(null);
+        });
       } else if (event.type === 'ABILITY_USED' && event.ability === 'missile') {
         // La rafale qui suit est l'annonce du missile.
       } else if (event.type === 'ABILITY_USED') {
@@ -200,5 +272,5 @@ export function useShotSequence({
     }
   }, [events]);
 
-  return { rootRef, reveals, fresh, callout, salvoStep, sweep };
+  return { rootRef, reveals, fresh, callout, salvoStep, sweep, lit };
 }

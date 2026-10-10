@@ -2,21 +2,48 @@ import type { Commander, GameSettings, PresetId, ShipSpec, Variant } from '@nava
 
 /**
  * Les commandants proposés quand l'hôte les active : une capacité chacun, une fois
- * par partie. Ce ne sont que des valeurs par défaut de `settings.commanders`.
+ * par partie, et la carte qu'il laisse à son joueur éliminé (détection : feu follet ;
+ * armes : barrage ; coques et ruses : marée basse). Ce ne sont que des valeurs par
+ * défaut de `settings.commanders`.
  */
 export const COMMANDERS: readonly Commander[] = [
-  { id: 'amiral', name: 'Amiral', ability: { type: 'radar', size: 3 }, uses: 1 },
+  {
+    id: 'amiral',
+    name: 'Amiral',
+    ability: { type: 'radar', size: 3 },
+    uses: 1,
+    ghostCard: 'wisp',
+  },
   {
     id: 'sonariste',
     name: 'Sonariste',
     // Écho faible de 0 à 1 case de navire, moyen de 2 à 4, fort à partir de 5.
     ability: { type: 'sonar', size: 5, echo: { medium: 2, strong: 5 } },
     uses: 1,
+    ghostCard: 'wisp',
   },
-  { id: 'artificier', name: 'Artificier', ability: { type: 'missile', pattern: 'cross' }, uses: 1 },
-  { id: 'ingenieur', name: 'Ingénieur', ability: { type: 'repair' }, uses: 1 },
-  { id: 'capitaine', name: 'Capitaine', ability: { type: 'shield', size: 3 }, uses: 1 },
-  { id: 'espion', name: 'Espion', ability: { type: 'decoy' }, uses: 1 },
+  {
+    id: 'artificier',
+    name: 'Artificier',
+    ability: { type: 'missile', pattern: 'cross' },
+    uses: 1,
+    ghostCard: 'barrage',
+  },
+  {
+    id: 'ingenieur',
+    name: 'Ingénieur',
+    ability: { type: 'repair' },
+    uses: 1,
+    ghostCard: 'low_tide',
+  },
+  {
+    id: 'capitaine',
+    name: 'Capitaine',
+    ability: { type: 'shield', size: 3 },
+    uses: 1,
+    ghostCard: 'barrage',
+  },
+  { id: 'espion', name: 'Espion', ability: { type: 'decoy' }, uses: 1, ghostCard: 'low_tide' },
 ];
 
 /** Présélections de grille et de flotte. Ce ne sont que des valeurs par défaut de `settings`. */
@@ -60,6 +87,7 @@ const DEFAULTS = {
   afkBotLevel: 'normal',
   commanders: [],
   eliminated: 'ghosts',
+  ghostCardEveryTurns: 2,
 } satisfies Partial<GameSettings>;
 
 export function makeSettings(
