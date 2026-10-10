@@ -1,4 +1,5 @@
 import type {
+  AbilityType,
   BoardView,
   GameEvent,
   PlayerView,
@@ -20,6 +21,9 @@ import {
   type Player,
 } from './state.js';
 
+/** Les capacités qui se jouent en secret : les autres ne savent pas où. */
+const SECRET_ABILITIES: ReadonlySet<AbilityType> = new Set(['decoy', 'shield']);
+
 /*
  * La frontière public / privé est ici et nulle part ailleurs : les vues de l'état
  * (`projectPublic`, `projectPrivate`) et celles des événements (`publicEvent`,
@@ -40,9 +44,8 @@ function publicPlayer(state: GameState, p: Player, presence: Presence): PublicPl
     substitute: p.substitute,
     commanderId: p.commanderId,
     abilityUsesLeft: p.abilityUsesLeft,
-    shield: p.shield
-      ? { center: p.shield.center, size: p.shield.size, pierced: p.shield.pierced }
-      : null,
+    // Le verre brisé seulement : la zone du bouclier reste à son propriétaire.
+    pierced: p.shield?.pierced ?? [],
     shipsRemaining: shipsRemaining(p),
     revealed: p.shotsReceived.map((s) => ({ coord: s.coord, result: s.result })),
     sunkShips: p.fleet.filter(isSunk).map((ship) => sunkInfo(state.settings, ship)),
@@ -113,6 +116,7 @@ export function projectPrivate(
       canUseAbility: myTurn && commanderOf(state, me) !== undefined && me.abilityUsesLeft > 0,
       radarResults: me.radarResults,
       decoys: me.decoys,
+      shield: me.shield,
     },
   };
 }
@@ -132,15 +136,20 @@ export function publicEvent(event: GameEvent): VisibleEvent {
       const { shipCells: _shipCells, contacts: _contacts, ...radar } = event;
       return radar;
     }
-    // Un leurre se pose en secret : les autres savent qu'il existe, pas où.
+    // Un leurre se pose et un bouclier se lève en secret : les autres savent qu'ils
+    // existent, pas où.
     case 'ABILITY_USED': {
-      if (event.ability !== 'decoy') return event;
+      if (!SECRET_ABILITIES.has(event.ability)) return event;
       const { targetId: _targetId, coord: _coord, ...used } = event;
       return used;
     }
     case 'DECOY_PLACED': {
       const { coord: _coord, ...placed } = event;
       return placed;
+    }
+    case 'SHIELD_RAISED': {
+      const { center: _center, size: _size, ...raised } = event;
+      return raised;
     }
     default:
       return event;
@@ -156,9 +165,10 @@ export function privateRecipient(event: GameEvent): string | null {
       return event.shooterId;
     case 'RADAR_RESULT':
     case 'DECOY_PLACED':
+    case 'SHIELD_RAISED':
       return event.playerId;
     case 'ABILITY_USED':
-      return event.ability === 'decoy' ? event.playerId : null;
+      return SECRET_ABILITIES.has(event.ability) ? event.playerId : null;
     default:
       return null;
   }

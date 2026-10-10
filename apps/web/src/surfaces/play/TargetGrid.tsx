@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { coordKey, radarZone, sameCoord } from '@navale/engine';
 import type { Coord, PlayerView, PublicPlayer, RadarResult } from '@navale/protocol';
-import { publicGridClasses, shieldMarks } from '../../shared/cells.js';
+import { publicGridClasses } from '../../shared/cells.js';
 import { Grid } from '../../shared/ui/Grid.js';
 import { RadarSweep } from '../../shared/ui/RadarSweep.js';
 import { sameRadar } from './useRadarSweep.js';
@@ -57,12 +57,7 @@ export function TargetGrid({
         : scanned.has(key)
           ? 'scan clear'
           : unknown.has(key) && 'scan';
-  const classes = publicGridClasses(
-    target.revealed,
-    target.sunkShips,
-    null,
-    shieldMarks(view.settings, target.shield, target.revealed),
-  );
+  const classes = publicGridClasses(target.revealed, target.sunkShips, null, target.pierced);
   const ships = new Set((live?.contacts ?? []).map(coordKey));
   const echoes =
     live &&

@@ -52,8 +52,6 @@ const STATES = ['show', 'draw', 'fade', 'on', 'go'];
 const SONAR_WAVE_MS = 1000;
 /** Un coup de marteau, en ms : il frappe à 70 % du mouvement, sur chaque coup de `HAMMER_TAPS`. */
 const HAMMER_SWING_MS = 320;
-/** Le bouclier qui se lève, en ms. */
-const SHIELD_MS = 900;
 /** Un tir arrêté par un bouclier, en ms : l'éclair, la fêlure, puis le bris (`SHATTER_AT`). */
 const BLOCK_MS = 1100;
 /** La fêlure du verre, tracée depuis le point d'impact. */
@@ -131,13 +129,13 @@ export class ShotFx {
 
   /**
    * Une capacité qui ne tire pas, jouée sur une case : le balayage du radar ou les ondes du
-   * sonar sur la grille de la cible, couvrant les `span` × `span` cases de sa zone ; le
-   * bouclier qui se lève sur la sienne ; ou le marteau qui tape sur la case réparée.
+   * sonar sur la grille de la cible, couvrant les `span` × `span` cases de sa zone, ou le
+   * marteau qui tape sur la case réparée. Le bouclier se lève en secret : rien ici.
    * L'animation est la même quelle que soit la case : elle ne révèle rien. Rend la main
    * quand elle est finie ; le son se joue à côté, au même instant.
    */
   async mark(
-    kind: 'radar' | 'sonar' | 'repair' | 'shield',
+    kind: 'radar' | 'sonar' | 'repair',
     actorId: string,
     zonePlayerId: string,
     coord: Coord,
@@ -155,9 +153,7 @@ export class ShotFx {
     const duration =
       kind === 'sonar'
         ? SONAR_PINGS[SONAR_PINGS.length - 1]! * 1000 + SONAR_WAVE_MS
-        : kind === 'shield'
-          ? SHIELD_MS
-          : HAMMER_TAPS.length * HAMMER_SWING_MS + 40;
+        : HAMMER_TAPS.length * HAMMER_SWING_MS + 40;
     const cell = this.$(
       `.zone[data-player="${zonePlayerId}"] .cell[data-x="${coord.x}"][data-y="${coord.y}"]`,
     );
@@ -175,8 +171,6 @@ export class ShotFx {
         wave.style.animationDelay = `${Math.round(at * 1000)}ms`;
         el.appendChild(wave);
       }
-    } else if (kind === 'shield') {
-      el.appendChild(document.createElement('i'));
     } else {
       el.innerHTML = `${HAMMER_SVG}<b></b>`;
     }

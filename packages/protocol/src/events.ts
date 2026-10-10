@@ -40,6 +40,15 @@ const AbilityUsedSchema = z.object({
   coord: CoordSchema,
 });
 
+/** Privé : seul le propriétaire du bouclier sait où il est ; les autres savent qu'il est levé. */
+const ShieldRaisedSchema = z.object({
+  type: z.literal('SHIELD_RAISED'),
+  round: z.number().int().min(0),
+  playerId: z.string(),
+  center: CoordSchema,
+  size: z.number().int().min(1),
+});
+
 /** Privé : seul l'auteur du leurre sait où il est. */
 const DecoyPlacedSchema = z.object({
   type: z.literal('DECOY_PLACED'),
@@ -105,14 +114,8 @@ export const GameEventSchema = z.discriminatedUnion('type', [
   /** Une capacité jouée : qui, laquelle, sur qui et où. Ses effets suivent (radar, réparation, tirs…). */
   AbilityUsedSchema,
   RadarResultEventSchema,
-  /** Bouclier levé : public et permanent, chaque case de sa zone arrête un tir. */
-  z.object({
-    type: z.literal('SHIELD_RAISED'),
-    round: z.number().int().min(0),
-    playerId: z.string(),
-    center: CoordSchema,
-    size: z.number().int().min(1),
-  }),
+  /** Bouclier levé, en secret et pour toute la partie : chaque case de sa zone arrête un tir. */
+  ShieldRaisedSchema,
   DecoyPlacedSchema,
   z.object({
     type: z.literal('SHIP_REPAIRED'),
@@ -165,6 +168,7 @@ export const VisibleEventSchema = z.union([
   ShotCommittedSchema.omit({ targetId: true, coord: true }),
   RadarResultEventSchema.omit({ shipCells: true, contacts: true }),
   AbilityUsedSchema.omit({ targetId: true, coord: true }),
+  ShieldRaisedSchema.omit({ center: true, size: true }),
   DecoyPlacedSchema.omit({ coord: true }),
 ]);
 export type VisibleEvent = z.infer<typeof VisibleEventSchema>;

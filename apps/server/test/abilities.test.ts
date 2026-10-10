@@ -194,4 +194,55 @@ describe('commandants, de bout en bout', () => {
     expect(lastView(me).players.find((p) => p.playerId === myId)?.abilityUsesLeft).toBe(1);
     for (const client of [board, me]) client.socket.disconnect();
   });
+
+  it('le bouclier d’un bot reste secret : les autres ne voient que le verre brisé', async () => {
+    const capitaine = COMMANDERS.filter((c) => c.ability.type === 'shield');
+    const g = await createGame(baseUrl, {
+      settings: { variant: 'sequential', maxPlayers: 2, revealDelayMs: 0, commanders: capitaine },
+      preset: 'quick',
+    });
+    const runtime = server.registry.get(g.gameId)!;
+    const board = await open(baseUrl, { kind: 'board', code: g.code, hostToken: g.hostToken });
+    const me = await open(baseUrl, { kind: 'join', code: g.code });
+    await seat(me, 'Antoine', 'red', capitaine[0]!.id);
+    expect(await command(board.socket, { type: 'ADD_BOT' })).toMatchObject({ ok: true });
+    const botOf = () => runtime.state.players.find((p) => p.kind === 'bot')!;
+    expect(await command(board.socket, { type: 'START_GAME' })).toMatchObject({ ok: true });
+    // Antoine touche un navire du bot, qui lève son bouclier dessus.
+    const ship = botOf().fleet[0]!.cells[0]!;
+    await until(() => lastView(me).me.canFire);
+    await command(me.socket, { type: 'FIRE', targetId: botOf().playerId, coord: ship });
+    await until(() => botOf().shield !== null);
+    const shield = botOf().shield!;
+    expect(shield.center).toEqual(ship);
+    const used = () => board.events.find((e) => e.event.type === 'ABILITY_USED');
+    await until(() => used() !== undefined);
+    expect(used()!.event).toMatchObject({ playerId: botOf().playerId, ability: 'shield' });
+    expect(used()!.event).not.toHaveProperty('coord');
+    for (const client of [board, me]) {
+      const sent = JSON.stringify(client.messages.map((m) => m.payload));
+      expect(sent).not.toContain('"center"');
+      expect(sent).not.toContain('"shield":{');
+    }
+    // Un tir sous le bouclier est bloqué : le verre brisé, lui, est public.
+    const neighbour = [
+      { x: ship.x + 1, y: ship.y },
+      { x: ship.x - 1, y: ship.y },
+      { x: ship.x, y: ship.y + 1 },
+      { x: ship.x, y: ship.y - 1 },
+    ].find((c) => c.x >= 0 && c.y >= 0 && c.x < 8 && c.y < 8)!;
+    await until(() => lastView(me).me.canFire);
+    await command(me.socket, { type: 'FIRE', targetId: botOf().playerId, coord: neighbour });
+    await until(() =>
+      board.events.some((e) => e.event.type === 'SHOT_RESOLVED' && e.event.result === 'BLOCKED'),
+    );
+    await until(
+      () =>
+        lastView(board).players.find((p) => p.playerId === botOf().playerId)?.pierced.length === 1,
+    );
+    expect(lastView(board).players.find((p) => p.playerId === botOf().playerId)?.pierced).toEqual([
+      neighbour,
+    ]);
+    for (const client of [board, me]) client.socket.disconnect();
+  });
 });

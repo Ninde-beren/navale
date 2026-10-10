@@ -81,7 +81,9 @@ describe('bouclier', () => {
       h.state.players.find((p) => p.playerId === id)!,
     );
 
-  it('en tour par tour : public et permanent, le premier tir sur une case la perce sans rien révéler, le deuxième passe', () => {
+  const mine = (h: Harness, id: string) => projectPrivate(h.state, id).me.shield;
+
+  it('en tour par tour : permanent, le premier tir sur une case la perce sans rien révéler, le deuxième passe', () => {
     const { h, ids } = game(['capitaine', 'amiral']);
     const [a, j] = ids as [string, string];
     expect(h.types(use(h, a, a, { x: 1, y: 1 }))).toEqual([
@@ -90,24 +92,49 @@ describe('bouclier', () => {
       'ROUND_RESOLVED',
       'ROUND_STARTED',
     ]);
-    expect(pub(h, a).shield).toEqual({ center: { x: 1, y: 1 }, size: 3, pierced: [] });
+    expect(mine(h, a)).toEqual({ center: { x: 1, y: 1 }, size: 3, pierced: [] });
+    expect(pub(h, a).pierced).toEqual([]);
     // Julie tire sous le bouclier, sur le croiseur d'Antoine : bloqué, rien n'est révélé.
     expect(shotOf(h.fire(j, a, { x: 0, y: 0 }))).toMatchObject({ result: 'BLOCKED', shooterId: j });
     expect(pub(h, a).revealed).toEqual([]);
     expect(cellsRemaining(h.state.players.find((p) => p.playerId === a)!)).toBe(12);
-    expect(pub(h, a).shield).toEqual({
-      center: { x: 1, y: 1 },
-      size: 3,
-      pierced: [{ x: 0, y: 0 }],
-    });
+    // Le verre brisé, lui, est public : tout le monde voit la case percée.
+    expect(pub(h, a).pierced).toEqual([{ x: 0, y: 0 }]);
+    expect(mine(h, a)?.pierced).toEqual([{ x: 0, y: 0 }]);
     // Le tour d'Antoine passe, le bouclier tient ; la case percée se tire comme une autre.
     h.fire(a, j, { x: 7, y: 7 });
-    expect(pub(h, a).shield).not.toBeNull();
+    expect(mine(h, a)).not.toBeNull();
     expect(shotOf(h.fire(j, a, { x: 0, y: 0 }))).toMatchObject({ result: 'HIT' });
     h.fire(a, j, { x: 6, y: 7 });
     // Sa voisine, elle, est encore protégée.
     expect(shotOf(h.fire(j, a, { x: 1, y: 0 }))).toMatchObject({ result: 'BLOCKED' });
     expect(statsFor(h, j)).toMatchObject({ shotsFired: 3, hits: 1 });
+  });
+
+  it('sa zone reste secrète : son propriétaire seul la connaît', () => {
+    const { h, ids } = game(['capitaine', 'amiral']);
+    const [a, j] = ids as [string, string];
+    const events = use(h, a, a, { x: 1, y: 1 });
+    const used = events.find((e) => e.type === 'ABILITY_USED')!;
+    const raised = events.find((e) => e.type === 'SHIELD_RAISED')!;
+    for (const e of [used, raised]) expect(privateRecipient(e)).toBe(a);
+    expect(publicEvent(used)).toEqual({
+      type: 'ABILITY_USED',
+      round: 0,
+      playerId: a,
+      ability: 'shield',
+    });
+    expect(publicEvent(raised)).toEqual({ type: 'SHIELD_RAISED', round: 0, playerId: a });
+    expect(mine(h, j)).toBeNull();
+    const seen = [
+      JSON.stringify(projectPublic(h.state)),
+      JSON.stringify(projectPrivate(h.state, j)),
+    ];
+    for (const text of seen) {
+      expect(text).not.toContain('"center"');
+      expect(text).not.toContain('"shield":{');
+    }
+    assertNoLeak(h.state);
   });
 
   it('« bloqué » sort pareil sur l’eau et sur un navire : rien ne fuit', () => {
@@ -134,7 +161,7 @@ describe('bouclier', () => {
     const all = shotsOf(use(covered.h, j, a, { x: 1, y: 1 }));
     expect(all).toHaveLength(5);
     expect(all.every((s) => s.result === 'BLOCKED')).toBe(true);
-    expect(pub(covered.h, a).shield?.pierced).toHaveLength(5);
+    expect(pub(covered.h, a).pierced).toHaveLength(5);
 
     const partial = game(['capitaine', 'artificier']);
     use(partial.h, a, a, { x: 1, y: 1 });
@@ -160,7 +187,7 @@ describe('bouclier', () => {
       [m, 'BLOCKED'],
     ]);
     expect(pub(h, a).revealed).toEqual([]);
-    expect(pub(h, a).shield?.pierced).toEqual([{ x: 0, y: 0 }]);
+    expect(pub(h, a).pierced).toEqual([{ x: 0, y: 0 }]);
     h.fire(a, j, { x: 7, y: 7 });
     h.fire(j, a, { x: 0, y: 0 });
     const next = shotsOf(h.fire(m, a, { x: 0, y: 1 }));

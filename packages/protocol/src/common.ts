@@ -181,8 +181,8 @@ export const RadarResultSchema = z.object({
 export type RadarResult = z.infer<typeof RadarResultSchema>;
 
 /**
- * Un bouclier levé sur une flotte : public, la zone est connue de tous, comme les cases
- * qu'un premier tir a percées (`pierced`) et qui ne protègent plus rien.
+ * Un bouclier levé sur une flotte : sa zone, secrète, que son propriétaire seul voit, et
+ * les cases qu'un premier tir a percées (`pierced`, publiques) et qui ne protègent plus rien.
  */
 export const ShieldSchema = z.object({
   center: CoordSchema,

@@ -32,8 +32,11 @@ export const PublicPlayerSchema = z.object({
   /** Son commandant (`settings.commanders`), s'il en a choisi un, et les usages qui lui restent. */
   commanderId: z.string().nullable(),
   abilityUsesLeft: z.number().int().min(0),
-  /** Son bouclier, tant qu'il tient ; `null` sinon. */
-  shield: ShieldSchema.nullable(),
+  /**
+   * Les cases où un bouclier a arrêté un tir : le verre brisé, public. La zone du bouclier,
+   * elle, reste secrète (`PrivateMe.shield`) : elle dirait où sont peut-être ses navires.
+   */
+  pierced: z.array(CoordSchema),
   shipsRemaining: z.number().int().min(0),
   revealed: z.array(z.object({ coord: CoordSchema, result: z.enum(['MISS', 'HIT']) })),
   sunkShips: z.array(
@@ -93,6 +96,8 @@ export const PrivateMeSchema = z.object({
   radarResults: z.array(RadarResultSchema),
   /** Mes leurres : les cases de ma grille où j'ai posé un faux navire. */
   decoys: z.array(CoordSchema),
+  /** Mon bouclier : sa zone, que je suis seul à voir, et ses cases percées ; `null` sans bouclier. */
+  shield: ShieldSchema.nullable(),
 });
 export type PrivateMe = z.infer<typeof PrivateMeSchema>;
 

@@ -149,20 +149,25 @@ export function useShotSequence({
         // La rafale qui suit est l'annonce du missile.
       } else if (event.type === 'ABILITY_USED') {
         // Une capacité qui ne tire pas : son animation sur la case (rien n'y est révélé),
-        // avec son son, puis l'annonce. Un leurre se pose en secret : l'annonce seule.
+        // avec son son, puis l'annonce. Un leurre et un bouclier se posent en secret :
+        // leur son et l'annonce seuls, sans la case.
         const kind = event.ability;
         const word = ABILITY_LABELS[kind].toUpperCase();
         const actor = nameOf(event.playerId);
         const hold = ShotFx.timings(revealDelayMs).hold;
-        if (kind === 'decoy' || !('coord' in event)) {
+        if (kind === 'decoy' || kind === 'shield' || !('coord' in event)) {
+          const secret =
+            kind === 'shield'
+              ? `${actor} lève son bouclier, quelque part`
+              : `${actor} pose un leurre, quelque part`;
           void fx.enqueue(async () => {
-            play('decoy');
-            setCallout({ word, where: `${actor} pose un leurre, quelque part`, cls: 'ability' });
+            play(kind === 'shield' ? 'shield' : 'decoy');
+            setCallout({ word, where: secret, cls: 'ability' });
             await sleep(hold);
             setCallout(null);
           });
         } else {
-          const own = kind === 'repair' || kind === 'shield';
+          const own = kind === 'repair';
           const who = own ? actor : `${actor} → ${nameOf(event.targetId)}`;
           const where = `${coordLabel(event.coord)} · ${who}`;
           const commanderId = playerOf(event.playerId)?.commanderId;

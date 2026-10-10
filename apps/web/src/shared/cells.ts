@@ -10,9 +10,14 @@ export interface ShieldMarks {
 
 const NO_SHIELD: ShieldMarks = { shielded: [], pierced: [] };
 
+/** Le verre brisé à dessiner : les cases percées, tant qu'elles ne sont pas révélées. */
+function brokenGlass(pierced: Coord[], revealed: ReadonlyArray<{ coord: Coord }>): Coord[] {
+  return pierced.filter((c) => !revealed.some((r) => sameCoord(r.coord, c)));
+}
+
 /**
- * Ce qu'un bouclier montre, publiquement, sur une grille : le verre sur les cases qu'il
- * protège encore, et un verre fêlé sur celles qu'un premier tir a percées, tant qu'elles
+ * Mon bouclier sur ma grille, que je suis seul à voir : le verre sur les cases qu'il
+ * protège encore, et le verre brisé sur celles qu'un premier tir a percées, tant qu'elles
  * ne sont pas révélées (une case tirée montre son résultat, plus de verre).
  */
 export function shieldMarks(
@@ -21,12 +26,12 @@ export function shieldMarks(
   revealed: ReadonlyArray<{ coord: Coord }>,
 ): ShieldMarks {
   if (!shield) return NO_SHIELD;
-  const open = (c: Coord) => !revealed.some((r) => sameCoord(r.coord, c));
+  const pierced = brokenGlass(shield.pierced, revealed);
   return {
     shielded: radarZone(settings, shield.center, shield.size).filter(
-      (c) => open(c) && shieldCovers(shield, c),
+      (c) => shieldCovers(shield, c) && !revealed.some((r) => sameCoord(r.coord, c)),
     ),
-    pierced: shield.pierced.filter(open),
+    pierced,
   };
 }
 
@@ -81,8 +86,11 @@ export function publicGridClasses(
   revealed: Array<{ coord: Coord; result: 'MISS' | 'HIT' }>,
   sunkShips: Array<{ size: number; cells?: Coord[] }>,
   highlight: Coord | null = null,
-  /** Le bouclier du joueur, public : tout le monde voit la zone protégée et ses cases percées. */
-  shield: ShieldMarks = NO_SHIELD,
+  /**
+   * Les cases où un bouclier a arrêté un tir, publiques : du verre brisé tant qu'elles ne
+   * sont pas révélées. La zone du bouclier, elle, ne se montre pas.
+   */
+  pierced: Coord[] = [],
 ): (x: number, y: number) => string {
   const map = new Map<string, string>();
   for (const r of revealed) map.set(coordKey(r.coord), r.result === 'MISS' ? 'miss' : 'hit');
@@ -93,7 +101,7 @@ export function publicGridClasses(
     for (const c of s.cells) map.set(coordKey(c), clsx('sunk', hull.get(coordKey(c))));
   }
   if (highlight) map.set(coordKey(highlight), clsx(map.get(coordKey(highlight)), 'fresh'));
-  markShield(map, shield);
+  markShield(map, { shielded: [], pierced: brokenGlass(pierced, revealed) });
   return (x, y) => map.get(coordKey({ x, y })) ?? '';
 }
 

@@ -222,10 +222,10 @@ export function PlayAim({
                 : ' dans la zone en pointillés.'}
             </p>
           )}
-          {target.shield && (
+          {target.pierced.some((c) => !target.revealed.some((r) => sameCoord(r.coord, c))) && (
             <p className="hint">
-              Bouclier de {target.name} : une case bleue arrête le premier tir, sans rien révéler ;
-              le suivant passe.
+              Verre brisé : un bouclier de {target.name} y a arrêté un tir. Le prochain tir sur
+              cette case passe.
             </p>
           )}
           {blocked && !detector && (
@@ -331,7 +331,7 @@ function OwnGrid({
   const { settings } = view;
   const classes = ownGridClasses(view.me.fleet, me.revealed, {
     decoys: view.me.decoys,
-    shield: shieldMarks(settings, me.shield, me.revealed),
+    shield: shieldMarks(settings, view.me.shield, me.revealed),
   });
   const allowed =
     ability.type === 'repair'

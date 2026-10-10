@@ -1,12 +1,6 @@
 import type { BotLevel, Coord, PlayerView, PublicPlayer } from '@navale/protocol';
 import { pick, randomInt } from '../../core/random.js';
-import {
-  decoyCells,
-  missileStrikes,
-  radarZone,
-  repairableCells,
-  shieldCovers,
-} from '../rules/abilities.js';
+import { decoyCells, missileStrikes, radarZone, repairableCells } from '../rules/abilities.js';
 import { coordKey, inBounds } from '../state.js';
 
 export interface BotShot {
@@ -68,10 +62,7 @@ function abilityAction(view: PlayerView, random: () => number): BotShot | null {
       let best: { targetId: string; coord: Coord; strikes: number } | null = null;
       for (const p of targets)
         for (const c of woundedCells(p)) {
-          // Une croix qui ne tombe que sur des cases protégées serait toute bloquée.
-          const strikes = missileStrikes(view.settings, c, p.revealed).filter(
-            (s) => !shieldCovers(p.shield, s),
-          ).length;
+          const strikes = missileStrikes(view.settings, c, p.revealed).length;
           if (strikes > 0 && (!best || strikes > best.strikes))
             best = { targetId: p.playerId, coord: c, strikes };
         }
@@ -188,13 +179,13 @@ function huntShot(view: PlayerView, targets: PublicPlayer[], random: () => numbe
     .sort((a, b) => b.cells.length - a.cells.length);
   if (wounded.length > 0) {
     const best = wounded[0]!;
-    const candidates = cheapest(best.p, aroundWounded(view, best.p, best.cells));
+    const candidates = piercedFirst(best.p, aroundWounded(view, best.p, best.cells));
     if (candidates.length > 0)
       return { targetId: best.p.playerId, coord: pick(random, candidates) };
   }
 
   const target = pick(random, targets);
-  const free = cheapest(target, unrevealed(view, target));
+  const free = piercedFirst(target, unrevealed(view, target));
   if (free.length === 0) {
     // Cette cible n'a plus de case libre : on en cherche une autre.
     const other = targets
@@ -235,7 +226,7 @@ function probabilityShot(
   const open = openTargets(view, targets);
   if (open.length === 0) return null;
   const target = wounded[0]?.p ?? pick(random, open).p;
-  const best = densestCells(view, target);
+  const best = piercedFirst(target, densestCells(view, target));
   if (best.length > 0) return { targetId: target.playerId, coord: pick(random, best) };
   const fallback = open.find((t) => t.p.playerId === target.playerId) ?? open[0]!;
   return { targetId: fallback.p.playerId, coord: pick(random, fallback.free) };
@@ -269,25 +260,23 @@ export function densestCells(view: PlayerView, p: PublicPlayer): Coord[] {
     return total;
   };
   if (woundedKeys.size === 0 || count(true) === 0) count(false);
-  // Une case protégée coûte un tir bloqué avant d'apprendre quoi que ce soit : son
-  // cumul compte pour moitié.
-  const scored = [...density.entries()].map(([key, n]) => {
-    const [x = 0, y = 0] = key.split(',').map(Number);
-    const c = { x, y };
-    return { c, score: shieldCovers(p.shield, c) ? n / 2 : n };
-  });
-  const max = Math.max(0, ...scored.map((s) => s.score));
+  const max = Math.max(0, ...density.values());
   if (max === 0) return [];
-  return scored.filter((s) => s.score === max).map((s) => s.c);
+  return [...density.entries()]
+    .filter(([, n]) => n === max)
+    .map(([key]) => key.split(',').map(Number))
+    .map(([x, y]) => ({ x: x ?? 0, y: y ?? 0 }));
 }
 
 /**
- * Parmi des cases d'égal intérêt, celles qu'aucun bouclier ne protège encore : le bot
- * ne tire sous un bouclier que s'il n'a pas mieux, par exemple pour achever un navire.
+ * Parmi des cases d'égal intérêt, celles qu'un bouclier a déjà percées. Le bot ne voit
+ * pas les boucliers adverses, ils sont secrets ; mais une case où un tir a été bloqué
+ * se résout au tir suivant : il y revient.
  */
-function cheapest(p: PublicPlayer, cells: Coord[]): Coord[] {
-  const open = cells.filter((c) => !shieldCovers(p.shield, c));
-  return open.length > 0 ? open : cells;
+function piercedFirst(p: PublicPlayer, cells: Coord[]): Coord[] {
+  const pierced = new Set(p.pierced.map(coordKey));
+  const ready = cells.filter((c) => pierced.has(coordKey(c)));
+  return ready.length > 0 ? ready : cells;
 }
 
 /** Chaque placement encore possible d'un bateau non coulé chez ce joueur : ses cases, aucune `blocked`. */

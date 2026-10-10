@@ -849,12 +849,10 @@ body {
 .res.blocked {
   color: var(--shield);
 }
-.tv.v2 .nameplate .role.shield {
-  color: var(--shield);
-}
-/* Bouclier : un panneau de verre permanent sur la zone protégée, public, sur toutes les
-   grilles ; teinté et bordé de bleu, avec un reflet en biais. Une case percée par un premier
-   tir garde un verre fêlé, en pointillés : sa protection est tombée, le tir suivant passe. */
+/* Bouclier : un panneau de verre permanent sur la zone protégée, sur la grille de son
+   propriétaire seulement (la zone est secrète) ; teinté et bordé de bleu, avec un reflet en
+   biais. Une case percée par un premier tir montre à tous un verre brisé, en pointillés : sa
+   protection est tombée, le tir suivant passe. */
 .grid .cell.shielded {
   outline: 2px solid color-mix(in oklab, var(--shield) 75%, transparent);
   outline-offset: -2px;
@@ -913,7 +911,6 @@ body {
    fois sur la case réparée, une étincelle à chaque coup. Calés sur SONAR_PINGS et HAMMER_TAPS
    (audio.ts). Le radar, lui, balaie (`.sweep`, plus bas). */
 .cell .fx-sonar,
-.cell .fx-shield,
 .cell .fx-repair {
   position: absolute;
   inset: 0;
@@ -935,36 +932,6 @@ body {
   scale: 0.1;
   opacity: 0;
   animation: sonar-wave 1000ms ease-out forwards;
-}
-/* Le bouclier qui se lève : un panneau de verre bleu qui s'étend sur la zone. */
-.cell .fx-shield i {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: calc(var(--span, 3) * (var(--cell) + var(--gap)) - var(--gap));
-  aspect-ratio: 1;
-  translate: -50% -50%;
-  border-radius: calc(var(--rad, 6px) * 2);
-  border: 3px solid var(--shield);
-  background: color-mix(in oklab, var(--shield) 24%, transparent);
-  box-shadow: 0 0 32px var(--shield);
-  animation: shield-up 900ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-}
-@keyframes shield-up {
-  0% {
-    scale: 0.2;
-    opacity: 0;
-  }
-  45% {
-    opacity: 1;
-  }
-  70% {
-    scale: 1.06;
-  }
-  100% {
-    scale: 1;
-    opacity: 0.9;
-  }
 }
 /* Un tir arrêté par un bouclier : un éclair bleu sur la case. */
 .cell .fx-block {

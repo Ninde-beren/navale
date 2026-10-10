@@ -19,7 +19,7 @@ export function MyFleetGrid({
         height={view.settings.grid.height}
         cellClass={ownGridClasses(view.me.fleet, me.revealed, {
           decoys: view.me.decoys,
-          shield: shieldMarks(view.settings, me.shield, me.revealed),
+          shield: shieldMarks(view.settings, view.me.shield, me.revealed),
         })}
         className={dim ? 'dim' : ''}
         label="Ma flotte"
